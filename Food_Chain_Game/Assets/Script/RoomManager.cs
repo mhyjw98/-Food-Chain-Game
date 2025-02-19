@@ -45,10 +45,10 @@ public class RoomManager : NetworkRoomManager
             if (playerToRemove != null)
             {
                 players.Remove(playerToRemove);
-                Debug.Log($"강제 종료된 플레이어 {conn.connectionId} 삭제 완료. 현재 플레이어 수: {players.Count}");
+                Debug.Log($"강제 종료된 플레이어 {conn.connectionId} 삭제 완료");
             }
         }
 
-        Debug.Log($"플레이어가 퇴장. 현재 플레이어 수: {players.Count}");
+        Debug.Log($"플레이어 퇴장. 현재 플레이어 수: {players.Count}");
     }
 }

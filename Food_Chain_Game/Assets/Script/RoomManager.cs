@@ -9,6 +9,15 @@ public class RoomManager : NetworkRoomManager
 
     private List<GameObject> players = new List<GameObject>();
 
+    // 캐릭터 목록 
+    private List<string> characterPool = new List<string>()
+    {
+        "사자", "악어", "매", "하이애나", "뱀", "카멜레온",
+        "사슴", "수달", "토끼", "까마귀", "청둥오리", "쥐", "악어새"
+    };
+
+    private Dictionary<NetworkConnectionToClient, string> assignedCharacters = new Dictionary<NetworkConnectionToClient, string>();
+
     public override void Awake()
     {
         base.Awake();
@@ -18,15 +27,14 @@ public class RoomManager : NetworkRoomManager
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
         base.OnServerAddPlayer(conn);
-
         players.Add(conn.identity.gameObject);
 
-        Debug.Log($"플레이어 {conn.connectionId} 입장. 현재 플레이어 수: {players.Count}");
-
-        foreach (var player in players)
+        if(NetworkServer.active && players.Count == 1)
         {
-            Debug.Log($"현재 접속 중: {player.GetComponent<NetworkIdentity>().connectionToClient.connectionId}");
+            LobbyManager.Instance.ShowStartGameButton();
         }
+
+        Debug.Log($"플레이어 {conn.connectionId} 입장\n현재 플레이어 수: {players.Count}");
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
@@ -50,5 +58,54 @@ public class RoomManager : NetworkRoomManager
         }
 
         Debug.Log($"플레이어 퇴장. 현재 플레이어 수: {players.Count}");
+    }
+
+    public void StartGame()
+    {
+        if (allPlayersReady) // 모든 플레이어가 준비 상태인지 확인
+        {
+            Debug.Log("게임 시작!");
+            ServerAssignCharacters(); // 캐릭터 랜덤 배정
+            ServerChangeToGameScene(); // 게임 씬으로 변경
+        }
+        else
+        {
+            Debug.LogWarning("모든 플레이어가 준비되지 않았습니다.");
+        }
+    }
+    private void ServerAssignCharacters()
+    {
+        List<NetworkRoomPlayer> roomPlayers = new List<NetworkRoomPlayer>(roomSlots);
+        HashSet<string> assignedSet = new HashSet<string>();
+
+        foreach (var player in roomPlayers)
+        {
+            NetworkConnectionToClient conn = player.connectionToClient;
+            string assignedCharacter;
+
+            do
+            {
+                assignedCharacter = AssignRandomCharacter();
+            } while (assignedSet.Contains(assignedCharacter)); // 중복 방지
+
+            assignedSet.Add(assignedCharacter);
+            assignedCharacters[conn] = assignedCharacter;
+
+            // 클라이언트에게 배정된 캐릭터 정보 전송
+            RoomPlayer roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+            roomPlayer.CmdSetCharacter(assignedCharacter);
+
+            Debug.Log($"플레이어 {conn.connectionId} 캐릭터 배정: {assignedCharacter}");
+        }
+    }
+    private string AssignRandomCharacter()
+    {
+        int randomIndex = Random.Range(0, characterPool.Count);
+        return characterPool[randomIndex];
+    }
+
+    private void ServerChangeToGameScene()
+    {
+        ServerChangeScene("GamePlay"); // "GamePlay" 씬으로 변경
     }
 }

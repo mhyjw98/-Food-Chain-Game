@@ -1,83 +1,85 @@
 using Mirror;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class LobbyManager : MonoBehaviour
 {
     public static LobbyManager Instance;
-    public Button startGameButton;
 
-    public Button hostButton;
+    [SerializeField] private RoomHost roomHost;
+    [SerializeField] private RoomJoin roomJoin;
+    [SerializeField] private InputField codeInputField;
+
+    public GameObject joinUI;
+
     public Button joinButton;
-    public InputField ipInputField;
-
-    public Text characterText;
+    public Button hostButton;
+    public Button clientButton;
 
     private void Awake()
     {
-        if(Instance == null)
+        if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
         }
         else
         {
             Destroy(gameObject);
-        }        
+        }
     }
 
     void Start()
     {
+        joinButton.onClick.AddListener(JoinByCode);
         hostButton.onClick.AddListener(StartHost);
-        joinButton.onClick.AddListener(StartClient);
-        startGameButton.onClick.AddListener(OnStartGameClicked);
-        startGameButton.gameObject.SetActive(false);
+        clientButton.onClick.AddListener(StartClient);
     }
 
     public void StartHost()
     {
         Debug.Log("호스트 시작");
-        NetworkManager.singleton.StartHost();
+        RoomManager.singleton.StartHost();
+
+
+        // 방 만들기 함수 내부에서 사용
+        string hostIp = NetworkUtils.GetLocalIPAddress(); // 로컬 IP 자동 획득
+        string roomCode = CodeManager.Instance.RegisterRoom(hostIp);
+
+        Debug.Log($"[방 생성 완료] 내 IP: {hostIp}, 방 코드: {roomCode}");
+        RoomSessionData.CurrentRoomCode = roomCode;
+
+        roomHost.RegisterRoom(roomCode, hostIp);
     }
 
     public void StartClient()
     {
-        if (string.IsNullOrEmpty(ipInputField.text))
+        ActiveJoinUI();
+    }
+
+    public void JoinByCode()
+    {
+        string code = codeInputField.text;
+        if (string.IsNullOrEmpty(code))
         {
-            Debug.LogError("서버 주소를 입력해야 합니다!");
+            Debug.Log("입력창이 빈 값");
             return;
         }
 
-        NetworkManager.singleton.networkAddress = ipInputField.text;
-        Debug.Log($"클라이언트 접속 시도: {ipInputField.text}");
-        NetworkManager.singleton.StartClient();
-    }
-    public void ShowStartGameButton()
-    {
-        startGameButton.gameObject.SetActive(true); // 방장일 때만 버튼 활성화
+        roomJoin.JoinRoom(code);
     }
 
-    void OnStartGameClicked()
+    private void ActiveJoinUI()
     {
-        if (NetworkServer.active) // 서버(호스트)만 실행 가능
-        {
-            RoomManager roomManager = NetworkManager.singleton as RoomManager;
-            if (roomManager != null)
-            {
-                roomManager.StartGame();
-            }
-            else
-            {
-                Debug.LogError("RoomManager 인스턴스를 찾을 수 없습니다!");
-            }
-        }
+        joinUI.SetActive(true);
     }
-    public void UpdateCharacterDisplay(string characterName)
+
+    public void SetDeactivateJoinUI()
     {
-        if (characterText != null)
-        {
-            characterText.text = $"내 캐릭터: {characterName}";
-        }
+        joinUI.SetActive(false);
     }
 }

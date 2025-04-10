@@ -16,7 +16,13 @@ public class GameMamager : MonoBehaviour
     }
     private void Start()
     {
-        RoomManager.Instance.ServerAssignCharacters();
+        GameStart();
+        
+    }
+
+    void GameStart()
+    {
+       
     }
     public void ShowCharacter(string name)
     {

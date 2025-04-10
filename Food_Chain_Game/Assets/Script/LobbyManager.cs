@@ -8,8 +8,6 @@ using UnityEngine.UI;
 
 public class LobbyManager : MonoBehaviour
 {
-    public static LobbyManager Instance;
-
     [SerializeField] private RoomHost roomHost;
     [SerializeField] private RoomJoin roomJoin;
     [SerializeField] private InputField codeInputField;
@@ -19,26 +17,6 @@ public class LobbyManager : MonoBehaviour
     public Button joinButton;
     public Button hostButton;
     public Button clientButton;
-
-    private void Awake()
-    {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
-
-    void Start()
-    {
-        joinButton.onClick.AddListener(JoinByCode);
-        hostButton.onClick.AddListener(StartHost);
-        clientButton.onClick.AddListener(StartClient);
-    }
 
     public void StartHost()
     {
@@ -81,5 +59,19 @@ public class LobbyManager : MonoBehaviour
     public void SetDeactivateJoinUI()
     {
         joinUI.SetActive(false);
+    }
+
+    public void PasteCodeToInput()
+    {
+        string copied = GUIUtility.systemCopyBuffer;
+        if (!string.IsNullOrEmpty(copied))
+        {
+            codeInputField.text = copied;
+        }
+    }
+
+    public void ClearCodeInput()
+    {
+        codeInputField.text = "";
     }
 }

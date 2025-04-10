@@ -1,111 +1,120 @@
-using Mirror;
+ï»¿using Mirror;
+using Mirror.Examples.Chat;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using static Mirror.BouncyCastle.Math.EC.ECCurve;
 
 public class RoomManager : NetworkRoomManager
 {
+
     public static RoomManager Instance { get; private set; }
+
+    public GameObject chatManagerPrefab;
 
     private List<GameObject> players = new List<GameObject>();
 
-    // Ä³¸¯ÅÍ ¸ñ·Ï 
     private List<string> characterPool = new List<string>()
     {
-        "»çÀÚ", "¾Ç¾î", "¸Å", "ÇÏÀÌ¾Ö³ª", "¹ì", "Ä«¸á·¹¿Â",
-        "»ç½¿", "¼ö´Ş", "Åä³¢", "±î¸¶±Í", "Ã»µÕ¿À¸®", "Áã", "¾Ç¾î»õ"
+        "ì‚¬ì", "ì•…ì–´", "ë§¤", "í•˜ì´ì• ë‚˜", "ë±€", "ì¹´ë©œë ˆì˜¨",
+        "ì‚¬ìŠ´", "ìˆ˜ë‹¬", "í† ë¼", "ê¹Œë§ˆê·€", "ì²­ë‘¥ì˜¤ë¦¬", "ì¥", "ì•…ì–´ìƒˆ"
     };
-
-    private Dictionary<NetworkConnectionToClient, string> assignedCharacters = new Dictionary<NetworkConnectionToClient, string>();
 
     public override void Awake()
     {
         base.Awake();
-        DontDestroyOnLoad(gameObject);
+        Instance = this;
     }
 
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+
+        //GameObject chatMgr = Instantiate(chatManagerPrefab);
+        //NetworkServer.Spawn(chatMgr);      
+    }
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
         base.OnServerAddPlayer(conn);
-        players.Add(conn.identity.gameObject);
 
-        if(NetworkServer.active && players.Count == 1)
+        GameObject playerObj = conn.identity.gameObject;
+        players.Add(playerObj);
+
+        RoomPlayer roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+
+        if (players.Count == 1)
         {
-            LobbyManager.Instance.ShowStartGameButton();
+            roomPlayer.isHost = true;
+            Debug.Log($"[RoomManager] conn {conn.connectionId} ì€ í˜¸ìŠ¤íŠ¸ë¡œ ì§€ì •");
+        }
+        else
+        {
+            roomPlayer.isHost = false;
         }
 
-        Debug.Log($"ÇÃ·¹ÀÌ¾î {conn.connectionId} ÀÔÀå\nÇöÀç ÇÃ·¹ÀÌ¾î ¼ö: {players.Count}");
+        string character = AssignRandomCharacter();
+
+        roomPlayer.SetCharacter(character);
+        Debug.Log($"[RoomPlayer] {conn.connectionId} ìºë¦­í„° ë°°ì •: {character}");       
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
     {
-        if(conn.identity != null && conn.identity.gameObject != null)
+        if (conn.identity != null && conn.identity.gameObject != null)
         {
             players.Remove(conn.identity.gameObject);
-            base.OnServerDisconnect(conn);
+
+            var roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+            if (roomPlayer != null && !string.IsNullOrEmpty(roomPlayer.nickname))
+            {
+                ChatManager.Instance.RpcReceiveMessage("System", $"{roomPlayer.nickname}ë‹˜ì´ í‡´ì¥í•˜ì…¨ìŠµë‹ˆë‹¤.");
+            }
         }
         else
         {
-            Debug.LogWarning($"ÇÃ·¹ÀÌ¾î {conn.connectionId}ÀÇ ¿¬°áÀÌ Á¾·áµÊ.");
+            Debug.LogWarning($"í”Œë ˆì´ì–´ {conn.connectionId}ì˜ ì—°ê²°ì´ ì¢…ë£Œë¨.");
 
-            //°­Á¦ Á¾·áµÈ °æ¿ì players ¸®½ºÆ®¿¡¼­ ¿¬°á ID¸¦ ±â¹İÀ¸·Î Á¦°Å
             GameObject playerToRemove = players.Find(player => player.GetComponent<NetworkIdentity>().connectionToClient == conn);
             if (playerToRemove != null)
             {
                 players.Remove(playerToRemove);
-                Debug.Log($"°­Á¦ Á¾·áµÈ ÇÃ·¹ÀÌ¾î {conn.connectionId} »èÁ¦ ¿Ï·á");
-            }
+                var roomplayer = playerToRemove.GetComponent<RoomPlayer>();
+                if (roomplayer != null && !string.IsNullOrEmpty(roomplayer.nickname))
+                {
+                    ChatManager.Instance.RpcReceiveMessage("System", $"{roomplayer.nickname}ë‹˜ì´ í‡´ì¥í•˜ì…¨ìŠµë‹ˆë‹¤.");
+                }
+                Debug.Log($"ê°•ì œ ì¢…ë£Œëœ í”Œë ˆì´ì–´ {conn.connectionId} ì‚­ì œ ì™„ë£Œ");
+            }                                                   
         }
-
-        Debug.Log($"ÇÃ·¹ÀÌ¾î ÅğÀå. ÇöÀç ÇÃ·¹ÀÌ¾î ¼ö: {players.Count}");
+        Debug.Log($"í”Œë ˆì´ì–´ í‡´ì¥. í˜„ì¬ í”Œë ˆì´ì–´ ìˆ˜: {players.Count}");
+        base.OnServerDisconnect(conn);
     }
-
-    public void StartGame()
+    public override GameObject OnRoomServerCreateGamePlayer(NetworkConnectionToClient conn, GameObject roomPlayerObj)
     {
-        if (allPlayersReady) // ¸ğµç ÇÃ·¹ÀÌ¾î°¡ ÁØºñ »óÅÂÀÎÁö È®ÀÎ
+        GameObject obj = Instantiate(playerPrefab);
+        GamePlayer gamePlayer = obj.GetComponent<GamePlayer>();
+
+        RoomPlayer roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+        if (roomPlayer != null)
         {
-            Debug.Log("°ÔÀÓ ½ÃÀÛ!");
-            ServerAssignCharacters(); // Ä³¸¯ÅÍ ·£´ı ¹èÁ¤
-            ServerChangeToGameScene(); // °ÔÀÓ ¾ÀÀ¸·Î º¯°æ
+            gamePlayer.characterName = roomPlayer.assignedCharacter;
         }
-        else
-        {
-            Debug.LogWarning("¸ğµç ÇÃ·¹ÀÌ¾î°¡ ÁØºñµÇÁö ¾Ê¾Ò½À´Ï´Ù.");
-        }
+
+        return obj;
     }
-    private void ServerAssignCharacters()
-    {
-        List<NetworkRoomPlayer> roomPlayers = new List<NetworkRoomPlayer>(roomSlots);
-        HashSet<string> assignedSet = new HashSet<string>();
 
-        foreach (var player in roomPlayers)
-        {
-            NetworkConnectionToClient conn = player.connectionToClient;
-            string assignedCharacter;
-
-            do
-            {
-                assignedCharacter = AssignRandomCharacter();
-            } while (assignedSet.Contains(assignedCharacter)); // Áßº¹ ¹æÁö
-
-            assignedSet.Add(assignedCharacter);
-            assignedCharacters[conn] = assignedCharacter;
-
-            // Å¬¶óÀÌ¾ğÆ®¿¡°Ô ¹èÁ¤µÈ Ä³¸¯ÅÍ Á¤º¸ Àü¼Û
-            RoomPlayer roomPlayer = conn.identity.GetComponent<RoomPlayer>();
-            roomPlayer.CmdSetCharacter(assignedCharacter);
-
-            Debug.Log($"ÇÃ·¹ÀÌ¾î {conn.connectionId} Ä³¸¯ÅÍ ¹èÁ¤: {assignedCharacter}");
-        }
-    }
     private string AssignRandomCharacter()
     {
-        int randomIndex = Random.Range(0, characterPool.Count);
-        return characterPool[randomIndex];
-    }
+        if (characterPool.Count == 0)
+            return "Unknown";
 
-    private void ServerChangeToGameScene()
-    {
-        ServerChangeScene("GamePlay"); // "GamePlay" ¾ÀÀ¸·Î º¯°æ
+        int index = Random.Range(0, characterPool.Count);
+        string selected = characterPool[index];
+        characterPool.RemoveAt(index);
+        return selected;
     }
 }

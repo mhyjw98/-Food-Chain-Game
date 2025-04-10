@@ -10,7 +10,9 @@ public class GamePlayer : NetworkBehaviour
 
     public override void OnStartLocalPlayer()
     {
+        base.OnStartLocalPlayer();
         Debug.Log($"[GamePlayer] 내 캐릭터는 {characterName}");
+
         GameMamager.Instance.ShowCharacter(characterName);
     }
 }

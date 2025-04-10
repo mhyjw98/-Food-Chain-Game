@@ -5,23 +5,33 @@ using UnityEngine;
 
 public class RoomPlayer : NetworkRoomPlayer
 {
-    [SyncVar(hook = nameof(OnCharacterAssigned))]
-    public string assignedCharacter;
+    [SyncVar] public string nickname;
+    [SyncVar] public string assignedCharacter;
+    [SyncVar] public bool isHost;
 
     public override void OnStartClient()
     {
-        base.OnStartClient();
-        if (isLocalPlayer)
-        {
-            //Debug.Log("[RoomPlayer] 로컬 플레이어 - 자동 준비 요청");
-            //CmdChangeReadyState(true); // 자동으로 준비 상태로 만듦
-        }
         Debug.Log($"플레이어 {netId}가 방에 입장했습니다.");
     }
 
     public override void OnStartLocalPlayer()
     {
+        base.OnStartLocalPlayer();       
+
+        if (!isServer)
+        {
+            CmdChangeReadyState(true);
+            Debug.Log("[RoomPlayer] 자동 Ready 상태 설정");
+        }
+
+        CmdSetNickname(NickNamemanager.GetNickname());
+
         Debug.Log("내 플레이어가 생성됨");
+    }
+
+    public override void OnStopLocalPlayer()
+    {
+        base.OnStopLocalPlayer();
     }
     public override void ReadyStateChanged(bool oldReadyState, bool newReadyState)
     {
@@ -32,8 +42,21 @@ public class RoomPlayer : NetworkRoomPlayer
     {
         assignedCharacter = character;
     }
-    private void OnCharacterAssigned(string oldValue, string newValue)
+
+    [Command]
+    public void CmdSendChatMessage(string message)
     {
-        Debug.Log($"내 캐릭터가 배정됨: {newValue}");
+        string senderName = nickname;
+
+        ChatManager.Instance.RpcReceiveMessage(senderName, message);
+    }
+
+    [Command]
+    void CmdSetNickname(string nick)
+    {
+        nickname = nick;
+
+        if(ChatManager.Instance != null)
+            ChatManager.Instance.RpcReceiveMessage("System", $"{nickname}님이 입장하셨습니다.");
     }
 }

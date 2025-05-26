@@ -16,6 +16,7 @@ public class GameRoomUI : MonoBehaviour
     public GameObject startGameButton;
     public GameObject exitRoomButton;
     public GameObject codeGroup;
+    
     private void Awake()
     {
         Instance = this;
@@ -24,8 +25,6 @@ public class GameRoomUI : MonoBehaviour
     {
         roomCodeText.text = RoomSessionData.CurrentRoomCode;
         noticeText.text = "";
-
-        StartCoroutine(CheckHostStatus());
     }
 
     void Update()
@@ -44,28 +43,21 @@ public class GameRoomUI : MonoBehaviour
             chatInputField.ActivateInputField();
         }
     }
-    private IEnumerator CheckHostStatus()
+    public void CheckHostStatus(RoomPlayer player)
     {
-        yield return new WaitForSeconds(0.01f);
         Debug.Log("RoomPlayer의 isHost 체크 로직 실행");
-        foreach (var player in FindObjectsOfType<RoomPlayer>())
+
+        if (player.isLocalPlayer)
         {
-            if (player.isLocalPlayer)
-            {
-                startGameButton.SetActive(player.isHost);
-                codeGroup.SetActive(player.isHost);
-                break;
-            }
+            startGameButton.SetActive(player.isHost);
+            codeGroup.SetActive(player.isHost);
         }
+        
     }
 
     public void OnStartGameClicked()
     {
-        var roomPlayer = NetworkClient.connection.identity.GetComponent<RoomPlayer>();
-        if (roomPlayer != null)
-        {
-            roomPlayer.CmdChangeReadyState(true);
-        }
+        RoomManager.Instance.StartGame();       
     }
 
     public void OnClickExit()
@@ -108,4 +100,6 @@ public class GameRoomUI : MonoBehaviour
 
         noticeText.text = "";
     }
+
+    
 }

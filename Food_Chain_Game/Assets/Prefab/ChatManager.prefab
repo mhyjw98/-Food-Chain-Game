@@ -48,10 +48,8 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  chatUIPrefab: {fileID: 392082334188335556, guid: 6f8f2dcb3285b3c4db9719453d6b9d14, type: 3}
-  messagePrefab: {fileID: 2581655707867999742, guid: 70c5b439f17a19147a5331ec24643a81, type: 3}
-  chatUI: {fileID: 392082334188335556, guid: 6f8f2dcb3285b3c4db9719453d6b9d14, type: 3}
   messageContainer: {fileID: 0}
+  messagePrefab: {fileID: 2581655707867999742, guid: 70c5b439f17a19147a5331ec24643a81, type: 3}
   scrollRect: {fileID: 0}
 --- !u!114 &1156005319035075921
 MonoBehaviour:

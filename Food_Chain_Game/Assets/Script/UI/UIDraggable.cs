@@ -7,6 +7,9 @@ using UnityEngine.UI;
 
 public class UIDraggable : MonoBehaviour, IDragHandler, IBeginDragHandler
 {
+    public bool isLock = false;
+    public TextMeshProUGUI lockText;
+
     public ScrollRect scrollRect;
     public RectTransform scrollArea;
 
@@ -33,11 +36,15 @@ public class UIDraggable : MonoBehaviour, IDragHandler, IBeginDragHandler
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (isLock) return;
+
         _moveBegin = eventData.position;
         _startingPoint = transform.position;
     }
     public void OnDrag(PointerEventData eventData)
     {
+        if (isLock) return;
+
         Vector2 moveOffset = eventData.position - _moveBegin;
         Vector2 targetWorldPos = _startingPoint + moveOffset;
 
@@ -62,4 +69,19 @@ public class UIDraggable : MonoBehaviour, IDragHandler, IBeginDragHandler
         _rectTransform.position = clampedScreenPos;
     }
 
+    public void LockDrag()
+    {
+        if (isLock)
+        {
+            // 잠금이 풀린 이미지로 변환 추가
+            lockText.text = "L";
+            isLock = false;
+        }
+        else
+        {
+            // 잠금된 이미지로 변환 추가
+            lockText.text = "UL";
+            isLock = true;
+        }        
+    }
 }

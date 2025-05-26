@@ -6,7 +6,7 @@ using UnityEngine.Networking;
 
 public class RoomHost : MonoBehaviour
 {
-    public string nodeServerUrl = "http://119.70.42.239:3000";
+    public string nodeServerUrl = ConfigManager.Config.IP;
 
     public void RegisterRoom(string code, string ip, int maxPlayer)
     {

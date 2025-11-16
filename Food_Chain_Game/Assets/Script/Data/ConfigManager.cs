@@ -10,7 +10,7 @@ public static class ConfigManager
     private static string ConfigFolder = "Resource";
     private static string ConfigFile = "config.json";
     private static string ConfigPath = ConfigFolder + "/" + ConfigFile;
-    public static NetworkConfig Config { get; private set; }
+    public static NetworkConfig Config { get; set; }
 
     static ConfigManager()
     {
@@ -33,7 +33,7 @@ public static class ConfigManager
 
 public struct NetworkConfig
 {
-    [JsonProperty("ip")]
-    public string IP { get; private set; }
+    [JsonProperty("IP")]
+    public string IP { get; set; }
 
 }

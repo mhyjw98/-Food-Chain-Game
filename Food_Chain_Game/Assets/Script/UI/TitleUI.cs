@@ -116,8 +116,7 @@ public class TitleUI : MonoBehaviour
         RoomManager.Instance.maxPlayerCount = SelectedPlayerCount;
         RoomManager.singleton.StartHost();
 
-        // 방 만들기 함수 내부에서 사용
-        string hostIp = NetworkUtils.GetLocalIPAddress(); // 로컬 IP 자동 획득
+        string hostIp = ConfigManager.Config.IP;
         string roomCode = CodeManager.Instance.RegisterRoom(hostIp);
 
         Debug.Log($"[방 생성 완료] 내 IP: {hostIp}, 방 코드: {roomCode}");

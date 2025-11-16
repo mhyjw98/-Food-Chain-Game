@@ -183,9 +183,11 @@ public class GamePlayer : NetworkBehaviour
     {
         if (!isAlive || hasAttacked) return;
         if (!GameMamager.Instance.IsNightPhase) return;
-        if (animalType == AnimalType.Snake) return;
+        if (animalType == AnimalType.Snake) return;       
 
         GamePlayer target = scanner.FindValidTarget(this);
+
+        Debug.Log($"[CmdAttack] {nickname}ÀÌ {target.nickname} °ø°Ý");
 
         if (target == null) return;
 

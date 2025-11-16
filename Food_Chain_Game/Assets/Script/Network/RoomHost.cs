@@ -6,8 +6,12 @@ using UnityEngine.Networking;
 
 public class RoomHost : MonoBehaviour
 {
-    public string nodeServerUrl = ConfigManager.Config.IP;
+    private string nodeServerUrl;
 
+    private void Awake()
+    {
+        nodeServerUrl = "http://" + ConfigManager.Config.IP + ":3000";
+    }
     public void RegisterRoom(string code, string ip, int maxPlayer)
     {
         StartCoroutine(RegisterRoomToServer(code, ip, maxPlayer));
@@ -18,6 +22,7 @@ public class RoomHost : MonoBehaviour
         string json = JsonUtility.ToJson(new RoomData { code = code, ip = ip, maxPlayer = maxPlayer });
 
         UnityWebRequest req = new UnityWebRequest($"{nodeServerUrl}/register", "POST");
+
         byte[] body = Encoding.UTF8.GetBytes(json);
         req.uploadHandler = new UploadHandlerRaw(body);
         req.downloadHandler = new DownloadHandlerBuffer();
@@ -28,7 +33,12 @@ public class RoomHost : MonoBehaviour
         if (req.responseCode == 200)
             Debug.Log("방 코드 등록 성공");
         else
-            Debug.LogError($"코드 등록 실패: {req.error}");
+        {
+            Debug.LogError($"코드 등록 실패 {req.error}");
+            Debug.LogError($"응답 코드: {req.responseCode}");
+            Debug.LogError($"서버 응답: {req.downloadHandler.text}");
+            Debug.LogError($"IP: {ip}");
+        }
     }
     public void ComeAndGoing(string code, int delta)
     {

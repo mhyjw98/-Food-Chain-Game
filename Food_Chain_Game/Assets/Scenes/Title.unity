@@ -3112,7 +3112,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d37dd2c0388e1b4c97dbacb0b00c25a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nodeServerUrl: http://119.70.42.239:3000
+  nodeServerUrl: 
 --- !u!4 &815047064
 Transform:
   m_ObjectHideFlags: 0
@@ -7232,7 +7232,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a260813edeb0cfe4081f1ea8e0f908ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nodeServerUrl: http://119.70.42.239:3000
+  nodeServerUrl: 
 --- !u!4 &1900368336
 Transform:
   m_ObjectHideFlags: 0

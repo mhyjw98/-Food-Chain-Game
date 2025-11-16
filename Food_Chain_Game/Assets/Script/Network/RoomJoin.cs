@@ -6,8 +6,12 @@ using UnityEngine.Networking;
 
 public class RoomJoin : MonoBehaviour
 {
-    public string nodeServerUrl = ConfigManager.Config.IP;
+    private string nodeServerUrl;
 
+    private void Awake()
+    {
+        nodeServerUrl = "http://" + ConfigManager.Config.IP + ":3000";
+    }
     public void CheckRoomBeforeJoin(string code, Action<bool, string> onResult)
     {
         StartCoroutine(GetIpFromCode(code, (ip, error) =>

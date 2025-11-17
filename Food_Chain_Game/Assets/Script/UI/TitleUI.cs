@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class TitleUI : MonoBehaviour
@@ -85,6 +86,7 @@ public class TitleUI : MonoBehaviour
             NickNamemanager.SetNickname(nickname);
             nicknameDisplay.text = $"닉네임: {nickname}";
             nicknamePopup.SetActive(false);
+            changeButton.gameObject.SetActive(true);
         }
         else
         {
@@ -113,8 +115,7 @@ public class TitleUI : MonoBehaviour
     public void StartHost()
     {
         Debug.Log("호스트 시작");
-        RoomManager.Instance.maxPlayerCount = SelectedPlayerCount;
-        RoomManager.singleton.StartHost();
+        ((RoomManager)RoomManager.singleton).maxPlayerCount = SelectedPlayerCount;       
 
         string hostIp = ConfigManager.Config.IP;
         string roomCode = CodeManager.Instance.RegisterRoom(hostIp);
@@ -123,6 +124,8 @@ public class TitleUI : MonoBehaviour
         RoomSessionData.CurrentRoomCode = roomCode;
 
         roomHost.RegisterRoom(roomCode, hostIp, maxPlayer);
+
+        NetworkCoordinator.Instance.RequestStartHost();
     }
 
     public void StartClient()
@@ -157,7 +160,7 @@ public class TitleUI : MonoBehaviour
         {
             if (success)
             {
-                RoomManager.singleton.StartClient();
+                NetworkCoordinator.Instance.RequestStartClient();
             }
             else
             {

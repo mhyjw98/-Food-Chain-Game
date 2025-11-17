@@ -57,19 +57,19 @@ public class GameRoomUI : MonoBehaviour
 
     public void OnStartGameClicked()
     {
-        RoomManager.Instance.StartGame();       
+        ((RoomManager)RoomManager.singleton).StartGame();       
     }
 
     public void OnClickExit()
     {
         if (NetworkServer.active && NetworkClient.isConnected)
         {
-            RoomManager.Instance.StopClient();
-            RoomManager.Instance.StopHost();
+            ((RoomManager)RoomManager.singleton).StopClient();
+            ((RoomManager)RoomManager.singleton).StopHost();
         }
         else if (NetworkClient.isConnected)
         {            
-            RoomManager.Instance.StopClient();
+            ((RoomManager)RoomManager.singleton).StopClient();
         }
     }
 

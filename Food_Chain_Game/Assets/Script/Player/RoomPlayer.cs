@@ -48,7 +48,7 @@ public class RoomPlayer : NetworkRoomPlayer
     private void CmdSetUserId(string id)
     {
         userId = id;
-        RoomManager.Instance.TryAssignHost(this);
+        ((RoomManager)RoomManager.singleton).TryAssignHost(this);
         GameRoomUI.Instance.CheckHostStatus(this);
     }
 

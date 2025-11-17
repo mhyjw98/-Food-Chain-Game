@@ -3112,7 +3112,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d37dd2c0388e1b4c97dbacb0b00c25a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nodeServerUrl: 
 --- !u!4 &815047064
 Transform:
   m_ObjectHideFlags: 0
@@ -6008,8 +6007,9 @@ MonoBehaviour:
   clientIndex: 0
   roomHost: {fileID: 1900368335}
   chatManagerPrefab: {fileID: 6961162021532860453, guid: 23324fb326056bc43af4fe941bf26f87, type: 3}
-  players: []
+  gpPrefab: {fileID: 6610563625137353674, guid: 6050b14a710e9f94db7bb6ff2c59509b, type: 3}
   maxPlayerCount: 7
+  roomPlayers: []
 --- !u!4 &1311175182
 Transform:
   m_ObjectHideFlags: 0
@@ -6063,6 +6063,50 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 28}
   m_Pivot: {x: 0.5, y: 1}
+--- !u!1 &1352440913
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1352440915}
+  - component: {fileID: 1352440914}
+  m_Layer: 0
+  m_Name: Networkcoordinator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1352440914
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1352440913}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 223aa4004da672e4eba42826ea793122, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &1352440915
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1352440913}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.1827515, y: 0.7680054, z: 0.02934993}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1412899684
 GameObject:
   m_ObjectHideFlags: 0
@@ -7232,7 +7276,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a260813edeb0cfe4081f1ea8e0f908ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  nodeServerUrl: 
 --- !u!4 &1900368336
 Transform:
   m_ObjectHideFlags: 0
@@ -8351,3 +8394,4 @@ SceneRoots:
   - {fileID: 2091754462}
   - {fileID: 1311175182}
   - {fileID: 2084142414}
+  - {fileID: 1352440915}

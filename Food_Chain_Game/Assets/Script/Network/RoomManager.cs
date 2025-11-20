@@ -15,19 +15,16 @@ using static Mirror.NetworkRuntimeProfiler;
 
 public class RoomManager : NetworkRoomManager
 {
-
-    public static RoomManager Instance { get; private set; }
-
     public RoomHost roomHost;
     public GameObject chatManagerPrefab;
 
-    public List<GameObject> players = new List<GameObject>();
+    public GameObject gpPrefab;
 
     private List<string> GetCharacterPool(int playerCount)
     {
         List<string> baseCharacters = new()
     {
-        "Lion", "Snake", "Crocodile", "Mouse", "Rabbit", "Deer", "Otter", 
+        "Snake", "Lion", "Crocodile", "Mouse", "Rabbit", "Deer", "Otter", 
     };
 
         List<string> additionalCharacters = new()
@@ -49,112 +46,117 @@ public class RoomManager : NetworkRoomManager
     }
     public int maxPlayerCount = 1;
     private readonly HashSet<NetworkConnectionToClient> joinedConnections = new();
+    public List<RoomPlayer> roomPlayers = new();
 
-    public override void Awake()
+    public override void OnStopClient()
     {
-        if(Instance == null)
+        base.OnStopClient();
+
+        Debug.Log("[RoomManager] 로컬 클라이언트 종료 처리");
+
+        if (SceneManager.GetActiveScene().name != "Title")
         {
-            base.Awake();
-            Instance = this;
+            SceneManager.LoadScene("Title");
         }
-        else
-        {
-            Destroy(gameObject);
-        }          
     }
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
-        NetworkRoomPlayer basePlayer = Instantiate(roomPlayerPrefab);
-        GameObject roomPlayerObj = basePlayer.gameObject;
-        roomPlayerObj.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
-        NetworkServer.AddPlayerForConnection(conn, roomPlayerObj);
+        base.OnServerAddPlayer(conn);
 
-        RoomPlayer roomPlayer = basePlayer as RoomPlayer;
+        var roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+        roomPlayer.gameObject.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
+        //Debug.Log("[OnServerAddPlayer] 호출됨");
+        //NetworkRoomPlayer basePlayer = Instantiate(roomPlayerPrefab);
+        //GameObject roomPlayerObj = basePlayer.gameObject;
+        //roomPlayerObj.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
+        //NetworkServer.AddPlayerForConnection(conn, roomPlayerObj);
 
-        if (!players.Contains(roomPlayerObj))
-            players.Add(roomPlayerObj);
+        //RoomPlayer roomPlayer = basePlayer as RoomPlayer;
+        roomPlayers.Add(roomPlayer);
+        Debug.Log($"[OnServerAddPlayer] roomPlayers 등록 roomPlayers count : {roomPlayers.Count}");
 
-        string code = RoomSessionData.CurrentRoomCode;
-        roomPlayer.roomCode = code;
+        string code = RoomSessionData.CurrentRoomCode;  
 
         uint playerId = conn.identity.netId;
 
         if (!joinedConnections.Contains(conn))
         {
-            roomHost.ComeAndGoing(roomPlayer.roomCode, 1);
+            if (!string.IsNullOrEmpty(code))
+                roomHost.ComeAndGoing(code, 1);
             joinedConnections.Add(conn);
             Debug.Log($"[Room] 입장 처리 완료: {conn.connectionId}");
         }
 
-        if (players.Count == maxPlayerCount)
+        if (joinedConnections.Count == maxPlayerCount)
         {
             Debug.Log("모든 인원 입장 완료! 캐릭터 배정 시작");
             ServerAssignCharacters();
-        }       
+        }
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
     {
-        var roomPlayer = conn.identity.GetComponent<RoomPlayer>();
-        if (conn.identity != null && conn.identity.gameObject != null)
+        RoomPlayer roomPlayer = null;
+        string nickname = null;
+        bool wasHost = false;
+
+        if (conn != null && conn.identity != null)
+            roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+
+        if (roomPlayer == null)
         {
-            players.Remove(conn.identity.gameObject);
-
-            
-            if (roomPlayer != null && !string.IsNullOrEmpty(roomPlayer.nickname))
+            foreach (var go in roomPlayers.ToArray())
             {
-                var chatManager = FindObjectOfType<ChatManager>();
-                chatManager.AddSystemMessage("System", $"{roomPlayer.nickname}님이 퇴장하셨습니다.");
-            }
-            uint playerId = conn.identity.netId;
-
-            if (!joinedConnections.Contains(conn))
-            {
-                roomHost.ComeAndGoing(roomPlayer.roomCode, -1);
-                joinedConnections.Add(conn);
-                Debug.Log($"[Room] 입장 처리 완료: {conn.connectionId}");
+                if (go == null) continue;
+                var rp = go.GetComponent<RoomPlayer>();
+                if (rp != null && rp.connectionToClient == conn)
+                {
+                    roomPlayer = rp;
+                    break;
+                }
             }
         }
-        else
+        if (roomPlayer != null)
         {
-            Debug.LogWarning($"플레이어 {conn.connectionId}의 연결이 종료됨.");
+            nickname = roomPlayer.nickname;
+            wasHost = roomPlayer.isHost;
 
-            GameObject playerToRemove = players.Find(player => player.GetComponent<NetworkIdentity>().connectionToClient == conn);
-            if (playerToRemove != null)
-            {
-                players.Remove(playerToRemove);
-                if (playerToRemove.TryGetComponent(out RoomPlayer fallbackPlayer))
-                {
-                    if (!string.IsNullOrEmpty(fallbackPlayer.nickname))
-                    {
-                        var chatManager = FindObjectOfType<ChatManager>();
-                        chatManager.AddSystemMessage("System", $"{fallbackPlayer.nickname}님이 퇴장하셨습니다.");
-                    }
+            if (roomPlayers.Contains(roomPlayer))
+                roomPlayers.Remove(roomPlayer);
 
-                    uint playerId = conn.identity.netId;
+            if (joinedConnections.Contains(roomPlayer.connectionToClient))
+                joinedConnections.Remove(roomPlayer.connectionToClient);
+        }
 
-                    if (!joinedConnections.Contains(conn))
-                    {
-                        roomHost.ComeAndGoing(roomPlayer.roomCode, -1);
-                        joinedConnections.Add(conn);
-                        Debug.Log($"[Room] 입장 처리 완료: {conn.connectionId}");
-                    }
-                }
-            }                                                   
-        }        
-        Debug.Log($"플레이어 퇴장. 현재 플레이어 수: {players.Count}");
-        string roomCode = roomPlayer.roomCode;
-        roomHost.ComeAndGoing(roomCode, -1);
+        if (!string.IsNullOrEmpty(nickname))
+        {
+            var chatManager = FindObjectOfType<ChatManager>();
+            if (chatManager != null)            
+                chatManager.AddSystemMessage("System", $"{roomPlayer.nickname}님이 퇴장하셨습니다.");                        
+        }
+
+        if (wasHost)
+        {
+            ReassignHostAfterDisconnect();
+        }
+
+        uint playerId = conn.identity.netId;
+
+        string code = RoomSessionData.CurrentRoomCode;
+
+        if (!string.IsNullOrEmpty(code))
+            roomHost.ComeAndGoing(code, -1);       
 
         base.OnServerDisconnect(conn);
     }
     public override GameObject OnRoomServerCreateGamePlayer(NetworkConnectionToClient conn, GameObject roomPlayerObj)
     {
-        GameObject gamePlayerObj = Instantiate(playerPrefab);       
+        Debug.Log("[OnRoomServerCreateGamePlayer] 호출됨");
+        GameObject gamePlayerObj = Instantiate(playerPrefab);
 
-        GamePlayer gamePlayer = gamePlayerObj.GetComponent<GamePlayer>();       
-
+        GamePlayer gamePlayer = gamePlayerObj.GetComponent<GamePlayer>();
         RoomPlayer roomPlayer = roomPlayerObj.GetComponent<RoomPlayer>();
+
         if (roomPlayer != null)
         {
             gamePlayer.characterName = roomPlayer.assignedCharacter;
@@ -163,12 +165,9 @@ public class RoomManager : NetworkRoomManager
             {
                 gamePlayer.homeZone = zone;
             }
-            gamePlayerObj.transform.position = SpawnManager.Instance.GetRandomPositionInZone(gamePlayer.homeZone);
+            gamePlayerObj.transform.position = SpawnManager.Instance.GetRandomPositionInZone();
             gamePlayer.SetAnimalType(roomPlayer.assignedCharacter);
         }
-
-        NetworkServer.Destroy(roomPlayerObj);
-        players.Remove(roomPlayerObj);
 
         return gamePlayerObj;
     }
@@ -179,7 +178,7 @@ public class RoomManager : NetworkRoomManager
         var pool = GetCharacterPool(maxPlayerCount);
         HashSet<string> assigned = new();
 
-        foreach (var playerObj in players)
+        foreach (var playerObj in roomPlayers)
         {
             NetworkConnectionToClient conn = playerObj.GetComponent<NetworkIdentity>().connectionToClient;
 
@@ -202,32 +201,79 @@ public class RoomManager : NetworkRoomManager
 
     public void StartGame()
     {
-        if (players.Count < maxPlayerCount)
+        if (joinedConnections.Count < maxPlayerCount)
         {
-            Debug.LogWarning($"[RoomManager] 현재 인원 {players.Count}/{maxPlayerCount} → 인원 부족으로 게임 시작 불가");
+            Debug.LogWarning($"[RoomManager] 현재 인원 {joinedConnections.Count}/{maxPlayerCount} → 인원 부족으로 게임 시작 불가");
+            return;
+        }
+        StartCoroutine(StartGameDelayed());
+    }
+    private IEnumerator StartGameDelayed()
+    {
+        yield return null;
+        yield return new WaitForSeconds(0.1f);
+        ServerChangeScene("GamePlay");
+    }
+    /// <summary>
+    /// 현재 호스트가 나갔을 때, 남은 플레이어 중 한 명을 새 호스트로 지정
+    /// </summary>
+    public void ReassignHostAfterDisconnect()
+    {
+        var remainPlayers = FindObjectsOfType<RoomPlayer>()
+            .Where(rp => rp != null && rp.isActiveAndEnabled)
+            .ToList();
+
+        if (remainPlayers.Count == 0)
+        {
+            Debug.Log("[RoomManager] 남아 있는 플레이어가 없어 호스트 재지정 생략");
+            RoomSessionData.PreviousHostId = string.Empty;
             return;
         }
 
-        ServerChangeScene("GamePlay");
-    }
+        // 접속한 순서대로 호스트 우선
+        RoomPlayer newHost = null;
+        int minConnId = int.MaxValue;
 
-    public void TryAssignHost(RoomPlayer player)
-    {
-        if (string.IsNullOrEmpty(RoomSessionData.PreviousHostId))
+        foreach (var rp in remainPlayers)
         {
-            RoomSessionData.PreviousHostId = player.userId;
-            player.isHost = true;
-            Debug.Log($"[RoomManager] 호스트 지정됨: {player.userId}");
+            var c = rp.connectionToClient;
+            if (c != null && c.connectionId < minConnId)
+            {
+                minConnId = c.connectionId;
+                newHost = rp;
+            }
         }
-        else if (player.userId == RoomSessionData.PreviousHostId)
+
+        if (newHost == null)
+            newHost = remainPlayers[0];
+
+        // 호스트 플래그 갱신
+        foreach (var rp in remainPlayers)
         {
-            player.isHost = true;
-            Debug.Log($"[RoomManager] 기존 호스트 복원됨: {player.userId}");
+            rp.isHost = (rp == newHost);
         }
-        else
-        {
-            player.isHost = false;
-            Debug.Log($"[RoomManager] 일반 참여자: {player.userId}");
-        }
-    }   
+
+        RoomSessionData.PreviousHostId = newHost.userId;
+
+        Debug.Log($"[RoomManager] 호스트 재지정 완료: {newHost.userId} (connId={newHost.connectionToClient?.connectionId})");
+    }
+    //public void TryAssignHost(RoomPlayer player)
+    //{
+    //    if (string.IsNullOrEmpty(RoomSessionData.PreviousHostId))
+    //    {
+    //        RoomSessionData.PreviousHostId = player.userId;
+    //        player.isHost = true;
+    //        Debug.Log($"[RoomManager] 호스트 지정됨: {player.userId}");
+    //    }
+    //    else if (player.userId == RoomSessionData.PreviousHostId)
+    //    {
+    //        player.isHost = true;
+    //        Debug.Log($"[RoomManager] 호스트 복원됨: {player.userId}");
+    //    }
+    //    else
+    //    {
+    //        player.isHost = false;
+    //        Debug.Log($"[RoomManager] 일반 참여자: {player.userId}");
+    //    }
+    //}   
 }

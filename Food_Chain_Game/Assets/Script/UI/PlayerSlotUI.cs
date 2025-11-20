@@ -1,3 +1,4 @@
+using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -20,13 +21,28 @@ public class PlayerSlotUI : MonoBehaviour
     {
         ClearAll();
 
-        foreach (var player in players)
+        GamePlayer localPlayer = null;
+        if (NetworkClient.localPlayer != null)
+            localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
+
+        // 로컬플레이어 슬롯 생성 후 
+        if (localPlayer != null && players.Contains(localPlayer))
         {
-            GameObject obj = Instantiate(playerSlotPrefab, slotContainer);
-            PlayerSlot slot = obj.GetComponent<PlayerSlot>();
-            slot.Setup(player);
-            slots.Add(slot);
+            CreateSlot(localPlayer);
         }
+        foreach (var player in players) // 나머지 슬롯 생성
+        {
+            if (player == localPlayer) continue;
+            CreateSlot(player);
+        }
+    }
+
+    private void CreateSlot(GamePlayer player)
+    {
+        GameObject obj = Instantiate(playerSlotPrefab, slotContainer);
+        PlayerSlot slot = obj.GetComponent<PlayerSlot>();
+        slot.Setup(player);
+        slots.Add(slot);
     }
 
     public PlayerSlot GetSlotByPlayer(GamePlayer player)

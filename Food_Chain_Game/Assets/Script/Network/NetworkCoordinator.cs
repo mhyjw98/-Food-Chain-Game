@@ -40,7 +40,11 @@ public class NetworkCoordinator : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (scene.name != "GameRoom") return;
-
+        if (RoomManager.singleton == null)
+        {
+            Debug.LogError("[Coordinator] RoomManager.singleton이 없습니다.");
+            return;
+        }
         if (startHost)
         {
             startHost = false;

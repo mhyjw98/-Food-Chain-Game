@@ -31,7 +31,9 @@ public class RoomHost : MonoBehaviour
         yield return req.SendWebRequest();
 
         if (req.responseCode == 200)
+        {
             Debug.Log("방 코드 등록 성공");
+        }          
         else
         {
             Debug.LogError($"코드 등록 실패 {req.error}");

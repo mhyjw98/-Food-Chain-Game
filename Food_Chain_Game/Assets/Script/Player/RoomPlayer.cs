@@ -7,7 +7,6 @@ using UnityEngine.SceneManagement;
 using TMPro;
 public class RoomPlayer : NetworkRoomPlayer
 {
-    [SyncVar] public string roomCode;
     [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;
     [SyncVar] public string userId;
     [SyncVar] public string assignedCharacter;
@@ -48,7 +47,7 @@ public class RoomPlayer : NetworkRoomPlayer
     private void CmdSetUserId(string id)
     {
         userId = id;
-        ((RoomManager)RoomManager.singleton).TryAssignHost(this);
+        ((RoomManager)RoomManager.singleton).ReassignHostAfterDisconnect();
         GameRoomUI.Instance.CheckHostStatus(this);
     }
 

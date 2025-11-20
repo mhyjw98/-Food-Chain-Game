@@ -50,11 +50,11 @@ public class SpawnManager : MonoBehaviour
         return spawnPoints[index].position;
     }
 
-    public Vector3 GetRandomPositionInZone(ZoneType zone)
+    public Vector3 GetRandomPositionInZone()
     {       
         float x = Random.Range(-4, 4);
         float y = Random.Range(-3.5f, 3.5f);
-        return zonePositions[zone] + new Vector3(x, y, 0f);
+        return zonePositions[ZoneType.Field] + new Vector3(x, y, 0f);
     }
 
     public void ResetUsedSpawns()

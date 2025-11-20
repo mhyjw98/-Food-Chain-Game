@@ -65,7 +65,7 @@ public class GamePlayer : NetworkBehaviour
     {
         foreach (var player in FindObjectsOfType<GamePlayer>())
         {
-            TargetReceiveMessage(nickname, message);
+            player.TargetReceiveMessage(nickname, message);
         }
     }
 
@@ -135,6 +135,7 @@ public class GamePlayer : NetworkBehaviour
             //        player.TargetReceiveMessage("System", $"{nickname}님이 사망했습니다.");
             //    }
             //}
+            GamePlayUI.Instance.DeletePlayer(this);
             gameObject.SetActive(false);
         }
     }
@@ -179,22 +180,50 @@ public class GamePlayer : NetworkBehaviour
     }
     
     [Command]
-    public void CmdAttack()
+    public void CmdAttack(uint targetNetId)
     {
         if (!isAlive || hasAttacked) return;
+        if (GameMamager.Instance == null) return;
         if (!GameMamager.Instance.IsNightPhase) return;
-        if (animalType == AnimalType.Snake) return;       
+        if (animalType == AnimalType.Snake) return;
+        if (!isPredator) return;
 
-        GamePlayer target = scanner.FindValidTarget(this);
+        Debug.Log($"[CmdAttack] 공격 로직 호출");
+
+        if (targetNetId == 0)
+        {
+            Debug.Log("[CmdAttack] targetNetId 타겟 없음");
+            return;
+        }
+
+        if (!NetworkServer.spawned.TryGetValue(targetNetId, out var identity))
+        {
+            Debug.LogError($"[CmdAttack] NetworkServer.spawned에 netId={targetNetId} 없음");
+            return;
+        }           
+
+        var target = identity.GetComponent<GamePlayer>();
+        if (target == null)
+        {
+            Debug.LogError("[CmdAttack] target이 null");
+            return;
+        }
+        if (!target.isAlive) 
+        {
+            Debug.LogError("[CmdAttack] target이 이미 죽음");
+            return;
+        } 
 
         Debug.Log($"[CmdAttack] {nickname}이 {target.nickname} 공격");
 
-        if (target == null) return;
-
         foreach (var conn in NetworkServer.connections.Values)
         {
+            if (conn.identity == null) continue;
             var gp = conn.identity.GetComponent<GamePlayer>();
-            gp.TargetReceiveMessage("System", $"{nickname}님이 {target.nickname}을 공격했습니다.");
+            if (gp != null)
+                gp.TargetReceiveMessage("System", $"{nickname}님이 {target.nickname}을 공격했습니다.");
+            else
+                Debug.LogError("[CmdAttack] GamePlayer가 null");
         }
 
         if (target.predatorType == PredatorType.Snake)

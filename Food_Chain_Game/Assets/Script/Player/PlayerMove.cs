@@ -7,8 +7,6 @@ using UnityEngine;
 
 public class PlayerMove : NetworkBehaviour
 {
-    public Scanner scanner;
-
     [SyncVar]public float moveSpeed = 5f;
     public Vector2 lastMoveDirection = new(1, 0);
     private Rigidbody2D rigid;
@@ -27,9 +25,6 @@ public class PlayerMove : NetworkBehaviour
 
     private void Update()
     {
-        if (scanner != null && isLocalPlayer && GameMamager.Instance && TryGetComponent(out GamePlayer gp))
-            scanner.UpdateKillUI(localPlayer);
-
         isStop = false;
 
         foreach (var input in inputFields)
@@ -64,10 +59,12 @@ public class PlayerMove : NetworkBehaviour
 
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            if (TryGetComponent(out GamePlayer gp))
-            {
-                gp.CmdAttack();
-            }
+            if (!TryGetComponent(out GamePlayer gp)) return;
+            if (gp.scanner == null) return;
+
+            uint targetNetId = gp.scanner.CurrentTargetNetId;
+
+            gp.CmdAttack(targetNetId);            
         }
         Vector2 newPos = rigid.position + input * moveSpeed * Time.fixedDeltaTime;
         rigid.MovePosition(newPos);

@@ -45,10 +45,14 @@ public class GameMamager : NetworkBehaviour
 
     void Update()
     {
-        if (!isRoundActive) return;   
+        if (isServer)
+        {
+            if (!isRoundActive) return;
+            timer -= Time.deltaTime;
+        }
 
-        timer -= Time.deltaTime;
-        timerText.text = $"{Mathf.CeilToInt(timer)}초";
+        if (isRoundActive)
+            timerText.text = $"{Mathf.CeilToInt(timer)}초";
     }
     
     public override void OnStartServer()
@@ -83,7 +87,19 @@ public class GameMamager : NetworkBehaviour
     [ClientRpc]
     void RpcBlockSky()
     {
+        StartCoroutine(BlockSkyWhenReady());
+    }
+    private IEnumerator BlockSkyWhenReady()
+    {
+        while (NetworkClient.localPlayer == null || GamePlayUI.Instance == null)
+            yield return null;
+
         GamePlayer player = NetworkClient.localPlayer.GetComponent<GamePlayer>();
+        if (player == null)
+        {
+            Debug.LogError($"[BlockSkyWhenReady] player가 null값");
+            yield break;
+        }          
         if (!player.isFly)
             GamePlayUI.Instance.ActiveSkyBlock();
     }
@@ -128,7 +144,7 @@ public class GameMamager : NetworkBehaviour
         RpcBlockSky();
         SetDisguiseUI();
         players = new List<GamePlayer>(FindObjectsOfType<GamePlayer>());
-        DeleteRoomPlayer();        
+        DeleteRoomPlayer();
         yield return new WaitForSeconds(1f);
         RpcSetupPlayerList(players.Select(p => p.netId).ToArray());
         yield return new WaitForSeconds(0.5f);       
@@ -191,6 +207,19 @@ public class GameMamager : NetworkBehaviour
 
         EvaluateGameResult(); // 승패 판단    
     }
+    void DeleteRoomPlayer()
+    {
+        RoomPlayer[] roomPlayers = FindObjectsOfType<RoomPlayer>();
+
+        if (NetworkServer.active)
+        {
+            foreach (var rp in roomPlayers)
+            {
+                NetworkServer.Destroy(rp.gameObject);
+                ((RoomManager)RoomManager.singleton).roomPlayers.Remove(rp);
+            }
+        }
+    }
     [Server]
     void EvaluateCrowPredictions(List<GamePlayer> players)
     {
@@ -247,7 +276,8 @@ public class GameMamager : NetworkBehaviour
                     player.hungryStreak = 0;
                 }
 
-                player.hasEate = false; // 다음 라운드 준비
+                player.hasAttacked = false;
+                player.hasEate = false;
             }
         }
     }
@@ -255,21 +285,6 @@ public class GameMamager : NetworkBehaviour
     void OnRoundTimeChanged(RoundTime oldVal, RoundTime newVal)
     {
         GamePlayUI.Instance.UpdateRoundText(currentRound, newVal);
-    }
-
-    void DeleteRoomPlayer()
-    {
-        RoomPlayer[] roomPlayers = FindObjectsOfType<RoomPlayer>();
-
-        if (NetworkServer.active) // 서버에서만 삭제 실행
-        {
-            foreach (var rp in roomPlayers)
-            {
-                Debug.Log($"[GamePlayUI] 서버에서 RoomPlayer 제거: {rp.netId}");
-                NetworkServer.Destroy(rp.gameObject);
-                RoomManager.Instance.players.Remove(rp.gameObject);
-            }
-        }
     }
 
     [Server]

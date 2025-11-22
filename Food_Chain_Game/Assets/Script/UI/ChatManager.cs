@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -50,6 +51,23 @@ public class ChatManager : NetworkBehaviour
         chatInputField = GameObject.Find("Chat InputField").GetComponent<TMP_InputField>();
         if (tabContainer != null && tabPrefab != null)
             CreateTab("ÀüÃ¼", allChannel);
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Return))
+        {
+            if (chatInputField == null)
+                return;
+
+            if (!chatInputField.isFocused)
+            {
+                EventSystem.current.SetSelectedGameObject(chatInputField.gameObject);
+
+                chatInputField.ActivateInputField();
+                chatInputField.MoveTextEnd(false);
+            }
+        }
     }
     //public void AddMessage(GamePlayer sender, string message, bool isWhisper)
     //{

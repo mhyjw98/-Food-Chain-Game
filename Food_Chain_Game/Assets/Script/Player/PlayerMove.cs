@@ -65,7 +65,7 @@ public class PlayerMove : NetworkBehaviour
             uint targetNetId = gp.scanner.CurrentTargetNetId;
 
             gp.CmdAttack(targetNetId);            
-        }
+        }        
         Vector2 newPos = rigid.position + input * moveSpeed * Time.fixedDeltaTime;
         rigid.MovePosition(newPos);
     }

@@ -65,8 +65,12 @@ public class GamePlayer : NetworkBehaviour
     {
         foreach (var player in FindObjectsOfType<GamePlayer>())
         {
-            player.TargetReceiveMessage(nickname, message);
+            player.TargetReceiveMessage(netId, nickname, message);
         }
+
+        var bubble = GetComponentInChildren<SpeechBubble>();
+        if (bubble != null)
+            bubble.Show(message);
     }
 
     [Command]
@@ -126,7 +130,7 @@ public class GamePlayer : NetworkBehaviour
             foreach (var conn in NetworkServer.connections.Values)
             {
                 var gp = conn.identity.GetComponent<GamePlayer>();
-                gp.TargetReceiveMessage("System", $"{nickname}님이 사망했습니다.");
+                gp.TargetReceiveMessage(0,"System", $"{nickname}님이 사망했습니다.");
             }
             //foreach (var player in FindObjectsOfType<GamePlayer>())
             //{
@@ -135,7 +139,7 @@ public class GamePlayer : NetworkBehaviour
             //        player.TargetReceiveMessage("System", $"{nickname}님이 사망했습니다.");
             //    }
             //}
-            GamePlayUI.Instance.DeletePlayer(this);
+            GamePlayUI.Instance.RemovePlayer(this);
             gameObject.SetActive(false);
         }
     }
@@ -151,10 +155,25 @@ public class GamePlayer : NetworkBehaviour
                 chatManager.AddWhisperMessage(senderNetId, targetNetId, message);
     }
     [TargetRpc]
-    public void TargetReceiveMessage(string sender, string message)
+    public void TargetReceiveMessage(uint senderNetId, string sender, string message)
     {
         var chatManager = FindObjectOfType<ChatManager>();
-        chatManager.AddSystemMessage(sender, message);
+        if (chatManager != null)
+            chatManager.AddSystemMessage(sender, message);
+
+        if (sender == "System")
+            return;
+
+        if (NetworkClient.spawned.TryGetValue(senderNetId, out var identity))
+        {
+            var senderPlayer = identity.GetComponent<GamePlayer>();
+            if (senderPlayer != null)
+            {
+                var bubble = senderPlayer.GetComponentInChildren<SpeechBubble>();
+                if (bubble != null)
+                    bubble.Show(message);
+            }
+        }
     }
     [TargetRpc]
     public void TargetReceiveScanResult(NetworkConnection target, uint scannedNetId, string message, string updateMsg)
@@ -221,7 +240,7 @@ public class GamePlayer : NetworkBehaviour
             if (conn.identity == null) continue;
             var gp = conn.identity.GetComponent<GamePlayer>();
             if (gp != null)
-                gp.TargetReceiveMessage("System", $"{nickname}님이 {target.nickname}을 공격했습니다.");
+                gp.TargetReceiveMessage(0, "System", $"{nickname}님이 {target.nickname}을 공격했습니다.");
             else
                 Debug.LogError("[CmdAttack] GamePlayer가 null");
         }

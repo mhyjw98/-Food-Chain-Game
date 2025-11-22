@@ -56,14 +56,33 @@ public class RoomPlayer : NetworkRoomPlayer
     {
         foreach (var player in FindObjectsOfType<RoomPlayer>())
         {
-            player.TargetReceiveMessage(this.nickname, message);
+            player.TargetReceiveMessage(netId, this.nickname, message);
         }
+
+        var bubble = GetComponentInChildren<SpeechBubble>();
+        if (bubble != null)
+            bubble.Show(message);
     }
     [TargetRpc]
-    public void TargetReceiveMessage(string sender, string message)
+    public void TargetReceiveMessage(uint senderNetId, string sender, string message)
     {
         var chatManager = FindObjectOfType<ChatManager>();
-        chatManager.AddSystemMessage(sender, message);
+        if (chatManager != null)
+            chatManager.AddSystemMessage(sender, message);
+
+        if (sender == "System")
+            return;
+
+        if (NetworkClient.spawned.TryGetValue(senderNetId, out var identity))
+        {
+            var senderPlayer = identity.GetComponent<RoomPlayer>();
+            if (senderPlayer != null)
+            {
+                var bubble = senderPlayer.GetComponentInChildren<SpeechBubble>();
+                if (bubble != null)
+                    bubble.Show(message);
+            }
+        }
     }
     void OnNicknameChanged(string oldNick, string newNick)
     {

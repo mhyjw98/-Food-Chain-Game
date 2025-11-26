@@ -14,6 +14,8 @@ public class GameMamager : NetworkBehaviour
     [SyncVar] public bool isRoundActive;
     [SyncVar] public int currentRound = 0;
     [SyncVar(hook = nameof(OnRoundTimeChanged))] public RoundTime currentTime = RoundTime.None;
+    [SyncVar] public int predatorCount = 0;
+    [SyncVar] public int deadPredatorCount = 0;
     public bool IsExplorationPhase => currentTime == RoundTime.Exploration;
     public bool IsNightPhase => currentTime == RoundTime.Night;
     public GameObject textUIGroup;
@@ -131,7 +133,7 @@ public class GameMamager : NetworkBehaviour
         GamePlayUI.Instance.SetDisguiseOptions();
     }
     [ClientRpc]
-    void RPCShowDisguiseUI()
+    void RPCShowStartUI()
     {
         GamePlayUI.Instance.ShowDisguiseUI();
     }
@@ -148,14 +150,14 @@ public class GameMamager : NetworkBehaviour
         yield return new WaitForSeconds(1f);
         RpcSetupPlayerList(players.Select(p => p.netId).ToArray());
         yield return new WaitForSeconds(0.5f);       
-        PlayerMove.RegisterInputField();
+        GamePlayUI.RegisterInputField();
         yield return new WaitForSeconds(1f);
 
         // 위장 시간
         isRoundActive = true;
         currentTime = RoundTime.Disguise;
         timer = disguiseTime;
-        RPCShowDisguiseUI();             
+        RPCShowStartUI();             
         yield return new WaitForSeconds(disguiseTime);
 
         // 탐색시간        
@@ -320,6 +322,22 @@ public class GameMamager : NetworkBehaviour
         NetworkManager.singleton.ServerChangeScene("GameRoom");
     }
 
+    public void CheckGameOver()
+    {
+        deadPredatorCount++;
+        if (deadPredatorCount == predatorCount)
+        {
+            isRoundActive = false;
+            DeActiveTextGroup();
+            currentTime = RoundTime.End;
+            timerText.text = "";
+
+            StopCoroutine(RoundFlow());
+
+            EvaluateGameResult();
+        }           
+    }
+
     [ClientRpc]
     void RpcSetupPlayerList(uint[] netIds)
     {
@@ -328,7 +346,10 @@ public class GameMamager : NetworkBehaviour
         {
             if (NetworkClient.spawned.TryGetValue(id, out var obj))
             {
-                players.Add(obj.GetComponent<GamePlayer>());
+                var gp = obj.GetComponent<GamePlayer>();
+                players.Add(gp);
+                if (gp.isPredator)
+                    predatorCount++;
             }
         }
 

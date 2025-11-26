@@ -139,6 +139,10 @@ public class GamePlayer : NetworkBehaviour
             //        player.TargetReceiveMessage("System", $"{nickname}¥‘¿Ã ªÁ∏¡«ﬂΩ¿¥œ¥Ÿ.");
             //    }
             //}
+
+            if(isPredator)
+                GameMamager.Instance.CheckGameOver();
+
             GamePlayUI.Instance.RemovePlayer(this);
             gameObject.SetActive(false);
         }

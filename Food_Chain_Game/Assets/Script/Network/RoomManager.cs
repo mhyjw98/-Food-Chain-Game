@@ -24,15 +24,15 @@ public class RoomManager : NetworkRoomManager
     {
         List<string> baseCharacters = new()
     {
-        "Snake", "Lion", "Crocodile", "Mouse", "Rabbit", "Deer", "Otter", 
+        "Crow", "Chameleon", "Snake", "Lion", "Crocodile", "Mallard", "Rabbit", "Deer", "Otter", "Mouse"
     };
 
         List<string> additionalCharacters = new()
     {
-        "Mallard", "Eagle", "Plover", "Hyena","Chameleon", "Crow" 
+        "Eagle", "Hyena",  "Plover",   
     };
 
-        if (playerCount < 7)
+        if (playerCount < 10)
         {
             int clampedCount = Mathf.Clamp(playerCount, 0, baseCharacters.Count);
             return baseCharacters.GetRange(0, clampedCount);
@@ -148,6 +148,23 @@ public class RoomManager : NetworkRoomManager
             roomHost.ComeAndGoing(code, -1);       
 
         base.OnServerDisconnect(conn);
+    }
+
+    public override void OnClientDisconnect()
+    {
+        base.OnClientDisconnect();
+
+        StartCoroutine(ReturnToTitleCoroutine());
+    }
+
+    private IEnumerator ReturnToTitleCoroutine()
+    {
+        yield return null;
+
+        if (NetworkClient.active)
+            StopClient();
+
+        SceneManager.LoadScene("Title");
     }
     public override GameObject OnRoomServerCreateGamePlayer(NetworkConnectionToClient conn, GameObject roomPlayerObj)
     {

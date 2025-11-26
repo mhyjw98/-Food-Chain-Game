@@ -10,16 +10,13 @@ public class GamePlayUI : MonoBehaviour
 {
     public static GamePlayUI Instance;
 
-    
-
-    public GameObject StartUI;
     public GameObject chatUI;
     public GameObject resultUI;
     public GameObject disguiseUI;
     public GameObject checkUI;
     public GameObject block;
     public GameObject skyBlock;
-    public TMP_InputField chatInputField;
+    
     public GameObject characterPanel;
     public TextMeshProUGUI characterText;
     public TextMeshProUGUI territoryText;
@@ -47,6 +44,7 @@ public class GamePlayUI : MonoBehaviour
     Animator resultAni;
 
     private Dictionary<GamePlayer, GameObject> iconMap = new();
+    private static TMP_InputField[] inputFields;
     private float uiTimer = 10f;
     private bool isSelected = false;
     private GamePlayer localPlayer;
@@ -58,6 +56,7 @@ public class GamePlayUI : MonoBehaviour
 
     private void Start()
     {
+        inputFields = FindObjectsOfType<TMP_InputField>(true);
         textAni = characterText.GetComponent<Animator>();
         panelAni = characterPanel.GetComponent<Animator>();
         territoryAni = territoryText.GetComponent<Animator>();
@@ -65,35 +64,22 @@ public class GamePlayUI : MonoBehaviour
         resultAni = resultUI.GetComponent<Animator>();
     }
     void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Return) && !string.IsNullOrWhiteSpace(chatInputField.text))
+    {       
+        PlayerMove.isStop = false;
+
+        foreach (var input in inputFields)
         {
-            string msg = chatInputField.text.Trim();
-
-            if (NetworkClient.connection != null && NetworkClient.connection.identity != null)
+            if (input.isFocused)
             {
-                GamePlayer player = NetworkClient.connection.identity.GetComponent<GamePlayer>();
-                ChatManager chatManager = FindObjectOfType<ChatManager>();
-                
-                if (chatManager.currentChannel.type == ChatChannelType.Whisper && chatManager.currentChannel.targetPlayer != null)
-                {
-                    player.CmdSendWhisper(chatManager.currentChannel.targetPlayer.netId, msg);
-                }
-                else
-                {
-                    player.CmdSendChatMessage(msg);
-                }               
+                PlayerMove.isStop = true;
+                break;
             }
-
-            chatInputField.text = "";
-            chatInputField.ActivateInputField();
         }
     }
 
     public IEnumerator ShowCharacter(CharacterType type)
     {
         PlayerMove.isEvent = true;
-        StartUI.SetActive(true);
         CharacterInfoData info = CharacterConfig.Characters[type];
 
         characterText.text = $"{info.DisplayName}";
@@ -111,7 +97,6 @@ public class GamePlayUI : MonoBehaviour
 
         yield return new WaitForSeconds(0.1f);
 
-        chatUI.SetActive(true);
         PlayerMove.isEvent = false;
     }
 
@@ -126,7 +111,7 @@ public class GamePlayUI : MonoBehaviour
         {
             roundText.text = "탐색 시간";
             timerDisplay.text = "탐색 종료까지";
-        }           
+        }
         else if (time == RoundTime.End)
         {
             roundText.text = "게임 종료";
@@ -239,6 +224,11 @@ public class GamePlayUI : MonoBehaviour
         }
         disguiseUI.SetActive(false);
     }
+
+    public void OnClickChatBtn()
+    {
+        chatUI.SetActive(!chatUI.activeSelf);
+    }
     public void DeActiveCheckUI()
     {
         checkUI.SetActive(false);
@@ -272,6 +262,10 @@ public class GamePlayUI : MonoBehaviour
             Destroy(icon);
             iconMap.Remove(player);
         }
+    }
+    public static void RegisterInputField()
+    {
+        inputFields = FindObjectsOfType<TMP_InputField>();
     }
     AnimalType GetRandomAnimalType()
     {       

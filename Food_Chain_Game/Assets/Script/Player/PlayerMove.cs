@@ -8,69 +8,104 @@ using UnityEngine;
 public class PlayerMove : NetworkBehaviour
 {
     [SyncVar]public float moveSpeed = 5f;
-    public Vector2 lastMoveDirection = new(1, 0);
     private Rigidbody2D rigid;
 
-    public bool isStop = false;
+    public static bool isStop = false;
     public static bool isEvent = false;
-    private static TMP_InputField[] inputFields;
     private GamePlayer localPlayer;
 
+    public TMP_InputField chatInputField;
+    public Vector2 movement;
     void Start()
     {
         rigid = GetComponent<Rigidbody2D>();
-        inputFields = FindObjectsOfType<TMP_InputField>();
         localPlayer = GetComponent<GamePlayer>();
+        chatInputField = FindObjectOfType<TMP_InputField>();
     }
 
     private void Update()
     {
-        isStop = false;
+        if (!isLocalPlayer) return;
 
-        foreach (var input in inputFields)
-        {
-            if (input.isFocused)
-            {
-                isStop = true;
-                break;
-            }
-        }
+        Attack();
+        Move();
+        Whisper();
     }
     void FixedUpdate()
+    {
+        rigid.MovePosition(rigid.position + movement * moveSpeed * Time.fixedDeltaTime);
+    }
+
+    private void Move()
     {
         if (!isLocalPlayer) return;
         if (isStop) return;
         if (isEvent) return;
         if (GameMamager.Instance != null)
         {
-            if(!GameMamager.Instance.isRoundActive)
+            if (!GameMamager.Instance.isRoundActive)
+            {
+                movement = Vector2.zero;
                 return;
+            }               
         }
+        if (SettingManager.isKeySetting == true) return;
 
-        float h = Input.GetAxisRaw("Horizontal");
-        float v = Input.GetAxisRaw("Vertical");
+        movement = Vector2.zero;
 
-        Vector2 input = new Vector2(h, v).normalized;
-
-        if (input.x != 0)
+        if (Input.GetKey(KeySetting.keys[KeyAction.UP]))
         {
-            lastMoveDirection = input;
+            movement.y = 1;
+        }
+        if (Input.GetKey(KeySetting.keys[KeyAction.DOWN]))
+        {
+            movement.y = -1;
+        }
+        if (Input.GetKey(KeySetting.keys[KeyAction.LEFT]))
+        {
+            movement.x = -1;
+        }
+        if (Input.GetKey(KeySetting.keys[KeyAction.RIGHT]))
+        {
+            movement.x = 1;
         }
 
-        if (Input.GetKeyDown(KeyCode.Space))
+        movement = movement.normalized;
+    }
+    private void Attack()
+    {
+        if (Input.GetKey(KeySetting.keys[KeyAction.ATTACK]))
         {
             if (!TryGetComponent(out GamePlayer gp)) return;
             if (gp.scanner == null) return;
 
             uint targetNetId = gp.scanner.CurrentTargetNetId;
 
-            gp.CmdAttack(targetNetId);            
-        }        
-        Vector2 newPos = rigid.position + input * moveSpeed * Time.fixedDeltaTime;
-        rigid.MovePosition(newPos);
-    }
-    public static void RegisterInputField()
+            gp.CmdAttack(targetNetId);
+        }
+    }   
+    
+    private void Whisper()
     {
-        inputFields = FindObjectsOfType<TMP_InputField>();
+        if (Input.GetKeyDown(KeyCode.Return) && !string.IsNullOrWhiteSpace(chatInputField.text))
+        {
+            string msg = chatInputField.text.Trim();
+
+            if (NetworkClient.connection != null && NetworkClient.connection.identity != null)
+            {
+                ChatManager chatManager = FindObjectOfType<ChatManager>();
+
+                if (chatManager.currentChannel.type == ChatChannelType.Whisper && chatManager.currentChannel.targetPlayer != null)
+                {
+                    localPlayer.CmdSendWhisper(chatManager.currentChannel.targetPlayer.netId, msg);
+                }
+                else
+                {
+                    localPlayer.CmdSendChatMessage(msg);
+                }
+            }
+
+            chatInputField.text = "";
+        }
     }
 }

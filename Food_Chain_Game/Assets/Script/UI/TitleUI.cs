@@ -15,10 +15,11 @@ public class TitleUI : MonoBehaviour
     [SerializeField] private Button confirmButton;
     [SerializeField] private Button cancleButton;
     [SerializeField] private Button changeButton;
-    [SerializeField] private GameObject CreateRoomUI;
+    [SerializeField] private GameObject CreateRoomUI;    
     [SerializeField] private RoomHost roomHost;
     [SerializeField] private RoomJoin roomJoin;
     [SerializeField] private InputField codeInputField;
+
     [SerializeField] private GameObject errorUI;
     [SerializeField] private TextMeshProUGUI errorText;
 
@@ -27,11 +28,19 @@ public class TitleUI : MonoBehaviour
     public Button joinButton;
     public Button hostButton;
     public Button clientButton;
+    public Button settingButton;
 
     public TMP_Dropdown playerCountDropdown;
     public static int SelectedPlayerCount = 1;
     public int maxPlayer = 0;
 
+    public GameObject activeUi;
+
+    private void Awake()
+    {
+        roomHost = FindObjectOfType<RoomHost>();
+        roomJoin = FindObjectOfType<RoomJoin>();
+    }
     void Start()
     {
         if (!NickNamemanager.HasNickname())
@@ -55,9 +64,26 @@ public class TitleUI : MonoBehaviour
         playerCountDropdown.AddOptions(options);
     }
 
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (SettingManager.isKeySetting == true) return;
+
+            if (activeUi == null)
+                OnQuitBtnClicked();
+            else
+            {               
+                activeUi.SetActive(false);
+                activeUi = null;
+            }
+        }
+    }
+
     void FirstShowPopup()
     {
         nicknamePopup.SetActive(true);
+        activeUi = nicknamePopup;
     }
     public void ChangeShowPopup()
     {
@@ -65,11 +91,13 @@ public class TitleUI : MonoBehaviour
         nicknameInput.text = NickNamemanager.GetNickname();
 
         cancleButton.gameObject.SetActive(true);
+        activeUi = nicknamePopup;
     }
 
     public void HidePopup()
     {
         nicknamePopup.SetActive(false);
+        activeUi = null;
     }
 
     public void SaveNickname()
@@ -87,6 +115,7 @@ public class TitleUI : MonoBehaviour
             nicknameDisplay.text = $"´Ð³×ÀÓ: {nickname}";
             nicknamePopup.SetActive(false);
             changeButton.gameObject.SetActive(true);
+            activeUi = null;
         }
         else
         {
@@ -97,20 +126,24 @@ public class TitleUI : MonoBehaviour
     public void OnQuitBtnClicked()
     {
         quitPopup.SetActive(true);
+        activeUi = quitPopup;
     }
 
     public void CacleQuitPopup()
     {
         quitPopup.SetActive(false);
+        activeUi = null;
     }
     public void ShowCreateRoomUI()
     {
         CreateRoomUI.SetActive(true);
+        activeUi = CreateRoomUI;
     }
 
     public void HideCreateRoomUI()
     {
         CreateRoomUI.SetActive(false);
+        activeUi = null;
     }
     public void StartHost()
     {
@@ -173,21 +206,25 @@ public class TitleUI : MonoBehaviour
     {
         errorUI.SetActive(true);
         errorText.text = message;
+        activeUi = errorUI;
     }
 
     public void DeActiveErrorNotice()
     {
         errorUI.SetActive(false);
+        activeUi = null;
     }
 
     private void ActiveJoinUI()
     {
         joinUI.SetActive(true);
+        activeUi = joinUI;
     }
 
     public void SetDeactivateJoinUI()
     {
         joinUI.SetActive(false);
+        activeUi = null;
     }
 
     public void PasteCodeToInput()
@@ -202,8 +239,7 @@ public class TitleUI : MonoBehaviour
     public void ClearCodeInput()
     {
         codeInputField.text = "";
-    }
-
+    }     
     public void QuitGame()
     {
         #if UNITY_EDITOR
@@ -211,7 +247,5 @@ public class TitleUI : MonoBehaviour
         #else
             Application.Quit();
         #endif
-    }
-
-
+    } 
 }

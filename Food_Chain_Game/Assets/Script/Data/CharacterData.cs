@@ -30,9 +30,9 @@ public static class CharacterData
         { CharacterType.Otter, new CharacterInfoData("수달", TerritoryType.River, "게임 종료까지 살아남으세요.") },
         { CharacterType.Rabbit, new CharacterInfoData("토끼", TerritoryType.Forest, "게임 종료까지 살아남으세요.") },
         { CharacterType.Mallard, new CharacterInfoData("청둥오리", TerritoryType.Sky, "게임 종료까지 살아남으세요.") },
-        { CharacterType.Crow, new CharacterInfoData("까마귀", TerritoryType.Sky, "누가 승리 예측하세요.") },
-        { CharacterType.Plover, new CharacterInfoData("악어새", TerritoryType.River, "악어가 생존할 수 있도록 도와주세요.") },
-        { CharacterType.Mouse, new CharacterInfoData("쥐", TerritoryType.Forest, "사자가 생존할 수 있도록 도와주세요.") },
+        { CharacterType.Crow, new CharacterInfoData("까마귀", TerritoryType.Sky, "누가 승리할지 예측하세요.") },
+        { CharacterType.Plover, new CharacterInfoData("악어새", TerritoryType.River, "악어가 생존할 수 있도록 도와주세요. 악어가 사망시 패배합니다.") },
+        { CharacterType.Mouse, new CharacterInfoData("쥐", TerritoryType.Forest, "사자가 생존할 수 있도록 도와주세요. 사자가 사망시 패배합니다.") },
     };
     }
     public struct CharacterInfoData

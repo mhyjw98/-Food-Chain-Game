@@ -37,7 +37,7 @@ public class ContextMenuUI : MonoBehaviour
         whisperBtn.interactable = (player.netId != localPlayer.netId);
         scanBtn.interactable = (localPlayer.canScan && player.netId != localPlayer.netId && GameMamager.Instance.IsExplorationPhase && localPlayer.maxScanCount > localPlayer.scanCount);
         Debug.Log($"스캔 가능한지 : {localPlayer.canScan}, 본인인지 : {player.netId != localPlayer.netId}, 탐색시간인지 : {GameMamager.Instance.IsExplorationPhase}, 스캔횟수가 남았는지 : {localPlayer.maxScanCount > localPlayer.scanCount}");
-        predictBtn.interactable = localPlayer.canPredict;
+        predictBtn.interactable = localPlayer.canPredict && GameMamager.Instance.IsExplorationPhase;
 
         // 버튼 동작 설정
         whisperBtn.onClick.AddListener(() => {
@@ -51,7 +51,7 @@ public class ContextMenuUI : MonoBehaviour
         });
 
         predictBtn.onClick.AddListener(() => {
-            localPlayer.CmdPredict(targetPlayer.netId);
+            localPlayer.CmdSetPredict(targetPlayer.netId);
             Close();
         });
 

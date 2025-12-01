@@ -1,15 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.TextCore.Text;
 
 public static class CharacterData
 {
-    public enum CharacterType
-    {
-        Lion, Crocodile, Eagle, Hyena, Snake,
-        Chameleon, Deer, Otter, Rabbit, Mallard,
-        Crow, Plover, Mouse
-    }
 
     public enum TerritoryType
     {
@@ -18,22 +13,22 @@ public static class CharacterData
 
     public static class CharacterConfig
     {
-        public static readonly Dictionary<CharacterType, CharacterInfoData> Characters = new()
-    {
-        { CharacterType.Lion, new CharacterInfoData("사자", TerritoryType.Field, "동물들을 잡아먹으며 생존하세요.\n한 라운드라도 굶으면 사망합니다.") },
-        { CharacterType.Crocodile, new CharacterInfoData("악어", TerritoryType.River, "동물들을 잡아먹으며 생존하세요.\n두 라운드를 연속으로 굶으면 사망합니다.") },
-        { CharacterType.Eagle, new CharacterInfoData("독수리", TerritoryType.Sky, "동물들을 잡아먹으며 생존하세요.\n두 라운드를 연속으로 굶으면 사망합니다.") },
-        { CharacterType.Hyena, new CharacterInfoData("하이에나", TerritoryType.Field, "사자가 사망하면 승리합니다.\n세 라운드를 연속으로 굶으면 사망합니다.") },
-        { CharacterType.Snake, new CharacterInfoData("뱀", TerritoryType.Forest, "9명 이상의 동물들이 사망시 승리합니다.") },
-        { CharacterType.Chameleon, new CharacterInfoData("카멜레온", TerritoryType.Forest, "게임 종료까지 살아남으세요.") },
-        { CharacterType.Deer, new CharacterInfoData("사슴", TerritoryType.Field, "게임 종료까지 살아남으세요. ") },
-        { CharacterType.Otter, new CharacterInfoData("수달", TerritoryType.River, "게임 종료까지 살아남으세요.") },
-        { CharacterType.Rabbit, new CharacterInfoData("토끼", TerritoryType.Forest, "게임 종료까지 살아남으세요.") },
-        { CharacterType.Mallard, new CharacterInfoData("청둥오리", TerritoryType.Sky, "게임 종료까지 살아남으세요.") },
-        { CharacterType.Crow, new CharacterInfoData("까마귀", TerritoryType.Sky, "누가 승리할지 예측하세요.") },
-        { CharacterType.Plover, new CharacterInfoData("악어새", TerritoryType.River, "악어가 생존할 수 있도록 도와주세요. 악어가 사망시 패배합니다.") },
-        { CharacterType.Mouse, new CharacterInfoData("쥐", TerritoryType.Forest, "사자가 생존할 수 있도록 도와주세요. 사자가 사망시 패배합니다.") },
-    };
+        public static readonly Dictionary<AnimalType, CharacterInfoData> Characters = new()
+        {
+            { AnimalType.Lion, new CharacterInfoData("사자", TerritoryType.Field, "동물들을 잡아먹으며 생존하세요.\n한 라운드라도 굶으면 사망합니다.") },
+            { AnimalType.Crocodile, new CharacterInfoData("악어", TerritoryType.River, "동물들을 잡아먹으며 생존하세요.\n두 라운드를 연속으로 굶으면 사망합니다.") },
+            { AnimalType.Eagle, new CharacterInfoData("독수리", TerritoryType.Sky, "동물들을 잡아먹으며 생존하세요.\n두 라운드를 연속으로 굶으면 사망합니다.") },
+            { AnimalType.Hyena, new CharacterInfoData("하이에나", TerritoryType.Field, "사자가 사망하면 승리합니다.\n세 라운드를 연속으로 굶으면 사망합니다.") },
+            { AnimalType.Snake, new CharacterInfoData("뱀", TerritoryType.Forest, "9명 이상의 동물들이 사망시 승리합니다.") },
+            { AnimalType.Chameleon, new CharacterInfoData("카멜레온", TerritoryType.Forest, "게임 종료까지 살아남으세요.") },
+            { AnimalType.Deer, new CharacterInfoData("사슴", TerritoryType.Field, "게임 종료까지 살아남으세요. ") },
+            { AnimalType.Otter, new CharacterInfoData("수달", TerritoryType.River, "게임 종료까지 살아남으세요.") },
+            { AnimalType.Rabbit, new CharacterInfoData("토끼", TerritoryType.Forest, "게임 종료까지 살아남으세요.") },
+            { AnimalType.Mallard, new CharacterInfoData("청둥오리", TerritoryType.Sky, "게임 종료까지 살아남으세요.") },
+            { AnimalType.Crow, new CharacterInfoData("까마귀", TerritoryType.Sky, "누가 승리할지 예측하세요.") },
+            { AnimalType.Plover, new CharacterInfoData("악어새", TerritoryType.River, "악어가 생존할 수 있도록 도와주세요. 악어가 사망시 패배합니다.") },
+            { AnimalType.Mouse, new CharacterInfoData("쥐", TerritoryType.Forest, "사자가 생존할 수 있도록 도와주세요. 사자가 사망시 패배합니다.") },
+        };
     }
     public struct CharacterInfoData
     {
@@ -65,6 +60,7 @@ public static class PredatorPriority
     {
         return priorityMap.TryGetValue(type, out var p) ? p : 0;
     }
+    
 
     public static bool CanAttack(PredatorType attacker, PredatorType target)
     {

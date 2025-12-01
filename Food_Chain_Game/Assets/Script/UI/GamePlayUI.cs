@@ -45,6 +45,7 @@ public class GamePlayUI : MonoBehaviour
 
     private Dictionary<GamePlayer, GameObject> iconMap = new();
     private static TMP_InputField[] inputFields;
+    public TMP_InputField chatInputField;
     private float uiTimer = 10f;
     private bool isSelected = false;
     private GamePlayer localPlayer;
@@ -74,6 +75,27 @@ public class GamePlayUI : MonoBehaviour
                 PlayerMove.isStop = true;
                 break;
             }
+        }
+
+        if (Input.GetKeyDown(KeyCode.Return) && !string.IsNullOrWhiteSpace(chatInputField.text))
+        {
+            string msg = chatInputField.text.Trim();
+
+            if (NetworkClient.connection != null && NetworkClient.connection.identity != null)
+            {
+                ChatManager chatManager = FindObjectOfType<ChatManager>();
+
+                if (chatManager.currentChannel.type == ChatChannelType.Whisper && chatManager.currentChannel.targetPlayer != null)
+                {
+                    localPlayer.CmdSendWhisper(chatManager.currentChannel.targetPlayer.netId, msg);
+                }
+                else
+                {
+                    localPlayer.CmdSendChatMessage(msg);
+                }
+            }
+
+            chatInputField.text = "";
         }
     }
 
@@ -140,7 +162,7 @@ public class GamePlayUI : MonoBehaviour
         yield return new WaitForSeconds(uiTimer);
         if (!isSelected)
         {
-            var randomType = GetRandomAnimalType(); // 구현 필요
+            var randomType = GetRandomAnimalType();
             localPlayer.CmdSetDisguise(randomType);
 
             string updateText = $"카멜레온 > {AnimalNameMap.AnimalTypeToName[randomType]}";
@@ -189,7 +211,7 @@ public class GamePlayUI : MonoBehaviour
     {
         block.SetActive(false);
     }
-   
+  
     public void ShowResult(bool isWin)
     {
         if (isWin)
@@ -214,7 +236,6 @@ public class GamePlayUI : MonoBehaviour
             string label = AnimalNameMap.AnimalTypeToName[type];
             btn.GetComponentInChildren<TextMeshProUGUI>().text = label;
 
-            // 버튼 클릭 시 위장 적용
             btn.GetComponent<Button>().onClick.AddListener(() =>
             {
                 selectType = type;

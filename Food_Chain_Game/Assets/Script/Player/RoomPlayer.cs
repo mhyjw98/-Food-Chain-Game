@@ -5,15 +5,17 @@ using UnityEngine;
 using Cinemachine;
 using UnityEngine.SceneManagement;
 using TMPro;
+using Unity.VisualScripting;
+using static UnityEngine.EventSystems.EventTrigger;
 public class RoomPlayer : NetworkRoomPlayer
 {
     [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;
+    [SyncVar(hook = nameof(OnColorChanged))] public Color rpColor = Color.white;
     [SyncVar] public string userId;
     [SyncVar] public string assignedCharacter;
     [SyncVar] public bool isHost;
 
-    public GameObject nicknameUIPrefab;
-    private GameObject nicknameUIInstance;
+    public TextMeshProUGUI nicknameText;
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
@@ -30,8 +32,16 @@ public class RoomPlayer : NetworkRoomPlayer
         Debug.Log($"[RoomPlayer] 로컬에서 생성된 UserId: {generatedId}");
         CmdSetUserId(generatedId);
 
+        int index = RoomSessionData.ColorIndex;
+        CmdSetColor(index);
+        PlayerColorPalette.InitColorIndex(index);
+
+        var setting = FindObjectOfType<CharacterSetting>();
+        if (setting != null)
+            setting.SetLocalPlayer(this, index);
+
         Debug.Log("내 플레이어가 생성됨");
-    }
+    }    
 
     public override void ReadyStateChanged(bool oldReadyState, bool newReadyState)
     {
@@ -86,12 +96,15 @@ public class RoomPlayer : NetworkRoomPlayer
     }
     void OnNicknameChanged(string oldNick, string newNick)
     {
-        if (nicknameUIInstance != null) return;
-
-        nicknameUIInstance = Instantiate(nicknameUIPrefab, transform);
-        nicknameUIInstance.transform.localPosition = new Vector3(0, 1.2f, 0);
-        nicknameUIInstance.GetComponentInChildren<TextMeshProUGUI>().text = newNick;
+        nicknameText.text = newNick;
     }
+    void OnColorChanged(Color oldColor, Color newColor)
+    {
+        var renderer = GetComponent<SpriteRenderer>();
+        if (renderer != null)
+            renderer.color = newColor;
+    }
+
     [Command]
     void CmdSetData(string nick)
     {
@@ -100,5 +113,11 @@ public class RoomPlayer : NetworkRoomPlayer
         var chatManager = FindObjectOfType<ChatManager>();
         chatManager.AddSystemMessage("System", $"{nickname}님이 입장하셨습니다.");
     }
-   
+    [Command]
+    public void CmdSetColor(int index)
+    {
+        Color newColor = PlayerColorPalette.GetByIndex(index).Color;
+        Debug.Log("index : " + index);
+        rpColor = newColor;
+    }    
 }

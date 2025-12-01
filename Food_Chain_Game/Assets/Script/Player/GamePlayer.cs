@@ -2,6 +2,7 @@ using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
@@ -12,8 +13,9 @@ public enum PredatorType { Prey, Hyena, Eagle, Crocodile, Lion, Snake }
 public class GamePlayer : NetworkBehaviour
 {
     [SyncVar] public string characterName;
-    [SyncVar] public string nickname;
+    [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;
     [SyncVar] public ZoneType homeZone;
+    [SyncVar(hook = nameof(OnColorChanged))] public Color gpColor = Color.white;
     [SyncVar(hook = nameof(OnZoneChanged))] public ZoneType currentZone;
     [SyncVar] public bool isReturn;
     [SyncVar] public int hungryStreak = 0;
@@ -36,6 +38,7 @@ public class GamePlayer : NetworkBehaviour
     [SyncVar] public int maxScanCount = 0;
 
     public Scanner scanner;
+    public TextMeshProUGUI nicknameText;
     public GameObject killIndicatorUIPrefab;
     private GameObject killIndicatorUIInstance;
 
@@ -284,6 +287,17 @@ public class GamePlayer : NetworkBehaviour
         }
 
         killIndicatorUIInstance.SetActive(active);       
+    }
+
+    void OnNicknameChanged(string oldNick, string newNick)
+    {
+        nicknameText.text = newNick;
+    }
+    void OnColorChanged(Color oldColor, Color newColor)
+    {
+        var renderer = GetComponent<SpriteRenderer>();
+        if (renderer != null)
+            renderer.color = newColor;
     }
     public void SetAnimalType(string characterName)
     {

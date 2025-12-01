@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
 
 public class GameRoomUI : MonoBehaviour
@@ -14,9 +15,10 @@ public class GameRoomUI : MonoBehaviour
     public TextMeshProUGUI roomCodeText;
     public TextMeshProUGUI noticeText;
     public GameObject startGameButton;
-    public GameObject exitRoomButton;
+    public GameObject exitRoomButton;    
     public GameObject codeGroup;
-    
+    public GameObject colorUI;    
+
     private void Awake()
     {
         Instance = this;
@@ -40,9 +42,10 @@ public class GameRoomUI : MonoBehaviour
             }
 
             chatInputField.text = "";
-            chatInputField.ActivateInputField();
         }
     }
+
+    
     public void CheckHostStatus(RoomPlayer player)
     {
         Debug.Log("RoomPlayer의 isHost 체크 로직 실행");
@@ -60,19 +63,6 @@ public class GameRoomUI : MonoBehaviour
         ((RoomManager)RoomManager.singleton).StartGame();       
     }
 
-    public void OnClickExit()
-    {
-        if (NetworkServer.active && NetworkClient.isConnected)
-        {
-            ((RoomManager)RoomManager.singleton).StopClient();
-            ((RoomManager)RoomManager.singleton).StopHost();
-        }
-        else if (NetworkClient.isConnected)
-        {            
-            ((RoomManager)RoomManager.singleton).StopClient();
-        }
-    }
-
     public void ShowStartGameButton(bool isHost)
     {
         startGameButton.SetActive(isHost);
@@ -83,6 +73,10 @@ public class GameRoomUI : MonoBehaviour
         codeGroup.SetActive(isHost);
     }
 
+    public void OnClickColorUI()
+    {
+        colorUI.SetActive(!colorUI.activeSelf);
+    }
     public void CopyRoomCode()
     {
         if (!string.IsNullOrEmpty(roomCodeText.text))

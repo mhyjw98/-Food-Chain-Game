@@ -43,25 +43,9 @@ public class TitleUI : MonoBehaviour
     }
     void Start()
     {
-        if (!NickNamemanager.HasNickname())
-        {
-            FirstShowPopup();            
-        }
-        else
-        {
-            nicknameDisplay.text = $"닉네임: {NickNamemanager.GetNickname()}";
-            changeButton.gameObject.SetActive(true);
-        }
-
-        playerCountDropdown.onValueChanged.AddListener(OnPlayerCountChanged);
-
-        playerCountDropdown.ClearOptions();
-        List<string> options = new();
-        for (int i = 1; i <= 13; i++)
-        {
-            options.Add(i.ToString());
-        }
-        playerCountDropdown.AddOptions(options);
+        NicknameCheck();
+        UISetting();
+        ErrorCheck();
     }
 
     private void Update()
@@ -78,6 +62,48 @@ public class TitleUI : MonoBehaviour
                 activeUi = null;
             }
         }
+    }
+    void ErrorCheck()
+    {
+        if (NetworkErrorManager.Instance != null && NetworkErrorManager.Instance.HasError)
+        {
+            ShowError(NetworkErrorManager.Instance.CurrentMessage);
+            NetworkErrorManager.Instance.Clear();
+        }
+    }
+    void NicknameCheck()
+    {
+        if (!NickNamemanager.HasNickname())
+        {
+            FirstShowPopup();
+        }
+        else
+        {
+            nicknameDisplay.text = $"닉네임: {NickNamemanager.GetNickname()}";
+            changeButton.gameObject.SetActive(true);
+        }
+    }
+    void UISetting()
+    {
+        playerCountDropdown.onValueChanged.AddListener(OnPlayerCountChanged);
+
+        playerCountDropdown.ClearOptions();
+        List<string> options = new();
+        for (int i = 1; i <= 13; i++)
+        {
+            options.Add(i.ToString());
+        }
+        playerCountDropdown.AddOptions(options);
+    }
+    public void ShowError(string msg)
+    {
+        if (errorUI == null) return;
+
+        errorUI.SetActive(true);
+        activeUi = errorUI;
+
+        if (errorText != null)
+            errorText.text = msg;
     }
 
     void FirstShowPopup()
@@ -157,6 +183,7 @@ public class TitleUI : MonoBehaviour
         RoomSessionData.CurrentRoomCode = roomCode;
 
         roomHost.RegisterRoom(roomCode, hostIp, maxPlayer);
+        RoomSessionData.ColorIndex = Random.Range(0, PlayerColorPalette.Count);
 
         NetworkCoordinator.Instance.RequestStartHost();
     }
@@ -194,19 +221,13 @@ public class TitleUI : MonoBehaviour
             if (success)
             {
                 NetworkCoordinator.Instance.RequestStartClient();
+                RoomSessionData.ColorIndex = PlayerColorPalette.GetRandomExcludingIndex();
             }
             else
             {
-                ActiveErrorNotice(errorMessage);
+                ShowError(errorMessage);
             }
         });
-    }
-
-    void ActiveErrorNotice(string message)
-    {
-        errorUI.SetActive(true);
-        errorText.text = message;
-        activeUi = errorUI;
     }
 
     public void DeActiveErrorNotice()

@@ -31,6 +31,7 @@ public class GamePlayer : NetworkBehaviour
     [SyncVar] public bool canPredict;
     [SyncVar] public bool isDisguise;
     [SyncVar] public AnimalType disguisedAs = AnimalType.None;
+    [SyncVar] public AnimalType predictedAs = AnimalType.None;
     [SyncVar] public bool predictedCorrectly;
     [SyncVar] public bool isWin;
     [SyncVar] public string memo;
@@ -59,7 +60,7 @@ public class GamePlayer : NetworkBehaviour
     {
         yield return new WaitForSeconds(0.1f);
 
-        CharacterType type = Enum.Parse<CharacterType>(characterName);
+        AnimalType type = Enum.Parse<AnimalType>(characterName);
         StartCoroutine(GamePlayUI.Instance.ShowCharacter(type));
     }
 
@@ -113,7 +114,7 @@ public class GamePlayer : NetworkBehaviour
     }
 
     [Command]
-    public void CmdPredict(uint targetNetId)
+    public void CmdSetPredict(uint targetNetId)
     {
         GamePlayer predicted = NetworkServer.spawned[targetNetId].GetComponent<GamePlayer>();
 
@@ -124,6 +125,14 @@ public class GamePlayer : NetworkBehaviour
         TargetShowPredictionUI(connectionToClient, predicted.netId);
 
         Debug.Log($"{nickname}님이 {predicted.nickname}을(를) 승리자로 예측했습니다.");
+    }
+    [Command]
+    public void CmdSetPredict(AnimalType type)
+    {
+        // 예측 기록
+        predictedWinner = type;
+
+        Debug.Log($"{nickname}님이 {AnimalNameMap.AnimalTypeToName[type]}을(를) 승리자로 예측했습니다.");
     }
     void OnAliveChanged(bool oldVal, bool newVal)
     {

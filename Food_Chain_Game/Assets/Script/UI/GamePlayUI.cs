@@ -1,4 +1,5 @@
 using Mirror;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -13,7 +14,9 @@ public class GamePlayUI : MonoBehaviour
     public GameObject chatUI;
     public GameObject resultUI;
     public GameObject disguiseUI;
+    public GameObject predictUI;
     public GameObject checkUI;
+    public GameObject predictCheckUI;
     public GameObject block;
     public GameObject skyBlock;
     
@@ -25,6 +28,7 @@ public class GamePlayUI : MonoBehaviour
     public TextMeshProUGUI timerDisplay;
     public TextMeshProUGUI resultText;
     public TextMeshProUGUI checkText;
+    public TextMeshProUGUI predictCheckText;
 
     [Header("Zone Panels")]
     public Transform fieldPanel;
@@ -33,8 +37,9 @@ public class GamePlayUI : MonoBehaviour
     public Transform skyPanel;
 
     [Header("Prefab")]
-    public GameObject disguiseButtonPrefab;
+    public GameObject uiButtonPrefab;
     public Transform disguiseButtonGroup;
+    public Transform predictButtonGroup;
     public GameObject playerIconPrefab;
 
     Animator textAni;
@@ -46,7 +51,8 @@ public class GamePlayUI : MonoBehaviour
     private Dictionary<GamePlayer, GameObject> iconMap = new();
     private static TMP_InputField[] inputFields;
     public TMP_InputField chatInputField;
-    private float uiTimer = 10f;
+    private float disguiseTimer = 10f;
+    private float predictTimer = 5f;
     private bool isSelected = false;
     private GamePlayer localPlayer;
     private AnimalType selectType;
@@ -99,7 +105,7 @@ public class GamePlayUI : MonoBehaviour
         }
     }
 
-    public IEnumerator ShowCharacter(CharacterType type)
+    public IEnumerator ShowCharacter(AnimalType type)
     {
         PlayerMove.isEvent = true;
         CharacterInfoData info = CharacterConfig.Characters[type];
@@ -153,13 +159,13 @@ public class GamePlayUI : MonoBehaviour
         {
             disguiseUI.SetActive(true);
             isSelected = false;
-            StartCoroutine(Countdown());
+            StartCoroutine(CountdownDisguise());
         }     
     }
 
-    IEnumerator Countdown()
+    IEnumerator CountdownDisguise()
     {
-        yield return new WaitForSeconds(uiTimer);
+        yield return new WaitForSeconds(disguiseTimer);
         if (!isSelected)
         {
             var randomType = GetRandomAnimalType();
@@ -183,7 +189,48 @@ public class GamePlayUI : MonoBehaviour
         PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
         slot.UpdateNicknameWithAnimal(updateText);
     }
+    public void ShowPredictUI()
+    {
+        localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
+        if (localPlayer.animalType == AnimalType.Crow)
+        {
+            predictUI.SetActive(true);
+            isSelected = false;
+            StartCoroutine(CountdownPredict());
+        }
+    }
 
+    IEnumerator CountdownPredict()
+    {
+        yield return new WaitForSeconds(predictTimer);
+        if (!isSelected)
+        {
+            var randomType = GetRandomAnimalType();
+            localPlayer.CmdSetPredict(randomType);
+
+            predictUI.SetActive(false);
+        }
+    }
+
+    public void OnPredictSelected(AnimalType type)
+    {
+        if (isSelected) return;
+        if(type != AnimalType.None)
+        {
+            isSelected = true;
+            localPlayer.CmdSetPredict(type);
+        }        
+
+        predictUI.SetActive(false);
+    }
+
+    public void CheckPredict()
+    {
+        if (localPlayer.animalType != AnimalType.Crow || isSelected || selectType != AnimalType.None) return;
+
+        var type = GetRandomAnimalType();
+        localPlayer.CmdSetPredict(type);       
+    }
     private string TranslateTerritory(TerritoryType type)
     {
         return type switch
@@ -232,7 +279,7 @@ public class GamePlayUI : MonoBehaviour
 
         foreach (var type in allAnimals)
         {
-            GameObject btn = Instantiate(disguiseButtonPrefab, disguiseButtonGroup);
+            GameObject btn = Instantiate(uiButtonPrefab, disguiseButtonGroup);
             string label = AnimalNameMap.AnimalTypeToName[type];
             btn.GetComponentInChildren<TextMeshProUGUI>().text = label;
 
@@ -246,6 +293,35 @@ public class GamePlayUI : MonoBehaviour
         disguiseUI.SetActive(false);
     }
 
+    public void SetPredictOptions()
+    {
+        // 기존 버튼 제거
+        foreach (Transform child in predictButtonGroup)
+            Destroy(child.gameObject);
+
+        foreach (var type in allAnimals)
+        {
+            GameObject btn = Instantiate(uiButtonPrefab, predictButtonGroup);
+            string label = AnimalNameMap.AnimalTypeToName[type];
+            btn.GetComponentInChildren<TextMeshProUGUI>().text = label;
+
+            btn.GetComponent<Button>().onClick.AddListener(() =>
+            {
+                selectType = type;
+                predictCheckText.text = $"{label}(을)를 승리자로\n예측 하시겠습니까??";
+                predictCheckUI.SetActive(true);
+            });
+        }
+        GameObject cancleBtn = Instantiate(uiButtonPrefab, predictButtonGroup);
+        cancleBtn.GetComponentInChildren<TextMeshProUGUI>().text = "플레이어 예측";
+        cancleBtn.GetComponent<Button>().onClick.AddListener(() =>
+        {
+            selectType = AnimalType.None;
+            predictCheckText.text = $"동물이 아닌 플레이어로 승리자를 예측 하시겠습니까??\n플레이어 예측은 우측 상단의 프로필 > 우클릭 > 예측버튼을 통해 가능합니다.";
+            predictCheckUI.SetActive(true);
+        });
+        predictUI.SetActive(false);
+    }
     public void OnClickChatBtn()
     {
         chatUI.SetActive(!chatUI.activeSelf);
@@ -259,6 +335,17 @@ public class GamePlayUI : MonoBehaviour
     {
         OnDisguiseSelected(selectType);
         checkUI.SetActive(false);
+    }
+
+    public void DeActivePredictCheckUI()
+    {
+        predictCheckUI.SetActive(false);
+        selectType = AnimalType.None;
+    }
+    public void DeActivePredictUI()
+    {
+        OnPredictSelected(selectType);
+        predictCheckUI.SetActive(false);
     }
     public void AddPlayer(GamePlayer player, ZoneType zone)
     {
@@ -290,7 +377,7 @@ public class GamePlayUI : MonoBehaviour
     }
     AnimalType GetRandomAnimalType()
     {       
-        int index = Random.Range(0, allAnimals.Length);
+        int index = UnityEngine.Random.Range(0, allAnimals.Length);
         return allAnimals[index];
     }
 

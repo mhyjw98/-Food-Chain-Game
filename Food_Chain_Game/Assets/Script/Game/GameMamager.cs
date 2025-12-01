@@ -133,11 +133,25 @@ public class GameMamager : NetworkBehaviour
         GamePlayUI.Instance.SetDisguiseOptions();
     }
     [ClientRpc]
-    void RPCShowStartUI()
+    void SetPredictUI()
+    {
+        GamePlayUI.Instance.SetPredictOptions();
+    }
+    [ClientRpc]
+    void RPCShowDisguiseUI()
     {
         GamePlayUI.Instance.ShowDisguiseUI();
     }
-
+    [ClientRpc]
+    void RPCShowPredictUI()
+    {
+        GamePlayUI.Instance.ShowPredictUI();
+    }
+    [ClientRpc]
+    void RPCCheckPredict()
+    {
+        GamePlayUI.Instance.CheckPredict();
+    }
     [Server]
     IEnumerator RoundFlow()
     {
@@ -145,6 +159,7 @@ public class GameMamager : NetworkBehaviour
         yield return new WaitForSeconds(2.5f);
         RpcBlockSky();
         SetDisguiseUI();
+        SetPredictUI();
         players = new List<GamePlayer>(FindObjectsOfType<GamePlayer>());
         DeleteRoomPlayer();
         yield return new WaitForSeconds(1f);
@@ -157,13 +172,15 @@ public class GameMamager : NetworkBehaviour
         isRoundActive = true;
         currentTime = RoundTime.Disguise;
         timer = disguiseTime;
-        RPCShowStartUI();             
+        RPCShowDisguiseUI();             
         yield return new WaitForSeconds(disguiseTime);
 
         // 탐색시간        
         currentTime = RoundTime.Exploration;
-        timer = explorationRoundTime;       
-        yield return new WaitForSeconds(explorationRoundTime);        
+        timer = explorationRoundTime;
+        RPCShowPredictUI();
+        yield return new WaitForSeconds(explorationRoundTime);
+        RPCCheckPredict();
 
         // 라운드 시작
         for (int i = 1; i <= 4; i++)

@@ -90,4 +90,28 @@ public class SettingManager : MonoBehaviour
     {
         checkUI.SetActive(false);
     }
+
+    public void OnClickReturnToTitle()
+    {
+        var rm = RoomManager.singleton as RoomManager;
+
+        if (rm != null)
+        {
+            rm.CleanupAndLoadTitle(showError: false, errorMessage: null);
+        }
+        else
+        {
+            Debug.LogWarning("[SettingManager] RoomManager Null 직접 Title씬으로 이동");
+            SceneManager.LoadScene("Title");
+        }
+    }
+
+    public void QuitGame()
+    {
+        #if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+        #else
+            Application.Quit();
+        #endif
+    }
 }

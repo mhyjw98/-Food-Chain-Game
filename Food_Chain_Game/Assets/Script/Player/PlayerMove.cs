@@ -10,17 +10,18 @@ public class PlayerMove : NetworkBehaviour
     [SyncVar]public float moveSpeed = 5f;
     private Rigidbody2D rigid;
 
-    public static bool isStop = false;
-    public static bool isEvent = false;
+    public static bool isStop;
+    public static bool isEvent;
     private GamePlayer localPlayer;
-
-    public TMP_InputField chatInputField;
+   
     public Vector2 movement;
     void Start()
     {
         rigid = GetComponent<Rigidbody2D>();
         localPlayer = GetComponent<GamePlayer>();
-        chatInputField = FindObjectOfType<TMP_InputField>();
+        
+        isStop = false;
+        isEvent = false;
     }
 
     private void Update()
@@ -29,10 +30,11 @@ public class PlayerMove : NetworkBehaviour
 
         Attack();
         Move();
-        Whisper();
     }
     void FixedUpdate()
     {
+        if (!isLocalPlayer) return;
+
         rigid.MovePosition(rigid.position + movement * moveSpeed * Time.fixedDeltaTime);
     }
 
@@ -84,28 +86,4 @@ public class PlayerMove : NetworkBehaviour
             gp.CmdAttack(targetNetId);
         }
     }   
-    
-    private void Whisper()
-    {
-        if (Input.GetKeyDown(KeyCode.Return) && !string.IsNullOrWhiteSpace(chatInputField.text))
-        {
-            string msg = chatInputField.text.Trim();
-
-            if (NetworkClient.connection != null && NetworkClient.connection.identity != null)
-            {
-                ChatManager chatManager = FindObjectOfType<ChatManager>();
-
-                if (chatManager.currentChannel.type == ChatChannelType.Whisper && chatManager.currentChannel.targetPlayer != null)
-                {
-                    localPlayer.CmdSendWhisper(chatManager.currentChannel.targetPlayer.netId, msg);
-                }
-                else
-                {
-                    localPlayer.CmdSendChatMessage(msg);
-                }
-            }
-
-            chatInputField.text = "";
-        }
-    }
 }

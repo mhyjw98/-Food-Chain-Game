@@ -35,13 +35,11 @@ public class SeedPacket : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
         if (_spawnedCount > 0)
             _spawnedCount--;
     }
-    // ºÀÅõ Å¬¸¯ÇØ¼­ ¾¾¾Ñ ÇÏ³ª ²¨³»±â
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (!_opened) return;
         if (seedPrefab == null || spawnParent == null) return;
 
-        // ¾¾¾Ñ ÇÏ³ª »ý¼º
         _currentSeed = Instantiate(seedPrefab, spawnParent);
         var seedRect = _currentSeed.GetComponent<RectTransform>();
 

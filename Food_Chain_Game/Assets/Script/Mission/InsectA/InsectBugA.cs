@@ -119,7 +119,6 @@ public class InsectBugA : MonoBehaviour
                     RectTransform target = _landTargets[Random.Range(0, _landTargets.Length)];
                     Vector2 tPos = GetLandingPosInPanel(target);
 
-                    // 타겟을 향해 가다가, fakeLandDistance 앞에서 멈추는 느낌
                     Vector2 dir = (tPos - _currentPos);
                     if (dir.sqrMagnitude < 0.0001f)
                         dir = Vector2.right;
@@ -131,7 +130,6 @@ public class InsectBugA : MonoBehaviour
                 }
                 else
                 {
-                    // 그냥 랜덤 비행
                     Rect r = playPanel.rect;
                     float x = Random.Range(r.xMin, r.xMax);
                     float y = Random.Range(r.yMin, r.yMax);
@@ -152,11 +150,9 @@ public class InsectBugA : MonoBehaviour
         if (target == null || playPanel == null)
             return Vector2.zero;
 
-        // 타겟 rect의 중앙 (자기 좌표계 기준)
         Vector3 centerLocal = target.rect.center;
         Vector3 centerWorld = target.TransformPoint(centerLocal);
 
-        // playPanel 좌표계로 변환
         Vector3 panelLocal = playPanel.InverseTransformPoint(centerWorld);
 
         return (Vector2)panelLocal;
@@ -172,7 +168,6 @@ public class InsectBugA : MonoBehaviour
         Vector2 perp = new Vector2(-dir.y, dir.x);
 
         float arc = Random.Range(minArc, maxArc);
-        // 위/아래 어느 쪽으로 휠지 랜덤
         float sign = (Random.value < 0.5f) ? -1f : 1f;
 
         Vector2 mid = (start + end) * 0.5f;
@@ -188,13 +183,11 @@ public class InsectBugA : MonoBehaviour
             t += Time.deltaTime / duration;
             float u = Mathf.Clamp01(t);
 
-            // 2차 베지어
             Vector2 p =
                 (1 - u) * (1 - u) * start +
                 2 * (1 - u) * u * control +
                 u * u * end;
 
-            // PlayPanel 안으로 클램프
             Rect r = playPanel.rect;
             p.x = Mathf.Clamp(p.x, r.xMin, r.xMax);
             p.y = Mathf.Clamp(p.y, r.yMin, r.yMax);
@@ -206,7 +199,6 @@ public class InsectBugA : MonoBehaviour
             if (moveDir.sqrMagnitude > 0.0001f)
             {
                 float angle = Mathf.Atan2(moveDir.y, moveDir.x) * Mathf.Rad2Deg;
-                // 스프라이트 기본이 "위"를 본다면 -90도 보정
                 angle -= 90f;
 
                 float rotateLerpSpeed = 15f;
@@ -227,15 +219,12 @@ public class InsectBugA : MonoBehaviour
 
     public bool TryHit(Vector2 swatterLocalPos)
     {
-        // 날아다니는 중엔 무조건 미스
         if (!IsLanded)
             return false;
 
         float dist = Vector2.Distance(_currentPos, swatterLocalPos);
         if (dist <= hitRadius)
         {
-            // 명중
-            // 여기서 시각 효과(파편, 곤충 사라짐 등) 추가 가능
             gameObject.SetActive(false);
             return true;
         }

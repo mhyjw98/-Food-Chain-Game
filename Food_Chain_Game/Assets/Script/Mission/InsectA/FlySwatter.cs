@@ -74,7 +74,6 @@ public class FlySwatter : MonoBehaviour, IPointerDownHandler
         if (_mission == null || _mission.IsMissionFinished) return;
         if (Time.time < _nextAttackTime) return;
         
-        // 클릭 순간의 마우스 위치를 목표 지점으로 사용
         Vector2 localTarget;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             playPanel,
@@ -95,10 +94,9 @@ public class FlySwatter : MonoBehaviour, IPointerDownHandler
         Quaternion baseRot = rect.localRotation;
         Vector2 startPos = rect.anchoredPosition;
 
-        // 방향 계산
         Vector2 dir = (targetPos - startPos);
         if (dir.sqrMagnitude < 0.0001f)
-            dir = new Vector2(0f, -1f); // 거의 같은 위치면 아래로 휘두르는 느낌
+            dir = new Vector2(0f, -1f);
         else
             dir.Normalize();
 

@@ -26,22 +26,22 @@ public class PlayerColorPalette : MonoBehaviour
     // 실제 색 데이터 배열
     private static readonly ColorEntry[] _colors =
     {
-        new ColorEntry( 0, "Red",         new Color32(255,  45,  45, 255)),
-        new ColorEntry( 1, "Orange",      new Color32(255, 135,  75, 255)),
-        new ColorEntry( 2, "Yellow",      new Color32(255, 255,  50, 255)),
-        new ColorEntry( 3, "LightGreen",  new Color32(100, 255,  45, 255)),
-        new ColorEntry( 4, "Blue",        new Color32( 45,  95, 255, 255)),
-        new ColorEntry( 5, "Navy",        new Color32( 80,  75, 230, 255)),
-        new ColorEntry( 6, "Lavender",    new Color32(140,  60, 240, 255)),
+        new ColorEntry( 0, "Lavender",    new Color32(138,  43, 226, 255)),
+        new ColorEntry( 1, "LightYellow", new Color32(250, 255, 180, 255)),
+        new ColorEntry( 2, "Navy",        new Color32(  0,   0, 128, 255)),
+        new ColorEntry( 3, "Pink",        new Color32(255,   0, 140, 255)),
+        new ColorEntry( 4, "Mint",        new Color32( 40, 225, 255, 255)),
+        new ColorEntry( 5, "LightGreen",  new Color32( 84, 184,   0, 255)),
+        new ColorEntry( 6, "Red",         new Color32(255,  45,  45, 255)),
         new ColorEntry( 7, "Black",       new Color32( 60,  60,  60, 255)),
         new ColorEntry( 8, "White",       new Color32(254, 255, 255, 255)),
-        new ColorEntry( 9, "Pink",        new Color32(255,  45, 245, 255)),
+        new ColorEntry( 9, "Blue",        new Color32( 45,  95, 255, 255)),
         new ColorEntry(10, "Green",       new Color32( 45, 190,  55, 255)),
-        new ColorEntry(11, "Mint",        new Color32( 45, 255, 210, 255)),
+        new ColorEntry(11, "Orange",      new Color32(255, 135,  75, 255)),
         new ColorEntry(12, "Gray",        new Color32(180, 180, 180, 255)),
         new ColorEntry(13, "DarkBlue",    new Color32( 10,  50, 235, 255)),
         new ColorEntry(14, "Purple",      new Color32(120,  30, 240, 255)),
-        new ColorEntry(15, "LightYellow", new Color32(250, 255, 180, 255)),
+        new ColorEntry(15, "Yellow",      new Color32(255, 255,  50, 255)),
     };
 
     private static readonly Dictionary<string, int> _nameToIndex =
@@ -127,6 +127,12 @@ public class PlayerColorPalette : MonoBehaviour
 
         _usedIndices.Add(newIndex);
         colorBtns[newIndex].interactable = false;
+    }
+
+    public static void OnUnSelectColor(int index)
+    {
+        _usedIndices.Remove(index);
+        colorBtns[index].interactable = true;
     }
 
     /// <summary>

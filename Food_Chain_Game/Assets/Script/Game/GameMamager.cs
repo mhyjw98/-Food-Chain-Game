@@ -87,11 +87,11 @@ public class GameMamager : NetworkBehaviour
         }        
     }
     [ClientRpc]
-    void RpcBlockSky()
+    void SetGameUI()
     {
-        StartCoroutine(BlockSkyWhenReady());
+        StartCoroutine(SetUIWhenReady());
     }
-    private IEnumerator BlockSkyWhenReady()
+    private IEnumerator SetUIWhenReady()
     {
         while (NetworkClient.localPlayer == null || GamePlayUI.Instance == null)
             yield return null;
@@ -104,6 +104,9 @@ public class GameMamager : NetworkBehaviour
         }          
         if (!player.isFly)
             GamePlayUI.Instance.ActiveSkyBlock();
+
+        GamePlayUI.Instance.DeActiveChatUI();
+        GamePlayUI.Instance.DeActivePlayerSlotUI(); 
     }
     [ClientRpc]
     void RpcBlockMap()
@@ -157,10 +160,11 @@ public class GameMamager : NetworkBehaviour
     {
         // 시작 애니메이션
         yield return new WaitForSeconds(2.5f);
-        RpcBlockSky();
-        SetDisguiseUI();
-        SetPredictUI();
+        SetGameUI();
         players = new List<GamePlayer>(FindObjectsOfType<GamePlayer>());
+        SetDisguiseUI();
+        SetPredictUI();                
+        SetMissionsToAllPlayers();
         DeleteRoomPlayer();
         yield return new WaitForSeconds(1f);
         RpcSetupPlayerList(players.Select(p => p.netId).ToArray());
@@ -304,6 +308,17 @@ public class GameMamager : NetworkBehaviour
     void OnRoundTimeChanged(RoundTime oldVal, RoundTime newVal)
     {
         GamePlayUI.Instance.UpdateRoundText(currentRound, newVal);
+    }
+
+
+    [Server]
+    public void SetMissionsToAllPlayers()
+    {
+        foreach (var gp in players)
+        {
+            var missions = MissionSelector.GetRandomMissions(gp.animalType, 3);
+            gp.TargetSetMissions(gp.connectionToClient, missions);
+        }
     }
 
     [Server]

@@ -17,6 +17,8 @@ public class GamePlayUI : MonoBehaviour
     public GameObject predictUI;
     public GameObject checkUI;
     public GameObject predictCheckUI;
+    public GameObject missionListUI;
+    public GameObject playerSlotUI;
     public GameObject block;
     public GameObject skyBlock;
     
@@ -248,7 +250,16 @@ public class GamePlayUI : MonoBehaviour
     }
     public void ActiveSkyBlock()
     {
-       skyBlock.SetActive(true);
+        skyBlock.SetActive(true);       
+    }
+
+    public void DeActiveChatUI()
+    {
+        chatUI.SetActive(false);
+    }
+    public void DeActivePlayerSlotUI()
+    {
+        playerSlotUI.SetActive(false);
     }
     public void ActiveBlock()
     {
@@ -346,6 +357,15 @@ public class GamePlayUI : MonoBehaviour
     {
         OnPredictSelected(selectType);
         predictCheckUI.SetActive(false);
+    }
+
+    public void OnClickMissionListUI()
+    {
+        missionListUI.SetActive(!missionListUI.activeSelf);
+    }
+    public void OnClickProfileSlotUI()
+    {
+        playerSlotUI.SetActive(!playerSlotUI.activeSelf);
     }
     public void AddPlayer(GamePlayer player, ZoneType zone)
     {

@@ -6,7 +6,9 @@ using TMPro;
 using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
+using static BaseMission;
 using static CharacterData;
+using static MissionSelector;
 
 public enum AnimalType { Lion, Crocodile, Eagle, Hyena, Snake, Rabbit, Plover, Otter, Mouse, Mallard, Deer, Crow, Chameleon, None }
 public enum PredatorType { Prey, Hyena, Eagle, Crocodile, Lion, Snake }
@@ -38,6 +40,9 @@ public class GamePlayer : NetworkBehaviour
     [SyncVar] public int scanCount = 0;
     [SyncVar] public int maxScanCount = 0;
 
+    private readonly List<MissionSlot> _missions = new();
+
+    public IReadOnlyList<MissionSlot> Missions => _missions;
     public Scanner scanner;
     public TextMeshProUGUI nicknameText;
     public GameObject killIndicatorUIPrefab;
@@ -307,6 +312,62 @@ public class GamePlayer : NetworkBehaviour
         var renderer = GetComponent<SpriteRenderer>();
         if (renderer != null)
             renderer.color = newColor;
+    }
+
+    [TargetRpc]
+    public void TargetSetMissions(NetworkConnectionToClient target, MissionType[] missionTypes)
+    {
+        _missions.Clear();
+        foreach (var type in missionTypes)
+        {
+            _missions.Add(new MissionSlot
+            {
+                Type = type,
+                Status = MissionStatus.NotStarted
+            });
+        }
+
+        MissionListUI.Instance.RefreshList(_missions);
+    }
+
+    public void SetMissionStatusLocal(MissionType type, MissionStatus status)
+    {
+        var slot = _missions.Find(m => m.Type == type);
+        if (slot == null) return;
+
+        slot.Status = status;
+        MissionListUI.Instance.RefreshList(_missions);
+    }
+
+    [Command]
+    public void CmdReportMissionCompleted(MissionType type)
+    {
+        Debug.Log($"[GamePlayer] {netId} 미션 완료: {type}");
+    }
+
+    public void TryStartMission(MissionType missionType)
+    {
+        var slot = _missions.Find(m => m.Type == missionType);
+        if (slot == null)
+        {
+            Debug.Log($"[GamePlayer] 이 플레이어에게 없는 미션: {missionType}");
+            return;
+        }
+        if (slot.Status == MissionStatus.Completed)
+        {
+            Debug.Log($"[GamePlayer] 이미 완료한 미션: {missionType}");
+            return;
+        }
+
+        if (slot.Status == MissionStatus.NotStarted)
+            SetMissionStatusLocal(missionType, MissionStatus.InProgress);
+
+        // 실제 미션 UI 실행
+        MissionUIManager.Instance.StartMission(missionType, () =>
+        {
+            SetMissionStatusLocal(missionType, MissionStatus.Completed);
+            CmdReportMissionCompleted(missionType);
+        });
     }
     public void SetAnimalType(string characterName)
     {

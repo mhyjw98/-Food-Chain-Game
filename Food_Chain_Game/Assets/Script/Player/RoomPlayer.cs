@@ -41,8 +41,13 @@ public class RoomPlayer : NetworkRoomPlayer
             setting.SetLocalPlayer(this, index);
 
         Debug.Log("내 플레이어가 생성됨");
-    }    
+    }
 
+    private void OnDestroy()
+    {
+        if(SceneManager.GetActiveScene().name == "GameRoom")
+            PlayerColorPalette.OnUnSelectColor(RoomSessionData.ColorIndex);
+    }
     public override void ReadyStateChanged(bool oldReadyState, bool newReadyState)
     {
         Debug.Log($"플레이어 {netId} 준비 상태 변경: {newReadyState}");

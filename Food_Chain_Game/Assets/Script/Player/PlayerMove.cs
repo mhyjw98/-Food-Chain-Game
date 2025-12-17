@@ -76,7 +76,7 @@ public class PlayerMove : NetworkBehaviour
     }
     private void Attack()
     {
-        if (Input.GetKey(KeySetting.keys[KeyAction.ATTACK]))
+        if (Input.GetKey(KeySetting.keys[KeyAction.INTERACT]))
         {
             if (!TryGetComponent(out GamePlayer gp)) return;
             if (gp.scanner == null) return;
@@ -85,5 +85,11 @@ public class PlayerMove : NetworkBehaviour
 
             gp.CmdAttack(targetNetId);
         }
-    }   
+    }  
+    
+    public void StopMove()
+    {
+        isEvent = true;
+        movement = Vector2.zero;
+    }
 }

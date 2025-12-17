@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public enum KeyAction { UP, DOWN, LEFT, RIGHT, ATTACK, KEYCOUNT }
+public enum KeyAction { UP, DOWN, LEFT, RIGHT, INTERACT, KEYCOUNT }
 public class KeySetting : MonoBehaviour
 {
     public static Dictionary<KeyAction, KeyCode> keys = new Dictionary<KeyAction, KeyCode>();

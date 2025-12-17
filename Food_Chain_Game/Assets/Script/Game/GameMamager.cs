@@ -28,8 +28,8 @@ public class GameMamager : NetworkBehaviour
     private List<GamePlayer> players;
     private float disguiseTime = 10f;
     private float explorationRoundTime = 5f;
-    private float dayRoundTime = 10f;
-    private float nightRoundTime = 20f;    
+    private float dayRoundTime = 180f;
+    private float nightRoundTime = 200f;    
 
     [SyncVar]private float timer = 5f;
 
@@ -316,7 +316,7 @@ public class GameMamager : NetworkBehaviour
     {
         foreach (var gp in players)
         {
-            var missions = MissionSelector.GetRandomMissions(gp.animalType, 3);
+            var missions = MissionSelector.GetRandomMissions(gp.animalType, 5);
             gp.TargetSetMissions(gp.connectionToClient, missions);
         }
     }
@@ -324,7 +324,6 @@ public class GameMamager : NetworkBehaviour
     [Server]
     void EvaluateGameResult()
     {
-        // 각 캐릭터 승리 조건 판단 로직
         Debug.Log("게임 종료! 승패 판단 시작");       
 
         foreach (var player in players)

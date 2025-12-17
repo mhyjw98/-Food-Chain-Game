@@ -117,35 +117,68 @@ public class MissionSelector : MonoBehaviour
                 uniqueCategories.Add(c);
         }
 
-        var selectedMissions = new List<MissionType>();
+        Shuffle(uniqueCategories);
 
-        for (int i = 0; i < missionCount; i++)
+        var selected = new List<MissionType>(missionCount);
+        var selectedSet = new HashSet<MissionType>();
+
+        int firstCount = Mathf.Min(missionCount, uniqueCategories.Count);
+        for (int i = 0; i < firstCount; i++)
         {
-            MissionCategory chosenCategory;
-
-            if (i < uniqueCategories.Count)
+            if (TryPickUniqueMission(uniqueCategories[i], selectedSet, out var picked))
             {
-                chosenCategory = uniqueCategories[i];
+                selected.Add(picked);
+                selectedSet.Add(picked);
             }
-            else
-            {
-                int randIdx = UnityEngine.Random.Range(0, uniqueCategories.Count);
-                chosenCategory = uniqueCategories[randIdx];
-            }
-
-            var pool = MissionMeta.GetTypesInCategory(chosenCategory);
-            if (pool.Count == 0)
-            {
-                Debug.LogWarning($"[MissionSelector] 카테고리 {chosenCategory} 에 속한 미션이 없습니다.");
-                continue;
-            }
-
-            int mi = Random.Range(0, pool.Count);
-            var missionType = pool[mi];
-            selectedMissions.Add(missionType);
         }
 
-        return selectedMissions.ToArray();
+        int guard = 0;
+        while (selected.Count < missionCount && guard++ < 200)
+        {
+            var cat = uniqueCategories[Random.Range(0, uniqueCategories.Count)];
+
+            if (TryPickUniqueMission(cat, selectedSet, out var picked))
+            {
+                selected.Add(picked);
+                selectedSet.Add(picked);
+            }
+        }
+
+        return selected.ToArray();
+    }
+
+    private static bool TryPickUniqueMission(MissionCategory category, HashSet<MissionType> already, out MissionType picked)
+    {
+        picked = default;
+
+        var pool = MissionMeta.GetTypesInCategory(category);
+        if (pool == null || pool.Count == 0)
+            return false;
+
+        List<MissionType> candidates = null;
+        for (int i = 0; i < pool.Count; i++)
+        {
+            var t = pool[i];
+            if (already.Contains(t)) continue;
+
+            candidates ??= new List<MissionType>();
+            candidates.Add(t);
+        }
+
+        if (candidates == null || candidates.Count == 0)
+            return false;
+
+        picked = candidates[Random.Range(0, candidates.Count)];
+        return true;
+    }
+
+    private static void Shuffle<T>(IList<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
     }
 }
 
@@ -157,7 +190,7 @@ public static class MissionMeta
         // 풀
         { MissionType.Grass_A, MissionCategory.Grass },
         { MissionType.Grass_B, MissionCategory.Grass },
-        { MissionType.Grass_C, MissionCategory.Grass },
+        //{ MissionType.Grass_C, MissionCategory.Grass },
 
         // 씨앗
         { MissionType.Seed_A, MissionCategory.Seed },

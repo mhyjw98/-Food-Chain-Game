@@ -40,6 +40,7 @@ public class GamePlayer : NetworkBehaviour
     [SyncVar] public int scanCount = 0;
     [SyncVar] public int maxScanCount = 0;
 
+    [SerializeField] private PlayerMove playerMove;
     private readonly List<MissionSlot> _missions = new();
 
     public IReadOnlyList<MissionSlot> Missions => _missions;
@@ -328,8 +329,34 @@ public class GamePlayer : NetworkBehaviour
         }
 
         MissionListUI.Instance.RefreshList(_missions);
-    }
 
+        if (isLocalPlayer)
+        {
+            StartCoroutine(EnableMissionObjectsWhenReady(missionTypes));
+        }
+    }
+    private IEnumerator EnableMissionObjectsWhenReady(MissionType[] missionTypes)
+    {
+        int guard = 0;
+        while (MissionRegistry.Instance == null && guard++ < 300)
+            yield return null;
+
+        if (MissionRegistry.Instance == null)
+            yield break;
+
+        guard = 0;
+        while (MissionRegistry.Instance.RegisteredCount == 0 && guard++ < 300)
+            yield return null;
+
+        MissionRegistry.Instance.EnableOnly(missionTypes);
+        Debug.Log($"[GamePlayer] 미션 설정 완료");
+    }
+    public bool CanStartMissionType(MissionType type)
+    {
+        var slot = _missions.Find(m => m.Type == type);
+        if (slot == null) return false;
+        return slot.Status != MissionStatus.Completed;
+    }
     public void SetMissionStatusLocal(MissionType type, MissionStatus status)
     {
         var slot = _missions.Find(m => m.Type == type);
@@ -359,15 +386,28 @@ public class GamePlayer : NetworkBehaviour
             return;
         }
 
+        playerMove.StopMove();
+
         if (slot.Status == MissionStatus.NotStarted)
             SetMissionStatusLocal(missionType, MissionStatus.InProgress);
 
-        // 실제 미션 UI 실행
-        MissionUIManager.Instance.StartMission(missionType, () =>
-        {
-            SetMissionStatusLocal(missionType, MissionStatus.Completed);
-            CmdReportMissionCompleted(missionType);
-        });
+        MissionUIManager.Instance.StartMission(
+       missionType,
+       onComplete: () =>
+       {
+           SetMissionStatusLocal(missionType, MissionStatus.Completed);
+           CmdReportMissionCompleted(missionType);
+           MissionRegistry.Instance.DisableType(missionType);
+       },
+       onClosed: () =>
+       {
+           PlayerMove.isEvent = false;
+
+           var s = _missions.Find(m => m.Type == missionType);
+           if (s != null && s.Status != MissionStatus.Completed)
+               SetMissionStatusLocal(missionType, MissionStatus.NotStarted);
+       }
+   );
     }
     public void SetAnimalType(string characterName)
     {

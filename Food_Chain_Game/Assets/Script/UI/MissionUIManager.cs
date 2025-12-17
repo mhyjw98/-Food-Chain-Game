@@ -6,10 +6,11 @@ public class MissionUIManager : MonoBehaviour
 {
     public static MissionUIManager Instance { get; private set; }
 
-    [SerializeField] private List<BaseMission> missionPrefabs;
+    [SerializeField] private List<BaseMission> missionPrefabs;  
+    [SerializeField] private Transform uiRoot;
 
     private Dictionary<MissionType, BaseMission> _missions;
-
+    private BaseMission _activeInstance;
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -20,31 +21,52 @@ public class MissionUIManager : MonoBehaviour
         Instance = this;
 
         _missions = new Dictionary<MissionType, BaseMission>();
-        foreach (var m in missionPrefabs)
+
+        foreach (var prefab in missionPrefabs)
         {
-            m.gameObject.SetActive(false);
-            _missions[m.MissionType] = m;
+            if (prefab == null) continue;
+
+            _missions[prefab.MissionType] = prefab;
         }
     }
 
-    public void StartMission(MissionType type, System.Action onComplete)
+    public void StartMission(MissionType type, System.Action onComplete, System.Action onClosed)
     {
-        if (!_missions.TryGetValue(type, out var mission))
+        if (!_missions.TryGetValue(type, out var prefab))
         {
-            Debug.LogError($"[MissionUIManager] 미션 없음: {type}");
+            Debug.LogError($"[MissionUIManager] 미션 프리팹 없음: {type}");
             return;
         }
+        if (_activeInstance != null)
+        {
+            Destroy(_activeInstance.gameObject);
+            _activeInstance = null;
+        }
 
-        mission.OnMissionCompleted = _ =>
+        _activeInstance = Instantiate(prefab, uiRoot);
+        _activeInstance.gameObject.SetActive(true);
+
+        _activeInstance.OnMissionCompleted = _ =>
         {
             onComplete?.Invoke();
+            onClosed?.Invoke();
+            DestroyActive();
         };
 
-        mission.OnMissionFailed = _ =>
+        _activeInstance.OnMissionFailed = _ =>
         {
-            // 실패
+            onClosed?.Invoke();
+            DestroyActive();
         };
 
-        mission.Begin();
+        _activeInstance.Begin();
+    }
+    private void DestroyActive()
+    {
+        if (_activeInstance != null)
+        {
+            Destroy(_activeInstance.gameObject);
+            _activeInstance = null;
+        }
     }
 }

@@ -47,7 +47,6 @@ public class GrassB : BaseMission, IPointerDownHandler, IDragHandler
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Grass_B;
 
         _isComplete = false;
         _remainTime = timeLimit;

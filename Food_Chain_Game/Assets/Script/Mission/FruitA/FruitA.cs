@@ -68,7 +68,6 @@ public class FruitA : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Fruit_A;
 
         ClearObject();
 

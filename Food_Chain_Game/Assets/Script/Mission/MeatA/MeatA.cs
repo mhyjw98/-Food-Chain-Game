@@ -45,7 +45,6 @@ public class MeatA : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Meat_A;
 
         ClearObjects();
 

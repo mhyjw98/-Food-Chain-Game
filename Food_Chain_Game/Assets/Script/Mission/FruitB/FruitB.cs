@@ -52,7 +52,6 @@ public class FruitB : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Fruit_B;
 
         _isComplete = false;
         _remainTime = timeLimit;

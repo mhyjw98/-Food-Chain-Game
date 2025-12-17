@@ -45,7 +45,6 @@ public class CropsB : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Crops_B;
 
         ClearPlants();
         SpawnPlants();

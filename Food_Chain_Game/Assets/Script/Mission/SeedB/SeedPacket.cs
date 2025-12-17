@@ -20,6 +20,8 @@ public class SeedPacket : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDr
     private PlantSeed _currentSeed;
     private void Awake()
     {
+        if (canvas == null)
+            canvas = GetComponentInParent<Canvas>();
         _rect = GetComponent<RectTransform>();
         SetOpened(false);
     }

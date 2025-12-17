@@ -15,7 +15,6 @@ public class SeedB : BaseMission
     }    
     [SerializeField] private SoilCell[] soilCells;
     [SerializeField] private ShovelFollow shovel;
-    [SerializeField] private SeedPacket packet;
     [SerializeField] private SeedPacket seedPacket;
 
     [SerializeField] private TextMeshProUGUI statusText;
@@ -49,7 +48,6 @@ public class SeedB : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Seed_B;
 
         remainTime = timeLimit;
         _phase = Phase.Digging;

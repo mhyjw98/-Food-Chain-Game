@@ -46,7 +46,6 @@ public class MeatB : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Meat_B;
 
         _remainTime = timeLimit;       
         _isFinished = false;

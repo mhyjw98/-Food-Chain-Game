@@ -68,7 +68,6 @@ public class WoodB : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Wood_B;
 
         ClearObject();
 

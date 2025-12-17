@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public enum MissionType
@@ -29,8 +30,8 @@ public class MissionSlot
 }
 public abstract class BaseMission : MonoBehaviour
 {
-    
-    public MissionType MissionType { get; protected set; }
+    [SerializeField] private MissionType missionType;
+    public MissionType MissionType => missionType;
 
     public Action<BaseMission> OnMissionCompleted;
     public Action<BaseMission> OnMissionFailed;

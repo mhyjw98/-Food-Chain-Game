@@ -57,7 +57,6 @@ public class GrassA : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Grass_A;
         isComplete = false;
         remainTime = timeLimit;
         statusText.text = "";

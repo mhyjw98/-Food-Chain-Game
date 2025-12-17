@@ -42,10 +42,6 @@ public class SeedA : BaseMission
     private float remainTime;
     private bool isComplete;
 
-    private void Awake()
-    {
-        MissionType = MissionType.Seed_A;
-    }
     private void Update()
     {
         if (isComplete) return;

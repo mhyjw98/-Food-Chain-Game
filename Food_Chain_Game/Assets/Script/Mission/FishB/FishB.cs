@@ -45,7 +45,6 @@ public class FishB : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Fish_B;
 
         _isComplete = false;
         _remainTime = timeLimit;

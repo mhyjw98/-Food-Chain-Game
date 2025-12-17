@@ -43,7 +43,6 @@ public class InsectB : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Insect_B;
 
         ClearObject();
 

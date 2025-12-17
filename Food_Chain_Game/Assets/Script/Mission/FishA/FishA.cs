@@ -50,7 +50,6 @@ public class FishA : BaseMission, IPointerDownHandler
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Fish_A;
 
         if (_flowRoutine != null)
         {

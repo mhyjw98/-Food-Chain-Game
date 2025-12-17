@@ -63,7 +63,6 @@ public class CropsA : BaseMission
     public override void Begin()
     {
         base.Begin();
-        MissionType = MissionType.Crops_A;
 
         ClearObjects();
 

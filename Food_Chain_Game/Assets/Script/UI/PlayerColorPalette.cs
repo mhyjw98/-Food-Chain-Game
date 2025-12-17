@@ -122,11 +122,16 @@ public class PlayerColorPalette : MonoBehaviour
 
     public static void UpdateColorIndex(int oldIndex, int newIndex)
     {
-        _usedIndices.Remove(oldIndex);
-        colorBtns[oldIndex].interactable = true;
-
-        _usedIndices.Add(newIndex);
-        colorBtns[newIndex].interactable = false;
+        if (oldIndex >= 0 && oldIndex < colorBtns.Length)
+        {
+            _usedIndices.Remove(oldIndex);
+            colorBtns[oldIndex].interactable = true;
+        }
+        if (newIndex >= 0 && newIndex < colorBtns.Length)
+        {
+            _usedIndices.Add(newIndex);
+            colorBtns[newIndex].interactable = false;
+        }           
     }
 
     public static void OnUnSelectColor(int index)
@@ -134,10 +139,27 @@ public class PlayerColorPalette : MonoBehaviour
         _usedIndices.Remove(index);
         colorBtns[index].interactable = true;
     }
+    public static void RefreshButtons(int oldIndex, int newIndex)
+    {
+        if(newIndex == -1)
+        {
+            if (oldIndex < 0 && oldIndex >= colorBtns.Length)
+                Debug.LogWarning($"기존 index값 : {oldIndex}");
+            colorBtns[oldIndex].interactable = true;            
+        }
+        else
+        {
+            for (int i = 0; i < colorBtns.Length; i++)
+                colorBtns[i].interactable = true;
 
-    /// <summary>
-    /// 이미 사용 중인 인덱스를 제외하고 랜덤 색 하나 선택.
-    /// </summary>
+            foreach (var p in FindObjectsOfType<RoomPlayer>())
+            {
+                int idx = p.colorIndex;
+                if (idx < 0 || idx >= colorBtns.Length) continue;
+                colorBtns[idx].interactable = false;
+            }
+        }        
+    }
     public static ColorEntry GetRandomExcluding()
     {
         var candidates = new List<int>();

@@ -9,7 +9,8 @@ using Unity.VisualScripting;
 using static UnityEngine.EventSystems.EventTrigger;
 public class RoomPlayer : NetworkRoomPlayer
 {
-    [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;
+    [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;   
+    [SyncVar(hook = nameof(OnColorIndexChanged))] public int colorIndex = -1;
     [SyncVar(hook = nameof(OnColorChanged))] public Color rpColor = Color.white;
     [SyncVar] public string userId;
     [SyncVar] public string assignedCharacter;
@@ -41,12 +42,6 @@ public class RoomPlayer : NetworkRoomPlayer
             setting.SetLocalPlayer(this, index);
 
         Debug.Log("내 플레이어가 생성됨");
-    }
-
-    private void OnDestroy()
-    {
-        if(SceneManager.GetActiveScene().name == "GameRoom")
-            PlayerColorPalette.OnUnSelectColor(RoomSessionData.ColorIndex);
     }
     public override void ReadyStateChanged(bool oldReadyState, bool newReadyState)
     {
@@ -110,6 +105,11 @@ public class RoomPlayer : NetworkRoomPlayer
             renderer.color = newColor;
     }
 
+    void OnColorIndexChanged(int oldIndex, int newIndex)
+    {
+        PlayerColorPalette.RefreshButtons(oldIndex, newIndex);
+    }
+
     [Command]
     void CmdSetData(string nick)
     {
@@ -122,7 +122,13 @@ public class RoomPlayer : NetworkRoomPlayer
     public void CmdSetColor(int index)
     {
         Color newColor = PlayerColorPalette.GetByIndex(index).Color;
-        Debug.Log("index : " + index);
+
+        colorIndex = index;
         rpColor = newColor;
-    }    
+    }
+    [Command]
+    public void CmdSetIndex(int index)
+    {
+        colorIndex = index;
+    }
 }

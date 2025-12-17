@@ -106,6 +106,8 @@ public class RoomManager : NetworkRoomManager
         {
             nickname = roomPlayer.nickname;
             wasHost = roomPlayer.isHost;
+            int oldIdx = roomPlayer.colorIndex;
+            roomPlayer.colorIndex = -1;
 
             if (roomPlayers.Contains(roomPlayer))
                 roomPlayers.Remove(roomPlayer);
@@ -138,6 +140,7 @@ public class RoomManager : NetworkRoomManager
 
     public override void OnClientDisconnect()
     {
+
         base.OnClientDisconnect();
 
         StartCoroutine(ReturnToTitleCoroutine());

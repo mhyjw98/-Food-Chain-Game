@@ -26,12 +26,12 @@ public class RoomManager : NetworkRoomManager
     {
         List<string> baseCharacters = new()
     {
-        "Chameleon", "Crow", "Snake", "Lion", "Crocodile", "Mallard", "Rabbit", "Deer", "Otter", "Mouse"
+        "Skunk", "Crow", "Scorpion", "Wolf", "Crocodile", "Ostrich", "Squirrel", "Zebra", "Badger", "Fox"
     };
 
         List<string> additionalCharacters = new()
     {
-        "Eagle", "Hyena",  "Plover",   
+        "Hawk", "Hyena",  "Plover",   
     };
 
         if (playerCount < 10)
@@ -291,9 +291,6 @@ public class RoomManager : NetworkRoomManager
         yield return new WaitForSeconds(0.1f);
         ServerChangeScene("GamePlay");
     }
-    /// <summary>
-    /// 현재 호스트가 나갔을 때, 남은 플레이어 중 한 명을 새 호스트로 지정
-    /// </summary>
     public void ReassignHostAfterDisconnect()
     {
         var remainPlayers = FindObjectsOfType<RoomPlayer>()

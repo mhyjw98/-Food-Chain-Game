@@ -157,7 +157,7 @@ public class GamePlayUI : MonoBehaviour
     public void ShowDisguiseUI()
     {
         localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
-        if (localPlayer.animalType == AnimalType.Chameleon)
+        if (localPlayer.animalType == AnimalType.Fox)
         {
             disguiseUI.SetActive(true);
             isSelected = false;
@@ -173,7 +173,7 @@ public class GamePlayUI : MonoBehaviour
             var randomType = GetRandomAnimalType();
             localPlayer.CmdSetDisguise(randomType);
 
-            string updateText = $"카멜레온 > {AnimalNameMap.AnimalTypeToName[randomType]}";
+            string updateText = $"여우 > {AnimalNameMap.AnimalTypeToName[randomType]}";
             PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
             slot.UpdateNicknameWithAnimal(updateText);
             disguiseUI.SetActive(false);
@@ -187,7 +187,7 @@ public class GamePlayUI : MonoBehaviour
         localPlayer.CmdSetDisguise(type);
         disguiseUI.SetActive(false);
 
-        string updateText = $"카멜레온 > {AnimalNameMap.AnimalTypeToName[type]}";
+        string updateText = $"여우 > {AnimalNameMap.AnimalTypeToName[type]}";
         PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
         slot.UpdateNicknameWithAnimal(updateText);
     }
@@ -403,11 +403,11 @@ public class GamePlayUI : MonoBehaviour
 
     AnimalType[] allAnimals = new AnimalType[]
         {
-            AnimalType.Lion,
+            AnimalType.Wolf,
             AnimalType.Crocodile,
-            AnimalType.Mouse,
-            AnimalType.Snake,
-            AnimalType.Eagle,
+            AnimalType.Fox,
+            AnimalType.Scorpion,
+            AnimalType.Hawk,
             AnimalType.Plover,
             AnimalType.Crow,
             AnimalType.Hyena

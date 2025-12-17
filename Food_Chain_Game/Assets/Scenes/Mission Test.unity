@@ -7804,8 +7804,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1489413491}
-        m_TargetAssemblyTypeName: MeatA, Assembly-CSharp
+      - m_Target: {fileID: 985418348}
+        m_TargetAssemblyTypeName: MeatB, Assembly-CSharp
         m_MethodName: Begin
         m_Mode: 1
         m_Arguments:
@@ -10700,7 +10700,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &654325969
 RectTransform:
   m_ObjectHideFlags: 0
@@ -10725,7 +10725,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 116}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &660600607
@@ -16023,7 +16023,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &985418347
 RectTransform:
   m_ObjectHideFlags: 0
@@ -16057,6 +16057,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playPanel: {fileID: 660600608}
+  statusText: {fileID: 572809902}
+  timerText: {fileID: 1111512303}
+  timeLimit: 20
   spawnPoints:
   - {fileID: 1187937946}
   - {fileID: 103743497}
@@ -16072,7 +16075,6 @@ MonoBehaviour:
   spawnCount: 5
   sizeToUpOffsetFactor: 0.25
   baseUpOffset: 6
-  completeDelay: 0.8
 --- !u!1 &988696801
 GameObject:
   m_ObjectHideFlags: 0

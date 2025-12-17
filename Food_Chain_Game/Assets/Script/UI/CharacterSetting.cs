@@ -29,5 +29,5 @@ public class CharacterSetting : MonoBehaviour
         localRoomPlayer.CmdSetColor(newIndex);
         playerImg.color = PlayerColorPalette.GetByIndex(newIndex).Color;
         RoomSessionData.ColorIndex = newIndex;
-    }
+    }   
 }

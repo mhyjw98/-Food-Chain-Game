@@ -31,7 +31,7 @@ public class AudioManager : MonoBehaviour
     bool isMuteBgmSound;
     bool isMuteEffectSound;
     bool isMuteUiSound;
-    public enum EffectSfx { getItem, hitEnemy, playerAttack }
+    public enum EffectSfx { fishBite, fishPull, fishSuccess, fishFail }
     public enum UISfx { uiList, dungeonList, characterInfo }
 
     const string KEY_MUTE_TOTAL = "MuteMaster";

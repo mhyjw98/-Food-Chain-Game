@@ -10,8 +10,8 @@ using static BaseMission;
 using static CharacterData;
 using static MissionSelector;
 
-public enum AnimalType { Lion, Crocodile, Eagle, Hyena, Snake, Rabbit, Plover, Otter, Mouse, Mallard, Deer, Crow, Chameleon, None }
-public enum PredatorType { Prey, Hyena, Eagle, Crocodile, Lion, Snake }
+public enum AnimalType { Wolf, Crocodile, Hawk, Hyena, Scorpion, Crow, Plover, Squirrel, Badger, Ostrich, Zebra, Skunk, Fox, None }
+public enum PredatorType { Prey, Hyena, Hawk, Crocodile, Wolf, Scorpion }
 public class GamePlayer : NetworkBehaviour
 {
     [SyncVar] public string characterName;
@@ -225,7 +225,7 @@ public class GamePlayer : NetworkBehaviour
         if (!isAlive || hasAttacked) return;
         if (GameMamager.Instance == null) return;
         if (!GameMamager.Instance.IsNightPhase) return;
-        if (animalType == AnimalType.Snake) return;
+        if (animalType == AnimalType.Scorpion) return;
         if (!isPredator) return;
 
         Debug.Log($"[CmdAttack] 공격 로직 호출");
@@ -266,7 +266,7 @@ public class GamePlayer : NetworkBehaviour
                 Debug.LogError("[CmdAttack] GamePlayer가 null");
         }
 
-        if (target.predatorType == PredatorType.Snake)
+        if (target.predatorType == PredatorType.Scorpion)
         {
             isAlive = false;
             return;
@@ -373,9 +373,9 @@ public class GamePlayer : NetworkBehaviour
     {
         switch (characterName)
         {
-            case "Lion":
-                animalType = AnimalType.Lion;
-                predatorType = PredatorType.Lion;
+            case "Wolf":
+                animalType = AnimalType.Wolf;
+                predatorType = PredatorType.Wolf;
                 isPredator = true;
                 isFly = false;
                 canPredict = false;
@@ -391,9 +391,9 @@ public class GamePlayer : NetworkBehaviour
                 canScan = false;
                 isDisguise = false;
                 break;
-            case "Eagle":
-                animalType = AnimalType.Eagle;
-                predatorType = PredatorType.Eagle;
+            case "Hawk":
+                animalType = AnimalType.Hawk;
+                predatorType = PredatorType.Hawk;
                 isPredator = true;
                 isFly = true;
                 canPredict = false;
@@ -409,17 +409,17 @@ public class GamePlayer : NetworkBehaviour
                 canScan = false;
                 isDisguise = false;
                 break;
-            case "Snake":
-                animalType = AnimalType.Snake;
-                predatorType = PredatorType.Snake;
+            case "Scorpion":
+                animalType = AnimalType.Scorpion;
+                predatorType = PredatorType.Scorpion;
                 isPredator = false;
                 isFly = false;
                 canPredict = false;
                 canScan = false;
                 isDisguise = false;
                 break;
-            case "Deer":
-                animalType = AnimalType.Deer;
+            case "Zebra":
+                animalType = AnimalType.Zebra;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
@@ -427,8 +427,8 @@ public class GamePlayer : NetworkBehaviour
                 canScan = false;
                 isDisguise = false;
                 break;
-            case "Otter":
-                animalType = AnimalType.Otter;
+            case "Badger":
+                animalType = AnimalType.Badger;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
@@ -436,8 +436,8 @@ public class GamePlayer : NetworkBehaviour
                 canScan = false;
                 isDisguise = false;
                 break;
-            case "Rabbit":
-                animalType = AnimalType.Rabbit;
+            case "Squirrel":
+                animalType = AnimalType.Squirrel;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
@@ -445,8 +445,8 @@ public class GamePlayer : NetworkBehaviour
                 canScan = false;
                 isDisguise = false;
                 break;
-            case "Mouse":
-                animalType = AnimalType.Mouse;
+            case "Fox":
+                animalType = AnimalType.Fox;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
@@ -455,8 +455,8 @@ public class GamePlayer : NetworkBehaviour
                 isDisguise = false;
                 maxScanCount = 2;
                 break;
-            case "Mallard":
-                animalType = AnimalType.Mallard;
+            case "Ostrich":
+                animalType = AnimalType.Ostrich;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = true;
@@ -474,8 +474,8 @@ public class GamePlayer : NetworkBehaviour
                 isDisguise = false;
                 maxScanCount = 2;
                 break;
-            case "Chameleon":
-                animalType = AnimalType.Chameleon;
+            case "Skunk":
+                animalType = AnimalType.Skunk;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;

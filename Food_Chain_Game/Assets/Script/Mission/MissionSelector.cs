@@ -7,85 +7,90 @@ public class MissionSelector : MonoBehaviour
 {
     public enum MissionCategory
     {
-        Grass, Seed, Fruit, Insect, Fish, Branch, Shellfish, Crop, Meat
+        Grass, Seed, Fruit, Insect, Fish, Branch, Shellfish, Crops, Meat
     }
     private static readonly Dictionary<AnimalType, MissionCategory[]> _missionPool =
         new Dictionary<AnimalType, MissionCategory[]>
    
         {
-            { AnimalType.Rabbit, new[]
+            { AnimalType.Squirrel, new[] // ´Ù¶÷Áã
             {
-                MissionCategory.Grass,
-                MissionCategory.Crop,
-                MissionCategory.Seed,
-            }
-        },
-
-        { AnimalType.Mallard, new[]
-            {
-                MissionCategory.Grass,
+                MissionCategory.Grass,                
                 MissionCategory.Seed,
                 MissionCategory.Fruit,
-                MissionCategory.Insect,
-                MissionCategory.Fish,
+                MissionCategory.Insect
             }
         },
 
-        { AnimalType.Otter, new[]
+        { AnimalType.Ostrich, new[] // Å¸Á¶
             {
-                MissionCategory.Fish,
-                MissionCategory.Shellfish,
-                MissionCategory.Insect,
-            }
-        },
-
-        { AnimalType.Deer, new[]
-            {
-                MissionCategory.Grass,
                 MissionCategory.Seed,
+                MissionCategory.Branch,
+                MissionCategory.Crops,
+                MissionCategory.Insect
+            }
+        },
+
+        { AnimalType.Badger, new[] // ¿À¼Ò¸®
+            {
                 MissionCategory.Fruit,
                 MissionCategory.Branch,
-            }
-        },
-
-        { AnimalType.Mouse, new[]
-            {
-                MissionCategory.Meat,
-                MissionCategory.Seed,
-                MissionCategory.Fruit,
-            }
-        },
-
-        { AnimalType.Plover, new[]
-            {
-                MissionCategory.Meat,
-                MissionCategory.Insect,
-                MissionCategory.Seed,
-            }
-        },
-
-        { AnimalType.Snake, new[]
-            {
                 MissionCategory.Fish,
                 MissionCategory.Insect,
             }
         },
 
-        { AnimalType.Crow, new[]
+        { AnimalType.Zebra, new[] // ¾ó·è¸»
             {
-                MissionCategory.Insect,
+                MissionCategory.Grass,
+                MissionCategory.Branch,
                 MissionCategory.Fruit,
-                MissionCategory.Crop,
+                MissionCategory.Crops,
             }
         },
 
-        { AnimalType.Chameleon, new[]
+        { AnimalType.Skunk, new[] // ½ºÄÈÅ©
             {
                 MissionCategory.Insect,
                 MissionCategory.Fruit,
                 MissionCategory.Grass,
+                MissionCategory.Seed,
+                MissionCategory.Fish,
             }
         },
+        { AnimalType.Crow, new[] // ±î¸¶±Í
+            {
+                MissionCategory.Insect,
+                MissionCategory.Fruit,
+                MissionCategory.Crops,
+            }
+        },
+
+        { AnimalType.Plover, new[] // ¾Ç¾î»õ
+            {
+                MissionCategory.Meat,
+                MissionCategory.Insect,
+                MissionCategory.Seed,
+            }
+        },
+
+        { AnimalType.Scorpion, new[] // Àü°¥
+            {
+                MissionCategory.Fish,
+                MissionCategory.Insect,
+                MissionCategory.Crops
+            }
+        },
+
+        { AnimalType.Fox, new[]
+            {
+                MissionCategory.Insect,
+                MissionCategory.Fruit,
+                MissionCategory.Crops,
+                MissionCategory.Meat,
+                MissionCategory.Fish
+            }
+        },       
     };
 
     public static MissionCategory[] GetCategoriesForAnimal(AnimalType animal)
@@ -175,8 +180,8 @@ public static class MissionMeta
         { MissionType.Wood_B, MissionCategory.Branch },
 
         // ÀÛ¹°
-        { MissionType.Crops_A, MissionCategory.Crop },
-        { MissionType.Crops_B, MissionCategory.Crop },
+        { MissionType.Crops_A, MissionCategory.Crops },
+        { MissionType.Crops_B, MissionCategory.Crops },
 
         // °í±â
         { MissionType.Meat_A, MissionCategory.Meat },

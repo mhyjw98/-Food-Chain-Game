@@ -8,18 +8,23 @@ public static class WinCondutionFactory
 {
     private static readonly Dictionary<AnimalType, IWinCondition> conditions = new()
     {
-        { AnimalType.Lion, new LionWinCondition() },
+        // 포식자
+        { AnimalType.Wolf, new WolfWinCondition() },
         { AnimalType.Crocodile, new CrocodileWinCondition() },
-        { AnimalType.Mouse, new MouseWinCondition() },
-        { AnimalType.Rabbit, new RabbitWinCondition() },
-        { AnimalType.Deer, new DeerWinCondition() },
-        { AnimalType.Otter, new OtterWinCondition() },
-        { AnimalType.Snake, new SnakeWinCondition() },
-        { AnimalType.Mallard, new MallardWinCondition() },
-        { AnimalType.Eagle, new EagleWinCondition() },
-        { AnimalType.Plover, new PloverWinCondition() },
-        { AnimalType.Chameleon, new ChameleonWinCondition() },
+        { AnimalType.Hawk, new HawkWinCondition() },
         { AnimalType.Hyena, new HyenaWinCondition() },
+        // 피식자
+        { AnimalType.Squirrel, new SquirrelWinCondition() },
+        { AnimalType.Zebra, new ZebraWinCondition() },
+        { AnimalType.Badger, new BadgerWinCondition() },        
+        { AnimalType.Skunk, new SkunkWinCondition() },
+        { AnimalType.Ostrich, new OstrichWinCondition() },
+        // 조력자
+        { AnimalType.Plover, new PloverWinCondition() },
+        { AnimalType.Crow, new CrowWinCondition() },
+        // 중립
+        { AnimalType.Scorpion, new ScorpionWinCondition() },
+        { AnimalType.Fox, new FoxWinCondition() },
     };
 
     public static IWinCondition GetCondition(AnimalType characterType)

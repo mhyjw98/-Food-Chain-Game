@@ -89,17 +89,17 @@ public static class AnimalNameMap
 {
     public static readonly Dictionary<AnimalType, string> AnimalTypeToName = new()
     {
-        { AnimalType.Lion, "»çÀÚ" },
+        { AnimalType.Wolf, "´Á´ë" },
         { AnimalType.Crocodile, "¾Ç¾î" },
-        { AnimalType.Mouse, "Áã" },
-        { AnimalType.Rabbit, "Åä³¢" },
-        { AnimalType.Deer, "»ç½¿" },
-        { AnimalType.Otter, "¼ö´Þ" },
-        { AnimalType.Snake, "¹ì" },
-        { AnimalType.Mallard, "Ã»µÕ¿À¸®" },
-        { AnimalType.Eagle, "µ¶¼ö¸®" },
+        { AnimalType.Fox, "¿©¿ì" },
+        { AnimalType.Squirrel, "´Ù¶÷Áã" },
+        { AnimalType.Zebra, "¾ó·è¸»" },
+        { AnimalType.Badger, "¿À¼Ò¸®" },
+        { AnimalType.Scorpion, "Àü°¥" },
+        { AnimalType.Ostrich, "Å¸Á¶" },
+        { AnimalType.Hawk, "¸Å" },
         { AnimalType.Plover, "¾Ç¾î»õ" },
-        { AnimalType.Chameleon, "Ä«¸á·¹¿Â" },
+        { AnimalType.Skunk, "½ºÄÈÅ©" },
         { AnimalType.Crow, "±î¸¶±Í" },
         { AnimalType.Hyena, "ÇÏÀÌ¿¡³ª" },
         { AnimalType.None, "???" }

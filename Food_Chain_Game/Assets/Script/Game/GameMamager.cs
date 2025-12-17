@@ -35,9 +35,9 @@ public class GameMamager : NetworkBehaviour
 
     public static Dictionary<AnimalType, int> MaxHungryRounds = new()
     {
-        { AnimalType.Lion, 1 },
+        { AnimalType.Wolf, 1 },
         { AnimalType.Crocodile, 2 },
-        {AnimalType.Eagle, 2 },
+        {AnimalType.Hawk, 2 },
         { AnimalType.Hyena, 3 }
     };
     void Awake()

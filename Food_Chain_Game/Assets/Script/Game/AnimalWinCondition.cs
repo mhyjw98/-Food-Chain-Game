@@ -6,7 +6,7 @@ using static CharacterData;
 
 public class AnimalWinCondition : MonoBehaviour
 {
-    public class LionWinCondition : IWinCondition
+    public class WolfWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
@@ -20,7 +20,7 @@ public class AnimalWinCondition : MonoBehaviour
             return player.isAlive;
         }
     }
-    public class EagleWinCondition : IWinCondition
+    public class HawkWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
@@ -33,7 +33,7 @@ public class AnimalWinCondition : MonoBehaviour
         {
             foreach (var p in allPlayers)
             {
-                if (p.animalType == AnimalType.Lion)
+                if (p.animalType == AnimalType.Wolf)
                 {
                     return !p.isAlive; // »çÀÚ°¡ Á×À¸¸é ½Â¸®
                 }
@@ -41,35 +41,35 @@ public class AnimalWinCondition : MonoBehaviour
             return false;
         }
     }
-    public class MallardWinCondition : IWinCondition
+    public class OstrichWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class RabbitWinCondition : IWinCondition
+    public class SquirrelWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class DeerWinCondition : IWinCondition
+    public class ZebraWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class OtterWinCondition : IWinCondition
+    public class BadgerWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class SnakeWinCondition : IWinCondition
+    public class ScorpionWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
@@ -78,15 +78,15 @@ public class AnimalWinCondition : MonoBehaviour
             return deadCount >= 8;
         }
     }
-    public class MouseWinCondition : IWinCondition
+    public class CrowWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {
             foreach (var p in allPlayers)
             {
-                if (p.animalType == AnimalType.Lion)
+                if (p.animalType == AnimalType.Wolf)
                 {
-                    return p.isAlive; // »çÀÚÀÇ ½Â¸®
+                    return p.isAlive; // ´Á´ëÀÇ ½Â¸®
                 }
             }
             return false;
@@ -106,7 +106,15 @@ public class AnimalWinCondition : MonoBehaviour
             return false;
         }
     }
-    public class ChameleonWinCondition : IWinCondition
+    public class SkunkWinCondition : IWinCondition
+    {
+        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        {
+            return player.isAlive;
+        }
+    }
+
+    public class FoxWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
         {

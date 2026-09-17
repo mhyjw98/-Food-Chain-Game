@@ -34,7 +34,7 @@ public class KeySetting : MonoBehaviour
 
         if (codeKey != -1)
         {
-            SettingManager.isKeySetting = true;
+            SettingManager.isKeySetting = true;           
             keySettingBtn[codeKey].GetComponent<Button>().interactable = false;
             if (keyEvent.isKey)
             {

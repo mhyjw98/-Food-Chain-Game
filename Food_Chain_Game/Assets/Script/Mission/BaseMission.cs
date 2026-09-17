@@ -13,7 +13,9 @@ public enum MissionType
     Crops_A, Crops_B,    
     Insect_A, Insect_B,
     Fish_A, Fish_B,
-    Meat_A, Meat_B
+    Meat_A, Meat_B,
+    Scorpion_Poison,
+    BadgerA, BadgerB, BadgerC, BadgerD, BadgerE
 }
 public enum MissionStatus
 {
@@ -22,8 +24,7 @@ public enum MissionStatus
     InProgress,
     Completed 
 }
-[Serializable]
-public class MissionSlot
+public struct MissionSlot
 {
     public MissionType Type;
     public MissionStatus Status;
@@ -52,7 +53,7 @@ public abstract class BaseMission : MonoBehaviour
         End();
     }
 
-    protected void Fail()
+    public virtual void Fail()
     {
         OnMissionFailed?.Invoke(this);
         End();

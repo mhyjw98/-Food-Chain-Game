@@ -17,7 +17,7 @@ public class SpriteSorter : MonoBehaviour
         float objDist = Mathf.Abs(back.position.y - obj.transform.position.y);
         float totalDist = Mathf.Abs(back.position.y - front.position.y);
 
-        return (int)(Mathf.Lerp(1, System.Int16.MaxValue, objDist / totalDist));
+        return (int)(Mathf.Lerp(1, 10000, objDist / totalDist));
     }
 
     private void InitObject()

@@ -7,107 +7,73 @@ using UnityEngine.SceneManagement;
 public class SettingManager : MonoBehaviour
 {
     [SerializeField] private GameObject settingUI;
-    [SerializeField] private GameObject checkUI;
     [SerializeField] private TitleUI titleUI;
 
     [SerializeField] private ResolutionSetting resoultion;
     [SerializeField] private KeySetting keySet;
     [SerializeField] private SoundSetting soundSet;
+    [SerializeField] private VoiceSetting voiceSet;
 
     public static bool isKeySetting;
 
     private void Update()
     {
-        if(Input.GetKeyDown(KeyCode.Escape))
+        if (!Input.GetKeyDown(KeyCode.Escape))
+            return;
+
+        if (isKeySetting)
+            return;
+
+        if (settingUI != null && settingUI.activeSelf)
         {
-            if (checkUI.activeSelf == true)
-                checkUI.SetActive(false);
-            else if (settingUI.activeSelf == true)
-                OnClickCancleAfterCheck();
-            else if (titleUI == null)
-                ActiveSettingUI();
+            CloseSettingUI();
         }
-    }
-    public void OnClickApply()
-    {
-        resoultion.SaveResolution();
-        keySet.SaveKeySetting();
-        soundSet.SaveSoundSetting();
-    }
-    public void OnClickCompleteSet()
-    {
-        resoultion.SaveResolution();
-        keySet.SaveKeySetting();
-        soundSet.SaveSoundSetting();
-
-        DeActiveSettingUI();
-    }
-    public void OnClickResetDefault()
-    {
-        keySet.ResetKeySetting();
-        soundSet.ResetSoundSetting();
-    }
-    public void OnClickCancle()
-    {        
-        resoultion.RevertToSnapshot();
-        keySet.RevertToSnapshot();
-        soundSet.RevertToSnapshot();
-
-        DeActiveSettingUI();
-        checkUI.SetActive(false);
-    }
-
-    public void OnClickCancleAfterCheck()
-    {
-        bool isChange = resoultion.CheckDirty() || keySet.CheckDirty() || soundSet.CheckDirty();
-
-        if (isChange)
+        else if (titleUI == null)
         {
-            ActiveCheckUI();
+            ActiveSettingUI();
         }
-        else
-        {
-            DeActiveSettingUI();
-        }
+
     }
     public void ActiveSettingUI()
     {
         settingUI.SetActive(true);
-        isKeySetting = true;
+        UIManager.Instance.Push(UIPriority.Modal);
+    }
+    public void CloseSettingUI()
+    {
+        SaveAllToPrefs();
+        DeActiveSettingUI();
     }
 
     public void DeActiveSettingUI()
     {
         settingUI.SetActive(false);
-        isKeySetting = false;
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
 
-    public void ActiveCheckUI()
+    private void SaveAllToPrefs()
     {
-        checkUI.SetActive(true);
+        resoultion.SaveResolution();
+        keySet.SaveKeySetting();
+        soundSet.SaveSoundSetting();
+        voiceSet.SaveVoiceSetting();
     }
-    public void DeActiveCheckUI()
-    {
-        checkUI.SetActive(false);
-    }
-
     public void OnClickReturnToTitle()
     {
+        SaveAllToPrefs();
+
         var rm = RoomManager.singleton as RoomManager;
 
-        if (rm != null)
-        {
-            rm.CleanupAndLoadTitle(showError: false, errorMessage: null);
-        }
-        else
-        {
-            Debug.LogWarning("[SettingManager] RoomManager Null 직접 Title씬으로 이동");
-            SceneManager.LoadScene("Title");
-        }
+        if (rm != null) rm.CleanupAndLoadTitle(showError: false, errorMessage: null);       
+        else SceneManager.LoadScene("Title");
+        
     }
 
     public void QuitGame()
     {
+        SaveAllToPrefs();
+        VoiceManager.Instance?.LeaveAndLogout();
+
         #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
         #else

@@ -44,16 +44,13 @@ public class AudioManager : MonoBehaviour
     const string KEY_VOL_UI = "UiVolume";
     private void Awake()
     {
-        if (instance == null)
-        {
-            instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
+        if (instance != null && instance != this)
         {
             Destroy(gameObject);
-            return;
+            return;            
         }
+        instance = this;
+        DontDestroyOnLoad(gameObject);
 
         CheckMuteSound();
         Init();

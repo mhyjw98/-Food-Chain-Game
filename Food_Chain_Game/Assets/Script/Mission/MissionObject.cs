@@ -37,15 +37,6 @@ public class MissionObject : MonoBehaviour
         if (MissionRegistry.Instance != null)
             MissionRegistry.Instance.Register(this);
     }
-    private void Update()
-    {
-        if (_localPlayerInRange == null) return;
-
-        if (Input.GetKeyDown(KeySetting.keys[KeyAction.INTERACT]))
-        {
-            TryInteract();
-        }
-    }
 
     public void SetEnabled(bool enabled)
     {
@@ -74,7 +65,7 @@ public class MissionObject : MonoBehaviour
         if (!player.isLocalPlayer) return;
 
         _localPlayerInRange = player;
-        SetHighlight(true);
+        SetHighlight(player.CanStartMissionType(missionType));
     }
 
     public void OnPlayerExit(GamePlayer player)

@@ -1,18 +1,11 @@
 ﻿using Mirror;
-using Mirror.Examples.Chat;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using TMPro;
-using Unity.VisualScripting;
+using System.Threading;
 using UnityEngine;
-using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
-using UnityEngine.TextCore.Text;
-using UnityEngine.UI;
-using static Mirror.BouncyCastle.Math.EC.ECCurve;
-using static Mirror.NetworkRuntimeProfiler;
+
 
 public class RoomManager : NetworkRoomManager
 {
@@ -21,12 +14,12 @@ public class RoomManager : NetworkRoomManager
     public RoomHost roomHost;
     public GameObject chatManagerPrefab;
 
-    public GameObject gpPrefab;  
+    public GameObject gpPrefab; 
     private List<string> GetCharacterPool(int playerCount)
     {
         List<string> baseCharacters = new()
     {
-        "Skunk", "Crow", "Scorpion", "Wolf", "Crocodile", "Ostrich", "Squirrel", "Zebra", "Badger", "Fox"
+        "Ostrich", "Zebra", "Wolf", "Badger", "Scorpion", "Crow", "Skunk", "Squirrel", "Crocodile", "Fox"
     };
 
         List<string> additionalCharacters = new()
@@ -51,6 +44,19 @@ public class RoomManager : NetworkRoomManager
     public List<RoomPlayer> roomPlayers = new();
 
     private bool _userRequestedQuit = false;
+    bool _joiningGameplayVoice;
+    Coroutine _voiceJoinCo;
+    Coroutine _voiceJoinGameplayCo;
+    void OnEnable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
         base.OnServerAddPlayer(conn);        
@@ -166,6 +172,8 @@ public class RoomManager : NetworkRoomManager
         if (_isCleaningUp) return;
         _isCleaningUp = true;
 
+        VoiceManager.Instance?.LeaveAllChannels();
+
         if (NetworkServer.active && NetworkClient.isConnected)
         {
             Debug.Log("[RoomManager] Cleanup: StopHost()");
@@ -182,8 +190,6 @@ public class RoomManager : NetworkRoomManager
             StopServer();
         }
 
-        PlayerMove.isEvent = false;
-        PlayerMove.isStop = false;
         RoomSessionData.Reset();
 
         if (showError && NetworkErrorManager.Instance != null && !string.IsNullOrEmpty(errorMessage))
@@ -331,5 +337,97 @@ public class RoomManager : NetworkRoomManager
         RoomSessionData.PreviousHostId = newHost.userId;
 
         Debug.Log($"[RoomManager] 호스트 재지정 완료: {newHost.userId} (connId={newHost.connectionToClient?.connectionId})");
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name == "Title")
+        {
+            VoiceManager.Instance?.LeaveAllChannels();
+            VoiceManager.Instance?.RefreshDevicesForUI();
+            return;
+        }
+
+        if (scene.name == "GameRoom")
+        {
+            if (_voiceJoinCo != null) StopCoroutine(_voiceJoinCo);
+            _voiceJoinCo = StartCoroutine(CoJoinLobbyVoiceWhenReady());
+            return;
+        }
+        if (scene.name == "GamePlay")
+        {
+            if (_voiceJoinGameplayCo != null) StopCoroutine(_voiceJoinGameplayCo);
+            _voiceJoinGameplayCo = StartCoroutine(CoJoinGameplayVoiceWhenReady());
+            return;
+        }
+    }
+
+    IEnumerator CoJoinLobbyVoiceWhenReady()
+    {
+        while (!NetworkClient.isConnected) yield return null;
+        while (NetworkClient.localPlayer == null) yield return null;
+        while (string.IsNullOrEmpty(RoomSessionData.CurrentRoomCode)) yield return null;
+
+        string roomCode = RoomSessionData.CurrentRoomCode;
+
+        var rp = NetworkClient.localPlayer.GetComponent<RoomPlayer>();
+
+        float t = 0f;
+        while (rp != null && string.IsNullOrWhiteSpace(rp.nickname) && t < 3f)
+        {
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        string nickname = (rp != null && !string.IsNullOrWhiteSpace(rp.nickname)) ? rp.nickname : "Player";
+        string displayName = VoiceManager.BuildVivoxDisplayName(nickname, rp != null ? rp.netId : 0);
+
+        if (VoiceManager.Instance == null)
+        {
+            var go = new GameObject("VoiceManager");
+            go.AddComponent<VoiceManager>();
+        }
+
+        //VoiceManager.Instance.JoinLobby(roomCode, displayName);
+        VoiceManager.Instance.EnterGameplay(roomCode, displayName, isAlive: true);
+    }
+
+    IEnumerator CoJoinGameplayVoiceWhenReady()
+    {
+        if (_joiningGameplayVoice) yield break;
+        _joiningGameplayVoice = true;
+
+        try
+        {
+            while (!NetworkClient.isConnected) yield return null;
+            while (NetworkClient.localPlayer == null) yield return null;
+            while (string.IsNullOrEmpty(RoomSessionData.CurrentRoomCode)) yield return null;
+
+            string roomCode = RoomSessionData.CurrentRoomCode;
+
+            var gp = NetworkClient.localPlayer.GetComponent<GamePlayer>();
+
+            float t = 0f;
+            while (gp != null && string.IsNullOrWhiteSpace(gp.nickname) && t < 3f)
+            {
+                t += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            string nickname = (gp != null && !string.IsNullOrWhiteSpace(gp.nickname)) ? gp.nickname : "Player";
+            string displayName = VoiceManager.BuildVivoxDisplayName(nickname, gp != null ? gp.netId : 0);
+
+            if (VoiceManager.Instance == null)
+            {
+                Debug.LogError("[RoomManager] VoiceManager.Instance is null. Make sure VoiceManager exists in Start scene and is DontDestroyOnLoad.");
+                yield break;
+            }
+
+            VoiceManager.Instance.EnterGameplay(roomCode, displayName, isAlive: true);
+        }
+        finally
+        {
+            _joiningGameplayVoice = false;
+        }       
     }
 }

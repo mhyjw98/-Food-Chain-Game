@@ -2,8 +2,12 @@ using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Schema;
 using TMPro;
+using Unity.VisualScripting;
+using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
 public enum RoundTime { None, Disguise, Exploration, Day, Night, End }
@@ -11,9 +15,12 @@ public class GameMamager : NetworkBehaviour
 {
     public static GameMamager Instance;
 
+    [SerializeField] private FOVMaskController2D fov;
+
     [SyncVar] public bool isRoundActive;
     [SyncVar] public int currentRound = 0;
     [SyncVar(hook = nameof(OnRoundTimeChanged))] public RoundTime currentTime = RoundTime.None;
+    [SyncVar(hook = nameof(OnTimerChanged))] public float timer;
     [SyncVar] public int predatorCount = 0;
     [SyncVar] public int deadPredatorCount = 0;
     public bool IsExplorationPhase => currentTime == RoundTime.Exploration;
@@ -25,13 +32,16 @@ public class GameMamager : NetworkBehaviour
 
     public int maxRounds = 4;
 
-    private List<GamePlayer> players;
-    private float disguiseTime = 10f;
-    private float explorationRoundTime = 5f;
-    private float dayRoundTime = 180f;
-    private float nightRoundTime = 200f;    
+    public static event System.Action<RoundTime> RoundTimeChanged;
+    public static event System.Action<float> TimerChanged;
 
-    [SyncVar]private float timer = 5f;
+    public readonly SyncList<GamePlayer> players = new SyncList<GamePlayer>();
+    private Coroutine roundFlowCo;
+
+    //private float disguiseTime = 10f;
+    //private float explorationRoundTime = 5f;
+    public float dayRoundTime = 20f;
+    private float nightRoundTime = 20f;    
 
     public static Dictionary<AnimalType, int> MaxHungryRounds = new()
     {
@@ -56,35 +66,67 @@ public class GameMamager : NetworkBehaviour
         if (isRoundActive)
             timerText.text = $"{Mathf.CeilToInt(timer)}초";
     }
-    
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        players.Callback += OnPlayersChanged;
+    }
     public override void OnStartServer()
     {
-        StartCoroutine(RoundFlow());
+        roundFlowCo = StartCoroutine(RoundFlow());
+    }
+    private void OnPlayersChanged(SyncList<GamePlayer>.Operation op, int index, GamePlayer oldItem, GamePlayer newItem)
+    {
+        TryBuildPlayerSlots();
     }
 
-    [Server]
-    IEnumerator ForceReturnToHome()
+    private void TryBuildPlayerSlots()
     {
-        RpcBlockMap();
-        foreach (var col in zoneColliders)
-            col.enabled = false;
+        if (PlayerSlotUI.Instance == null)
+            return;
 
-        yield return new WaitForSeconds(1.5f);
+        var list = new List<GamePlayer>(players.Count);
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i] != null)
+                list.Add(players[i]);
+        }
 
-        foreach (var col in zoneColliders)
-            col.enabled = true;
+        PlayerSlotUI.Instance.CreateSlots(list);
+    }
+    void InitPlayers()
+    {
+        predatorCount = 0;
+        deadPredatorCount = 0;
 
-        yield return new WaitForSeconds(1.5f);
+        players.Clear();
+        foreach (var gp in FindObjectsOfType<GamePlayer>())
+        {
+            players.Add(gp);           
+            if (gp.isPredator)
+                predatorCount++;
+        }           
+    }
 
-        foreach (GamePlayer player in FindObjectsOfType<GamePlayer>())
-        {           
-            if (player.currentZone != player.homeZone && player.isReturn)
-            {               
-                Vector3 homePos = SpawnManager.Instance.GetZonePosition(player.homeZone);
-                player.transform.position = homePos;
-                player.currentZone = player.homeZone;
-            }           
-        }        
+    void PlayerAbilitySet()
+    {
+        GamePlayer ostrich = null;
+        GamePlayer zebra = null;
+
+        foreach (var p in players)
+        {
+            if (p.animalType == AnimalType.Ostrich) ostrich = p;
+            else if (p.animalType == AnimalType.Zebra) zebra = p;
+        }
+
+        if (ostrich == null || zebra == null) return;
+
+        var oa = ostrich.GetComponent<PreySymbiosisAbility>();
+        var za = zebra.GetComponent<PreySymbiosisAbility>();
+        if (oa == null || za == null) return;
+
+        oa.ServerSetPartner(zebra.netId);
+        za.ServerSetPartner(ostrich.netId);     
     }
     [ClientRpc]
     void SetGameUI()
@@ -103,10 +145,47 @@ public class GameMamager : NetworkBehaviour
             yield break;
         }          
         if (!player.isFly)
-            GamePlayUI.Instance.ActiveSkyBlock();
+            GamePlayUI.Instance.ActiveSkyBlock();      
 
+        fov.InitLocalPlayer(player.transform);
+        TryBuildPlayerSlots();
+        GamePlayUI.Instance.InitLocalPlayer(player);
         GamePlayUI.Instance.DeActiveChatUI();
-        GamePlayUI.Instance.DeActivePlayerSlotUI(); 
+        GamePlayUI.Instance.DeActivePlayerSlotUI();
+        GamePlayUI.Instance.SetDisguiseOptions();
+        GamePlayUI.Instance.SetPredictOptions();
+    }
+    [ClientRpc]
+    private void RpcOnDayNightChanged(bool isNight)
+    {
+        var local = NetworkClient.localPlayer;
+        if (local == null) return;
+
+        var gamePlayer = local.GetComponent<GamePlayer>();
+        if (gamePlayer == null || !gamePlayer.isAlive) return;
+
+        float baseVision = GetVisionForAnimal(gamePlayer, isNight);       
+
+        var sym = gamePlayer.GetComponent<PreySymbiosisAbility>();
+        if (sym != null && sym.isActiveAndEnabled && sym.partnerNetId != 0)
+        {
+            sym.ClientOnDayNightVisionUpdated(isNight, baseVision);
+            return;
+        }
+
+        var myVision = gamePlayer.localVision;
+        if (myVision != null)
+            myVision.TransitionToVision(baseVision, isNight);      
+    }
+
+    private float GetVisionForAnimal(GamePlayer player, bool isNight)
+    {
+        if (!isNight) return 11f;
+
+        if(player.isPredator) return 6f;
+
+        if (player.animalType == AnimalType.Squirrel) return 11f;
+        else return 8f;
     }
     [ClientRpc]
     void RpcBlockMap()
@@ -131,16 +210,6 @@ public class GameMamager : NetworkBehaviour
         textUIGroup.SetActive(false);
     }
     [ClientRpc]
-    void SetDisguiseUI()
-    {
-        GamePlayUI.Instance.SetDisguiseOptions();
-    }
-    [ClientRpc]
-    void SetPredictUI()
-    {
-        GamePlayUI.Instance.SetPredictOptions();
-    }
-    [ClientRpc]
     void RPCShowDisguiseUI()
     {
         GamePlayUI.Instance.ShowDisguiseUI();
@@ -160,67 +229,51 @@ public class GameMamager : NetworkBehaviour
     {
         // 시작 애니메이션
         yield return new WaitForSeconds(2.5f);
-        SetGameUI();
-        players = new List<GamePlayer>(FindObjectsOfType<GamePlayer>());
-        SetDisguiseUI();
-        SetPredictUI();                
+        InitPlayers();
+        PlayerAbilitySet();
+        SetGameUI();                        
         SetMissionsToAllPlayers();
         DeleteRoomPlayer();
-        yield return new WaitForSeconds(1f);
-        RpcSetupPlayerList(players.Select(p => p.netId).ToArray());
-        yield return new WaitForSeconds(0.5f);       
-        GamePlayUI.RegisterInputField();
-        yield return new WaitForSeconds(1f);
+        yield return new WaitForSeconds(2.5f);
 
-        // 위장 시간
+        ActiveTextGroup();
         isRoundActive = true;
-        currentTime = RoundTime.Disguise;
-        timer = disguiseTime;
-        RPCShowDisguiseUI();             
-        yield return new WaitForSeconds(disguiseTime);
+        // 위장 시간
+        //currentTime = RoundTime.Disguise;
+        //timer = disguiseTime;
+        //RPCShowDisguiseUI();             
+        //yield return new WaitForSeconds(disguiseTime);
 
         // 탐색시간        
-        currentTime = RoundTime.Exploration;
-        timer = explorationRoundTime;
-        RPCShowPredictUI();
-        yield return new WaitForSeconds(explorationRoundTime);
-        RPCCheckPredict();
+        //currentTime = RoundTime.Exploration;
+        //timer = explorationRoundTime;
+        //RPCShowPredictUI();
+        //yield return new WaitForSeconds(explorationRoundTime);
+        //RPCCheckPredict();
 
         // 라운드 시작
-        for (int i = 1; i <= 4; i++)
+        for (int day = 1; day <= maxRounds; day++)
         {
-            currentRound = i;
+            currentRound = day;
 
             // 낮 시간
             currentTime = RoundTime.Day;
             timer = dayRoundTime;
+            if(day != 1) RpcOnDayNightChanged(IsNightPhase);
             yield return new WaitForSeconds(dayRoundTime);
-
-            // 밤 되기 전 대기시간
-            isRoundActive = false;
-            DeActiveTextGroup();           
-            yield return ForceReturnToHome(); // 대기시간
-            isRoundActive = true;
-            ActiveTextGroup();
             
-
             // 밤 시간
             currentTime = RoundTime.Night;
             timer = nightRoundTime;
+            RpcBlockMap();
+            RpcOnDayNightChanged(IsNightPhase);
             yield return new WaitForSeconds(nightRoundTime);
 
-            // 낮 되기 전 대기 시간
-            isRoundActive = false;
-            DeActiveTextGroup();
+            // 체크
+            CheckDay(day);
             CheckPredatorSurvival();
-            EndNight();
-            if(i < 4)
-            {
-                yield return new WaitForSeconds(3f); // 대기시간
-                RpcOpenMap();
-                isRoundActive = true;
-                ActiveTextGroup();
-            }            
+            CheckPreySurvival(day);
+            RpcOpenMap();
         }
 
         isRoundActive = false;
@@ -228,7 +281,7 @@ public class GameMamager : NetworkBehaviour
         currentTime = RoundTime.End;
         timerText.text = "";
 
-        EvaluateGameResult(); // 승패 판단    
+        EvaluateGameResult();  
     }
     void DeleteRoomPlayer()
     {
@@ -244,40 +297,20 @@ public class GameMamager : NetworkBehaviour
         }
     }
     [Server]
-    void EvaluateCrowPredictions(List<GamePlayer> players)
+    void CheckDay(int day)
     {
         foreach (var player in players)
         {
-            if (player.animalType == AnimalType.Crow)
-            {
-                // 예측한 캐릭터가 실제로 승리했는지 체크
-                bool isSuccess = players.Any(p =>
-                    p.animalType == player.predictedWinner && p.isWin);
-
-                player.isWin = isSuccess;              
-            }
-        }
+            var targetAbilities = player.Abilities;
+            for (int i = 0; i < targetAbilities.Length; i++)
+                targetAbilities[i].OnNewDay(day);
+        }        
     }
 
-    [Server]
-    void EndNight()
-    {
-        foreach (GamePlayer player in FindObjectsOfType<GamePlayer>())
-        {
-            if (player.currentZone != player.homeZone)
-            {
-                player.isReturn = true;
-            }
-            else
-            {
-                player.isReturn = false;
-            }
-        }
-    }
     [Server]
     void CheckPredatorSurvival()
     {
-        foreach (var player in FindObjectsOfType<GamePlayer>())
+        foreach (var player in players)
         {
             if (!player.isAlive) continue;
 
@@ -291,7 +324,12 @@ public class GameMamager : NetworkBehaviour
                     if (player.hungryStreak >= maxStreak)
                     {
                         Debug.Log($"{player.characterName}는 {player.hungryStreak}라운드 동안 굶어 사망했습니다.");
-                        player.isAlive = false;
+                        player.Die(new DeathInfo
+                        {
+                            Reason = DeathReason.Hunger,
+                            KillerNetId = 0,
+                            KillerType = AnimalType.None
+                        });
                     }
                 }
                 else
@@ -304,20 +342,76 @@ public class GameMamager : NetworkBehaviour
             }
         }
     }
+    [Server]
+    void CheckPreySurvival(int day)
+    {
+        foreach (var player in players)
+        {
+            if (!player.isAlive) continue;
+            if (player.isPredator) continue;
 
+            int count = 0;
+            foreach(var misson in player.Missions)
+                if(misson.Status == MissionStatus.Completed) count++;
+
+            if(count < day)
+            {
+                player.Die(new DeathInfo
+                {
+                    Reason = DeathReason.MissionFail,
+                    KillerNetId = 0,
+                    KillerType = AnimalType.None
+                });
+                BreakSymbiosisIfAny(player);
+            }                           
+        }
+    }
+    [Server]
+    private void BreakSymbiosisIfAny(GamePlayer dead)
+    {
+        if (dead == null) return;
+
+        var a = dead.GetComponent<PreySymbiosisAbility>();
+        if (a == null) return;
+
+        uint partnerId = a.partnerNetId;
+        if (partnerId == 0) return;
+
+        a.ServerSetPartner(0);
+
+        if (NetworkServer.spawned.TryGetValue(partnerId, out var partnerIdentity) && partnerIdentity != null)
+        {
+            var partnerGp = partnerIdentity.GetComponent<GamePlayer>();
+            if (partnerGp != null)
+            {
+                var b = partnerGp.GetComponent<PreySymbiosisAbility>();
+                if (b != null && b.partnerNetId == dead.netId)
+                    b.ServerSetPartner(0);
+            }
+        }
+    }
     void OnRoundTimeChanged(RoundTime oldVal, RoundTime newVal)
     {
+        RoundTimeChanged?.Invoke(newVal);
         GamePlayUI.Instance.UpdateRoundText(currentRound, newVal);
     }
-
+    void OnTimerChanged(float oldVal, float newVal)
+    {
+        TimerChanged?.Invoke(newVal);
+    }
 
     [Server]
     public void SetMissionsToAllPlayers()
     {
         foreach (var gp in players)
         {
-            var missions = MissionSelector.GetRandomMissions(gp.animalType, 5);
-            gp.TargetSetMissions(gp.connectionToClient, missions);
+            var missionTypes = MissionSelector.GetRandomMissions(gp.animalType, 5);
+
+            gp.Missions.Clear();
+            foreach (var type in missionTypes)
+                gp.Missions.Add(new MissionSlot { Type = type, Status = MissionStatus.NotStarted });
+
+            gp.ActivateAbilitie();
         }
     }
 
@@ -327,10 +421,7 @@ public class GameMamager : NetworkBehaviour
         Debug.Log("게임 종료! 승패 판단 시작");       
 
         foreach (var player in players)
-        {
-            if (player.animalType == AnimalType.Crow)
-                continue;
-            
+        {           
             IWinCondition winCondition = WinCondutionFactory.GetCondition(player.animalType);
 
             bool isWinner = winCondition.Evaluate(player, players);
@@ -338,7 +429,6 @@ public class GameMamager : NetworkBehaviour
 
             Debug.Log($"[Evaluate] {player.characterName} 결과: {(isWinner ? "승리" : "패배")}");
         }
-        EvaluateCrowPredictions(players);
         RpcShowGameResult();
 
         StartCoroutine(WaitAndReturnToRoom());
@@ -349,7 +439,6 @@ public class GameMamager : NetworkBehaviour
     {
         yield return new WaitForSeconds(3f);
 
-        // Server가 씬 이동 명령
         NetworkManager.singleton.ServerChangeScene("GameRoom");
     }
 
@@ -363,28 +452,11 @@ public class GameMamager : NetworkBehaviour
             currentTime = RoundTime.End;
             timerText.text = "";
 
-            StopCoroutine(RoundFlow());
+            if (roundFlowCo != null)
+                StopCoroutine(roundFlowCo);
 
             EvaluateGameResult();
         }           
-    }
-
-    [ClientRpc]
-    void RpcSetupPlayerList(uint[] netIds)
-    {
-        var players = new List<GamePlayer>();
-        foreach (var id in netIds)
-        {
-            if (NetworkClient.spawned.TryGetValue(id, out var obj))
-            {
-                var gp = obj.GetComponent<GamePlayer>();
-                players.Add(gp);
-                if (gp.isPredator)
-                    predatorCount++;
-            }
-        }
-
-        PlayerSlotUI.Instance.CreateSlots(players);
     }
 
     [ClientRpc]
@@ -396,5 +468,28 @@ public class GameMamager : NetworkBehaviour
         {
             GamePlayUI.Instance.ShowResult(localPlayer.isWin);
         }
+    }
+
+    [Command(requiresAuthority = false)]
+    public void RequestPlayerType(uint netId, string nickname, NetworkConnectionToClient sender = null)
+    {
+        if (sender == null)
+            return;
+
+        if (!NetworkServer.spawned.TryGetValue(netId, out var identity))
+            return;
+
+        var target = identity.GetComponent<GamePlayer>();
+        if (target == null)
+            return;
+
+        TargetRpcInvestigationResult(sender, netId, target.nickname, target.animalType, target.isPredator);
+    }
+
+    [TargetRpc]
+    private void TargetRpcInvestigationResult(NetworkConnectionToClient conn, uint targetNetId, string nickname, AnimalType type, bool isPredator)
+    {
+        if (GamePlayUI.Instance == null) return;
+        GamePlayUI.Instance.ActiveInvestigationResult(targetNetId, nickname, type, isPredator);
     }
 }

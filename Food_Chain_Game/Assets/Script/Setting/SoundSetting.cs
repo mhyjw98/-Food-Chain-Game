@@ -471,9 +471,6 @@ public class SoundSetting : MonoBehaviour
         MarkDirty(false);
     }
 
-    /// <summary>
-    /// 기본 값으로 리셋
-    /// </summary>
     public void ResetSoundSetting()
     {
         masterChannel.slider.value = defaultMaster;

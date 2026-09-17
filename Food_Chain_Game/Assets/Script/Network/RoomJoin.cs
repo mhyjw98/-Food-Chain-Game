@@ -22,6 +22,8 @@ public class RoomJoin : MonoBehaviour
                 return;
             }
 
+            RoomSessionData.CurrentRoomCode = code;
+
             Debug.Log($"[RoomJoin] 조회된 IP: {ip}");
             RoomManager.singleton.networkAddress = ip;
             onResult(true, null); // 입장 가능

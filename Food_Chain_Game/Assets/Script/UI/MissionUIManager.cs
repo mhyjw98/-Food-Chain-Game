@@ -30,7 +30,7 @@ public class MissionUIManager : MonoBehaviour
         }
     }
 
-    public void StartMission(MissionType type, System.Action onComplete, System.Action onClosed)
+    public void StartMission(MissionType type, System.Action onComplete, System.Action onClosed, GamePlayer player)
     {
         if (!_missions.TryGetValue(type, out var prefab))
         {
@@ -45,9 +45,11 @@ public class MissionUIManager : MonoBehaviour
 
         _activeInstance = Instantiate(prefab, uiRoot);
         _activeInstance.gameObject.SetActive(true);
+        player.progressMission = _activeInstance;
 
         _activeInstance.OnMissionCompleted = _ =>
         {
+            player.progressMission = null;
             onComplete?.Invoke();
             onClosed?.Invoke();
             DestroyActive();
@@ -55,6 +57,7 @@ public class MissionUIManager : MonoBehaviour
 
         _activeInstance.OnMissionFailed = _ =>
         {
+            player.progressMission = null;
             onClosed?.Invoke();
             DestroyActive();
         };

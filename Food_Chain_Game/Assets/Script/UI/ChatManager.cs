@@ -34,6 +34,7 @@ public class ChatManager : NetworkBehaviour
     public ChatChannel currentChannel;
     private ChatChannel allChannel;
     private Dictionary<uint, ChatChannel> whisperChannels = new();
+    private ChatInputFocus focusHandler;
 
     private readonly List<GameObject> spawnedMessages = new();
 
@@ -49,6 +50,20 @@ public class ChatManager : NetworkBehaviour
         currentChannel = allChannel;
 
         chatInputField = GameObject.Find("Chat InputField").GetComponent<TMP_InputField>();
+        focusHandler = chatInputField.gameObject.GetComponent<ChatInputFocus>();
+        EventTrigger trigger = chatInputField.gameObject.GetComponent<EventTrigger>();
+        trigger.triggers ??= new List<EventTrigger.Entry>();
+
+        EventTrigger.Entry selectEntry = new EventTrigger.Entry();
+        selectEntry.eventID = EventTriggerType.Select;
+        selectEntry.callback.AddListener((_) => focusHandler.OnInputSelected());
+        trigger.triggers.Add(selectEntry);
+
+        EventTrigger.Entry deselectEntry = new EventTrigger.Entry();
+        deselectEntry.eventID = EventTriggerType.Deselect;
+        deselectEntry.callback.AddListener((_) => focusHandler.OnInputDeselected());
+        trigger.triggers.Add(deselectEntry);
+
         if (tabContainer != null && tabPrefab != null)
             CreateTab("전체", allChannel);
     }
@@ -60,53 +75,107 @@ public class ChatManager : NetworkBehaviour
             if (chatInputField == null)
                 return;
 
-            if (!chatInputField.isFocused)
+            if (!ChatInputFocus.IsFocused)
             {
+                Debug.Log("채팅 인풋 포커스");
                 EventSystem.current.SetSelectedGameObject(chatInputField.gameObject);
 
+                chatInputField.ActivateInputField();
+                chatInputField.MoveTextEnd(false);
+                return;
+            }
+            string message = chatInputField.text;
+            bool hasText = !string.IsNullOrWhiteSpace(message);
+
+            if (!hasText)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+                chatInputField.DeactivateInputField();
+            }
+            else
+            {
+                string msg = message;
+
+                SendChat(msg);
+
+                chatInputField.text = string.Empty;
                 chatInputField.ActivateInputField();
                 chatInputField.MoveTextEnd(false);
             }
         }
     }
-    //public void AddMessage(GamePlayer sender, string message, bool isWhisper)
-    //{
-    //    uint key = sender.netId;
-    //    string formatted = isWhisper
-    //        ? $"<color=#888888>{key}: {message}</color>"
-    //        : $"<b>{key}:</b> {message}";
+    public void SendChat(string msg)
+    {
+        if (NetworkClient.connection == null || NetworkClient.connection.identity == null)
+            return;
 
-    //    if (isWhisper)
-    //    {
-    //        if (!whisperChannels.ContainsKey(key))
-    //        {
-    //            ChatChannel newWhisper = new ChatChannel { type = ChatChannelType.Whisper, targetPlayer = sender };
-    //            whisperChannels[key] = newWhisper;
-    //            CreateTab(sender.nickname, newWhisper);
-    //        }
-    //        whisperChannels[key].messages.Add(formatted);
+        var identity = NetworkClient.connection.identity;
 
-    //        if (currentChannel != whisperChannels[key])
-    //        {
-    //            whisperChannels[key].hasUnreadMessages = true;
-    //            UpdateTabVisual(whisperChannels[key]);
-    //        }
-    //    }
-    //    else
-    //    {
-    //        allChannel.messages.Add(formatted);
+        var gamePlayer = identity.GetComponent<GamePlayer>();
+        var roomPlayer = identity.GetComponent<RoomPlayer>();
 
-    //        if (currentChannel != allChannel)
-    //        {
-    //            allChannel.hasUnreadMessages = true;
-    //            UpdateTabVisual(allChannel);
-    //        }
-    //    }
+        if (gamePlayer != null)
+        {
+            if (currentChannel != null &&
+                currentChannel.type == ChatChannelType.Whisper &&
+                currentChannel.targetPlayer != null)
+            {
+                gamePlayer.CmdSendWhisper(currentChannel.targetPlayer.netId, msg);
+            }
+            else
+            {
+                gamePlayer.CmdSendChatMessage(msg);
+            }
+            return;
+        }
 
-    //    if (currentChannel != null)
-    //        RefreshChatView();
-    //}
-    private void RefreshChatView()
+        if (roomPlayer != null)
+        {
+            roomPlayer.CmdSendChatMessage(msg);
+            return;
+        }
+
+        Debug.LogWarning("[ChatManager] GamePlayer/RoomPlayer를 찾을 수 없습니다.");
+    }
+
+//public void AddMessage(GamePlayer sender, string message, bool isWhisper)
+//{
+//    uint key = sender.netId;
+//    string formatted = isWhisper
+//        ? $"<color=#888888>{key}: {message}</color>"
+//        : $"<b>{key}:</b> {message}";
+
+//    if (isWhisper)
+//    {
+//        if (!whisperChannels.ContainsKey(key))
+//        {
+//            ChatChannel newWhisper = new ChatChannel { type = ChatChannelType.Whisper, targetPlayer = sender };
+//            whisperChannels[key] = newWhisper;
+//            CreateTab(sender.nickname, newWhisper);
+//        }
+//        whisperChannels[key].messages.Add(formatted);
+
+//        if (currentChannel != whisperChannels[key])
+//        {
+//            whisperChannels[key].hasUnreadMessages = true;
+//            UpdateTabVisual(whisperChannels[key]);
+//        }
+//    }
+//    else
+//    {
+//        allChannel.messages.Add(formatted);
+
+//        if (currentChannel != allChannel)
+//        {
+//            allChannel.hasUnreadMessages = true;
+//            UpdateTabVisual(allChannel);
+//        }
+//    }
+
+//    if (currentChannel != null)
+//        RefreshChatView();
+//}
+private void RefreshChatView()
     {
         foreach (Transform child in messageContainer)
             Destroy(child.gameObject);

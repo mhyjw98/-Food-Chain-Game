@@ -14,9 +14,9 @@ public static class MissionData
         {
             MissionType.Grass_B, "풀 수집하기"
         },
-        {
-            MissionType.Grass_C, "풀 세척하기"
-        },
+        //{
+        //    MissionType.Grass_C, "풀 세척하기"
+        //},
 
         // === 씨앗 ===
         {
@@ -73,6 +73,14 @@ public static class MissionData
         },
         {
             MissionType.Meat_B, "고기 수집하기"
+        },
+        // === 전갈 ===
+        {
+            MissionType.Scorpion_Poison, "독 수집하기"
+        },
+        // === 오소리 ===
+        {
+            MissionType.BadgerA, "복수 A 미션"
         },
     };
 

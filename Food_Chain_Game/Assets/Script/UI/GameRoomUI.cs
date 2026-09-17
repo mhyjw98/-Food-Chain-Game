@@ -28,24 +28,7 @@ public class GameRoomUI : MonoBehaviour
         roomCodeText.text = RoomSessionData.CurrentRoomCode;
         noticeText.text = "";
     }
-
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Return) && !string.IsNullOrWhiteSpace(chatInputField.text))
-        {
-            string msg = chatInputField.text.Trim();
-
-            if (NetworkClient.connection != null && NetworkClient.connection.identity != null)
-            {
-                RoomPlayer player = NetworkClient.connection.identity.GetComponent<RoomPlayer>();
-                player.CmdSendChatMessage(msg);
-            }
-
-            chatInputField.text = "";
-        }
-    }
-
-    
+   
     public void CheckHostStatus(RoomPlayer player)
     {
         Debug.Log("RoomPlayer의 isHost 체크 로직 실행");
@@ -74,8 +57,17 @@ public class GameRoomUI : MonoBehaviour
     }
 
     public void OnClickColorUI()
-    {
-        colorUI.SetActive(!colorUI.activeSelf);
+    {        
+        if (!colorUI.activeSelf)
+        {
+            colorUI.SetActive(true);
+            UIManager.Instance.Push(UIPriority.Modal);
+        }
+        else
+        {
+            colorUI.SetActive(false);
+            UIManager.Instance.Pop(UIPriority.Modal);
+        }
     }
     public void CopyRoomCode()
     {

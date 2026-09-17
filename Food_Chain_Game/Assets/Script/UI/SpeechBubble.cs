@@ -66,4 +66,16 @@ public class SpeechBubble : MonoBehaviour
         if (canvasGroup != null)
             canvasGroup.alpha = 0f;
     }
+
+    private void OnDisable()
+    {
+        if (showRoutine != null)
+        {
+            StopCoroutine(showRoutine);
+            showRoutine = null;
+        }
+
+        if (canvasGroup != null)
+            canvasGroup.alpha = 0f;
+    }
 }

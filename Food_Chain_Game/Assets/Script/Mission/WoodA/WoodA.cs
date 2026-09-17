@@ -25,6 +25,12 @@ public class WoodA : BaseMission
     private int _collectCount;    
 
     private List<WoodItemA> _spawnedItems = new List<WoodItemA>();
+
+    private void Awake()
+    {
+        if (canvas == null)
+            canvas = GetComponentInParent<Canvas>();
+    }
     private void Update()
     {
         if (_isComplete) return;

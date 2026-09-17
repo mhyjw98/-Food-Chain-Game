@@ -11,9 +11,6 @@ public class ResolutionSetting : MonoBehaviour
     public TMP_Dropdown resolutionDropdown;
     public TMP_Dropdown windowModeDropdown;
 
-    Resolution[] resolutions;
-    int currentIndex;
-
     public bool HasUnsavedChanges { get; private set; }
     public event Action<bool> OnDirtyChanged;
 
@@ -38,8 +35,17 @@ public class ResolutionSetting : MonoBehaviour
         CaptureSnapshot();
         MarkDirty(false);
 
-        resolutionDropdown.onValueChanged.AddListener(_ => MarkDirty(true));
-        windowModeDropdown.onValueChanged.AddListener(_ => MarkDirty(true));
+        resolutionDropdown.onValueChanged.AddListener(_ =>
+        {
+            ApplyResolution(save: false);
+            MarkDirty(true);
+        });
+
+        windowModeDropdown.onValueChanged.AddListener(_ =>
+        {
+            ApplyResolution(save: false);
+            MarkDirty(true);
+        });
     }
 
     private void InitResolutions()
@@ -159,24 +165,5 @@ public class ResolutionSetting : MonoBehaviour
         if (savedSnapshot.windowModeIndex != windowModeDropdown.value) return true;
 
         return false;
-    }
-
-    public void RevertToSnapshot()
-    {
-        resolutionDropdown.value = Mathf.Clamp(
-            savedSnapshot.resolutionIndex, 0,
-            Mathf.Max(0, availableResolutions.Count - 1));
-
-        resolutionDropdown.RefreshShownValue();
-
-        windowModeDropdown.value = Mathf.Clamp(
-            savedSnapshot.windowModeIndex, 0,
-            Mathf.Max(0, windowModeDropdown.options.Count - 1));
-
-        windowModeDropdown.RefreshShownValue();
-
-        ApplyResolution(save: false);
-
-        MarkDirty(false);
-    }
+    }   
 }

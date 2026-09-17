@@ -3,15 +3,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using Unity.Netcode.Components;
+using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
-using UnityEngine.TextCore.Text;
-using static BaseMission;
-using static CharacterData;
-using static MissionSelector;
+using UnityEngine.SocialPlatforms;
 
 public enum AnimalType { Wolf, Crocodile, Hawk, Hyena, Scorpion, Crow, Plover, Squirrel, Badger, Ostrich, Zebra, Skunk, Fox, None }
 public enum PredatorType { Prey, Hyena, Hawk, Crocodile, Wolf, Scorpion }
+public enum DeathReason { None = 0, Hunger, MissionFail, KilledByAttack, CounterKill }
+public struct DeathInfo { public DeathReason Reason; public uint KillerNetId; public AnimalType KillerType; }
 public class GamePlayer : NetworkBehaviour
 {
     [SyncVar] public string characterName;
@@ -39,29 +38,104 @@ public class GamePlayer : NetworkBehaviour
     [SyncVar] public string memo;
     [SyncVar] public int scanCount = 0;
     [SyncVar] public int maxScanCount = 0;
+    [SyncVar] public AnimalType lastKillerType;
+    [SyncVar] public DeathReason lastDeathReason;
+    [SyncVar] public uint lastKillerNetId;
 
     [SerializeField] private PlayerMove playerMove;
-    private readonly List<MissionSlot> _missions = new();
+    [SerializeField] private VisionUIController visionUI;
+    [SerializeField] private GameObject corpsePrefab;
+    [SerializeField] private SpriteRenderer bodyRenderer;
+    [SerializeField] private Collider2D bodyCollider;
 
-    public IReadOnlyList<MissionSlot> Missions => _missions;
+    public IPlayerAbility[] Abilities { get; private set; }
+    public LocalVisionLight localVision;
+    public readonly SyncList<MissionSlot> Missions = new SyncList<MissionSlot>();
+
+    public BaseMission progressMission;
+    public static GamePlayer LocalPlayer;
     public Scanner scanner;
     public TextMeshProUGUI nicknameText;
     public GameObject killIndicatorUIPrefab;
     private GameObject killIndicatorUIInstance;
 
+    private IMissionCompleteHandler[] _missionCompleteHandlers;
+    private Coroutine _applyMissionsCo;
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        Abilities = GetComponents<IPlayerAbility>();
+        _missionCompleteHandlers = GetComponents<IMissionCompleteHandler>();
+    }
     public override void OnStartClient()
     {
         base.OnStartClient();
 
+        Missions.Callback += OnMissionsChanged;
+        Abilities = GetComponents<IPlayerAbility>();
+        _missionCompleteHandlers = GetComponents<IMissionCompleteHandler>();
         GamePlayUI.Instance.AddPlayer(this, homeZone);
     }
     public override void OnStartLocalPlayer()
-    {
-        Debug.Log($"[GamePlayer] 내 캐릭터는 {characterName}");
+    {       
         base.OnStartLocalPlayer();
+        Debug.Log($"[GamePlayer] 내 캐릭터는 {characterName}");
+
+        LocalPlayer = this;
+        visionUI = FindObjectOfType<VisionUIController>();
+        visionUI.localPlayer = this;
+
+        if (visionUI) visionUI.enabled = true;
+
+        string roomCode = RoomSessionData.CurrentRoomCode;
+        string nick = string.IsNullOrWhiteSpace(nickname) ? "Player" : nickname;
+        string displayName = VoiceManager.BuildVivoxDisplayName(nick, netId);
+
+        VoiceManager.Instance?.SetGameplayLifeState(RoomSessionData.CurrentRoomCode, displayName, isAlive: false);
+
+        var prox = GetComponent<InGameVoiceProximity>();
+        if (prox == null) prox = gameObject.AddComponent<InGameVoiceProximity>();
+        prox.enabled = isAlive;
+
         StartCoroutine(ShowCharacterUI());
     }
+    public override void OnStopClient()
+    {
+        if (visionUI) visionUI.enabled = false;
+        Missions.Callback -= OnMissionsChanged;
+        base.OnStopClient();
+    }
+    [Server]
+    public void ActivateAbilitie()
+    {
+        foreach (var ab in GetComponents<IAnimalAbility>())
+            ab.ServerActivate(this, animalType);
+    }
+    void OnMissionsChanged(SyncList<MissionSlot>.Operation op, int index, MissionSlot oldItem, MissionSlot newItem)
+    {
+        if (!isLocalPlayer) return;
 
+        if (_applyMissionsCo != null)
+            StopCoroutine(_applyMissionsCo);
+
+        _applyMissionsCo = StartCoroutine(CoApplyMissionsToLocalUI());
+    }
+
+    private IEnumerator CoApplyMissionsToLocalUI()
+    {
+        while (MissionListUI.Instance == null)
+            yield return null;
+
+        MissionListUI.Instance.RefreshList(Missions);
+
+        //if (Missions.Count < 5) yield break;
+
+        var types = new MissionType[Missions.Count];
+        for (int i = 0; i < Missions.Count; i++)
+            types[i] = Missions[i].Type;
+
+        yield return EnableMissionObjectsWhenReady(types);
+    }
     IEnumerator ShowCharacterUI()
     {
         yield return new WaitForSeconds(0.1f);
@@ -70,11 +144,19 @@ public class GamePlayer : NetworkBehaviour
         StartCoroutine(GamePlayUI.Instance.ShowCharacter(type));
     }
 
+
     [Command]
     public void CmdSendChatMessage(string message)
     {
+        bool senderIsGhost = !isAlive;
+
         foreach (var player in FindObjectsOfType<GamePlayer>())
         {
+            bool receiverIsGhost = !player.isAlive;
+
+            if (senderIsGhost && !receiverIsGhost)
+                continue;
+
             player.TargetReceiveMessage(netId, nickname, message);
         }
 
@@ -140,34 +222,118 @@ public class GamePlayer : NetworkBehaviour
 
         Debug.Log($"{nickname}님이 {AnimalNameMap.AnimalTypeToName[type]}을(를) 승리자로 예측했습니다.");
     }
+    [Command]
+    public void CmdScanCorpse(uint corpseNetId)
+    {
+        if (!isAlive) return;
+        if (!NetworkServer.spawned.TryGetValue(corpseNetId, out var identity)) return;
+
+        var corpse = identity.GetComponent<Corpse>();
+        if (corpse == null) return;
+
+        float dist = Vector2.Distance(transform.position, corpse.transform.position);
+        if (dist > 2.0f) return;
+
+        TargetStartCorpseScan(connectionToClient, corpseNetId, corpse);
+    }
+    [TargetRpc]
+    private void TargetStartCorpseScan(NetworkConnectionToClient conn, uint corpseNetId, Corpse corpse)
+    {
+        if (GamePlayUI.Instance == null) return;
+
+        GamePlayUI.Instance.BeginCorpseScan(corpse);        
+    }
     void OnAliveChanged(bool oldVal, bool newVal)
     {
-        if (!newVal)
+        if (newVal) return;
+            
+        if (isLocalPlayer)
         {
-            // 사망 UI 처리, 비활성화 등
-            foreach (var conn in NetworkServer.connections.Values)
-            {
-                var gp = conn.identity.GetComponent<GamePlayer>();
-                gp.TargetReceiveMessage(0,"System", $"{nickname}님이 사망했습니다.");
-            }
-            //foreach (var player in FindObjectsOfType<GamePlayer>())
-            //{
-            //    if (player.connectionToClient != null)
-            //    {
-            //        player.TargetReceiveMessage("System", $"{nickname}님이 사망했습니다.");
-            //    }
-            //}
+            FailProgressMission();
 
-            if(isPredator)
+            string roomCode = RoomSessionData.CurrentRoomCode;
+            string nick = string.IsNullOrWhiteSpace(nickname) ? "Player" : nickname;
+            string displayName = VoiceManager.BuildVivoxDisplayName(nick, netId);
+
+            VoiceManager.Instance?.EnterGameplay(roomCode, displayName, isAlive: false);
+
+            var prox = GetComponent<InGameVoiceProximity>();
+            if (prox != null) prox.enabled = false;
+        }               
+
+        if (isServer)
+        {
+            SpawnCorpse();
+            RpcApplyGhostMode();
+                
+            if (isPredator)
                 GameMamager.Instance.CheckGameOver();
-
-            GamePlayUI.Instance.RemovePlayer(this);
-            gameObject.SetActive(false);
         }
+
+        GamePlayUI.Instance.RemovePlayer(this);
+
+        AllRefreshVisibility();
     }
+
     void OnZoneChanged(ZoneType oldVal, ZoneType newVal)
     {
         GamePlayUI.Instance.MovePlayerIcon(this, newVal);
+    }
+
+    [Server]
+    private void SpawnCorpse()
+    {
+        if (corpsePrefab == null)        
+            return;
+        
+        var corpseObj = Instantiate(corpsePrefab, transform.position, Quaternion.identity);
+        var corpse = corpseObj.GetComponent<Corpse>();
+        var gameMamager = GameMamager.Instance;
+        if (corpse != null) 
+            corpse.Init(netId, lastKillerType, animalType, NetworkTime.time, gameMamager.currentRound, gameMamager.IsNightPhase, gameMamager.timer);
+        
+        NetworkServer.Spawn(corpseObj);
+    }
+    [ClientRpc]
+    private void RpcApplyGhostMode()
+    {
+        if (bodyRenderer) bodyRenderer.color = new Color32(255,255,255,150);
+
+        int layer = LayerMask.NameToLayer("Ghost");
+        gameObject.layer = layer;
+
+        if (isLocalPlayer)
+        {
+            if (localVision != null)            
+                localVision.TransitionToVision(11, false);
+
+            visionUI.fov.viewRadius = 11;
+            visionUI.fov.occluderMask = 0;                                
+        }
+    }
+    public static void AllRefreshVisibility()
+    {
+        var players = FindObjectsOfType<GamePlayer>();
+        foreach (var p in players)
+        {
+            p.ApplyVisibility(LocalPlayer);
+        }
+    }
+    public void ApplyVisibility(GamePlayer viewer)
+    {
+        bool viewerIsGhost = !viewer.isAlive;
+        bool thisIsGhost = !isAlive;
+
+        bool visible;
+        if (viewerIsGhost)
+            visible = true;
+        else
+            visible = !thisIsGhost;
+
+        if (bodyRenderer != null)
+            bodyRenderer.enabled = visible;
+        if (nicknameText != null)
+            nicknameText.enabled = visible;
     }
     [TargetRpc]
     public void TargetReceiveWhisper(uint targetNetId, uint senderNetId, string message)
@@ -224,9 +390,6 @@ public class GamePlayer : NetworkBehaviour
     public void CmdAttack(uint targetNetId)
     {
         if (!isAlive || hasAttacked) return;
-        if (GameMamager.Instance == null) return;
-        if (!GameMamager.Instance.IsNightPhase) return;
-        if (animalType == AnimalType.Scorpion) return;
         if (!isPredator) return;
 
         Debug.Log($"[CmdAttack] 공격 로직 호출");
@@ -257,31 +420,99 @@ public class GamePlayer : NetworkBehaviour
 
         Debug.Log($"[CmdAttack] {nickname}이 {target.nickname} 공격");
 
-        foreach (var conn in NetworkServer.connections.Values)
+        var ctx = new AttackContext
         {
-            if (conn.identity == null) continue;
-            var gp = conn.identity.GetComponent<GamePlayer>();
-            if (gp != null)
-                gp.TargetReceiveMessage(0, "System", $"{nickname}님이 {target.nickname}을 공격했습니다.");
-            else
-                Debug.LogError("[CmdAttack] GamePlayer가 null");
-        }
+            attacker = this,
+            target = target,
+            cancelAttack = false,
+            killAttacker = false,
+            killTarget = false,
+            reason = null
+        };
 
-        if (target.predatorType == PredatorType.Scorpion)
+        if (Abilities != null)
         {
-            isAlive = false;
+            for (int i = 0; i < Abilities.Length; i++)
+            {
+                try { Abilities[i].OnBeforeAttack(ref ctx); }
+                catch (Exception e) { Debug.LogError($"Ability error: {Abilities[i].GetType().Name}\n{e}"); }
+            }               
+        }
+            
+
+        var targetAbilities = target.Abilities;
+        for (int i = 0; i < targetAbilities.Length; i++)
+            targetAbilities[i].OnBeforeAttack(ref ctx);
+
+        // 역공
+        if (ctx.killAttacker)
+        {
+            Die(new DeathInfo
+            {
+                Reason = DeathReason.CounterKill,
+                KillerNetId = target.netId,
+                KillerType = target.animalType
+            });
+        }
+        // 공격 취소
+        if (ctx.cancelAttack)
+        {
+            hasAttacked = true;
             return;
         }
-        if (PredatorPriority.CanAttack(this.predatorType, target.predatorType))
+        // 공격
+        if (ctx.killTarget) 
         {
-            target.isAlive = false;
-            hasAttacked = true;
+            target.Die(new DeathInfo
+            {
+                Reason = DeathReason.KilledByAttack,
+                KillerNetId = netId,
+                KillerType = animalType
+            });
             hasEate = true;
-        }
-        else
-        {
             hasAttacked = true;
+        } 
+
+        //if (target.predatorType == PredatorType.Scorpion)
+        //{
+        //    Die(animalType);
+        //    return;
+        //}
+        //if (PredatorPriority.CanAttack(predatorType, target.predatorType))
+        //{
+        //    target.Die(animalType);
+
+        //    hasAttacked = true;
+        //    hasEate = true;
+        //}
+        //else
+        //{
+        //    hasAttacked = true;
+        //}
+    }
+    [Server]
+    public void Die(in DeathInfo info)
+    {
+        if (!isAlive) return;
+
+        lastDeathReason = info.Reason;
+        lastKillerNetId = info.KillerNetId;
+        lastKillerType = info.KillerType;
+
+        if(animalType == AnimalType.Ostrich || animalType == AnimalType.Zebra)
+        {
+            var sym = GetComponent<PreySymbiosisAbility>();
+            if (sym != null)
+                sym.ServerClearPartnerBothSides();
+        }        
+        else if(animalType == AnimalType.Badger)
+        {
+            var bga = GetComponent<BadgerAbility>();
+            if (bga != null)
+                bga.ServerOnlocalDied(info.KillerNetId);
         }       
+
+        isAlive = false;
     }
     [Command]
     public void CmdSetDisguise(AnimalType selectedType)
@@ -314,27 +545,6 @@ public class GamePlayer : NetworkBehaviour
         if (renderer != null)
             renderer.color = newColor;
     }
-
-    [TargetRpc]
-    public void TargetSetMissions(NetworkConnectionToClient target, MissionType[] missionTypes)
-    {
-        _missions.Clear();
-        foreach (var type in missionTypes)
-        {
-            _missions.Add(new MissionSlot
-            {
-                Type = type,
-                Status = MissionStatus.NotStarted
-            });
-        }
-
-        MissionListUI.Instance.RefreshList(_missions);
-
-        if (isLocalPlayer)
-        {
-            StartCoroutine(EnableMissionObjectsWhenReady(missionTypes));
-        }
-    }
     private IEnumerator EnableMissionObjectsWhenReady(MissionType[] missionTypes)
     {
         int guard = 0;
@@ -353,61 +563,115 @@ public class GamePlayer : NetworkBehaviour
     }
     public bool CanStartMissionType(MissionType type)
     {
-        var slot = _missions.Find(m => m.Type == type);
-        if (slot == null) return false;
-        return slot.Status != MissionStatus.Completed;
-    }
-    public void SetMissionStatusLocal(MissionType type, MissionStatus status)
+        int idx = FindMissionIndex(type);
+        if (idx < 0) return false;
+        return Missions[idx].Status != MissionStatus.Completed;
+    }   
+    private int FindMissionIndex(MissionType type)
     {
-        var slot = _missions.Find(m => m.Type == type);
-        if (slot == null) return;
+        for (int i = 0; i < Missions.Count; i++)
+            if (Missions[i].Type == type)
+                return i;
+        return -1;
+    }
+
+    [Server]
+    private void SetMissionStatusServer(MissionType type, MissionStatus status)
+    {
+        int idx = FindMissionIndex(type);
+        if (idx < 0) return;
+
+        var slot = Missions[idx];
+
+        if (slot.Status == MissionStatus.Completed) return;
 
         slot.Status = status;
-        MissionListUI.Instance.RefreshList(_missions);
+
+        Missions[idx] = slot;
     }
 
     [Command]
-    public void CmdReportMissionCompleted(MissionType type)
+    public void CmdStartMission(MissionType type)
     {
-        Debug.Log($"[GamePlayer] {netId} 미션 완료: {type}");
+        SetMissionStatusServer(type, MissionStatus.InProgress);
     }
 
+    [Command]
+    public void CmdCompleteMission(MissionType type)
+    {
+        SetMissionStatusServer(type, MissionStatus.Completed);
+
+        if (_missionCompleteHandlers != null)
+        {
+            for (int i = 0; i < _missionCompleteHandlers.Length; i++)
+                _missionCompleteHandlers[i].OnMissionCompletedServer(this, type);
+        }
+        AbilityDispatcher.ServerOnMissionCompleted(this, type);
+    }
+
+    [Command]
+    public void CmdCancelMission(MissionType type)
+    {
+        SetMissionStatusServer(type, MissionStatus.NotStarted);
+    }    
     public void TryStartMission(MissionType missionType)
     {
-        var slot = _missions.Find(m => m.Type == missionType);
-        if (slot == null)
+        int idx = FindMissionIndex(missionType);
+        if (idx < 0)
         {
             Debug.Log($"[GamePlayer] 이 플레이어에게 없는 미션: {missionType}");
             return;
         }
+
+        var slot = Missions[idx];
         if (slot.Status == MissionStatus.Completed)
         {
             Debug.Log($"[GamePlayer] 이미 완료한 미션: {missionType}");
             return;
         }
 
+        UIManager.Instance.Push(UIPriority.Modal);
         playerMove.StopMove();
 
         if (slot.Status == MissionStatus.NotStarted)
-            SetMissionStatusLocal(missionType, MissionStatus.InProgress);
+            CmdStartMission(missionType);
 
         MissionUIManager.Instance.StartMission(
-       missionType,
-       onComplete: () =>
-       {
-           SetMissionStatusLocal(missionType, MissionStatus.Completed);
-           CmdReportMissionCompleted(missionType);
-           MissionRegistry.Instance.DisableType(missionType);
-       },
-       onClosed: () =>
-       {
-           PlayerMove.isEvent = false;
+            missionType,
+            onComplete: () =>
+            {
+                CmdCompleteMission(missionType);
+                UIManager.Instance.Pop(UIPriority.Modal);
+                MissionRegistry.Instance.DisableType(missionType);
+            },
+            onClosed: () =>
+            {
+                UIManager.Instance.Pop(UIPriority.Modal);
 
-           var s = _missions.Find(m => m.Type == missionType);
-           if (s != null && s.Status != MissionStatus.Completed)
-               SetMissionStatusLocal(missionType, MissionStatus.NotStarted);
-       }
-   );
+                int i = FindMissionIndex(missionType);
+                if (i >= 0 && Missions[i].Status != MissionStatus.Completed)
+                    CmdCancelMission(missionType);
+            },
+            this
+        );
+    }
+    public void FailProgressMission()
+    {
+        if (progressMission == null) return;
+
+        progressMission.Fail();
+        progressMission = null;
+    }
+
+    public void TryStartInvestigation()
+    {       
+        playerMove.StopMove();
+
+        GamePlayUI.Instance.Startinvestigation();
+    }
+    public bool IsHelper()
+    {
+        return canScan;
     }
     public void SetAnimalType(string characterName)
     {
@@ -491,7 +755,7 @@ public class GamePlayer : NetworkBehaviour
                 isPredator = false;
                 isFly = false;
                 canPredict = false;
-                canScan = true;
+                canScan = false;
                 isDisguise = false;
                 maxScanCount = 2;
                 break;
@@ -542,6 +806,19 @@ public class GamePlayer : NetworkBehaviour
                 canScan = false;
                 isDisguise = false;
                 break;
+        }
+    }
+}
+public static class AbilityDispatcher
+{
+    [Server]
+    public static void ServerOnMissionCompleted(GamePlayer local, MissionType type)
+    {
+        var abilities = local.GetComponents<IMissionCompleteHandler>();
+        for (int i = 0; i < abilities.Length; i++)
+        {
+            try { abilities[i].OnMissionCompletedServer(local, type); }
+            catch (Exception e) { Debug.LogError(e); }
         }
     }
 }

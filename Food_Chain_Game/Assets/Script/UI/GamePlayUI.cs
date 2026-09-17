@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using static CharacterData;
@@ -11,6 +12,8 @@ public class GamePlayUI : MonoBehaviour
 {
     public static GamePlayUI Instance;
 
+    [Header("UI")]
+    public Canvas canvas;
     public GameObject chatUI;
     public GameObject resultUI;
     public GameObject disguiseUI;
@@ -21,7 +24,13 @@ public class GamePlayUI : MonoBehaviour
     public GameObject playerSlotUI;
     public GameObject block;
     public GameObject skyBlock;
-    
+    public Slider scanPanel;
+    public Slider invProgressPanel;
+    public GameObject scanResultUI;
+    public GameObject investigationUI;
+    public GameObject invCheckBtnGroup;
+
+    [Header("Text")]
     public GameObject characterPanel;
     public TextMeshProUGUI characterText;
     public TextMeshProUGUI territoryText;
@@ -31,6 +40,12 @@ public class GamePlayUI : MonoBehaviour
     public TextMeshProUGUI resultText;
     public TextMeshProUGUI checkText;
     public TextMeshProUGUI predictCheckText;
+    public TextMeshProUGUI scanKillerType;
+    public TextMeshProUGUI scanCorpseType;
+    public TextMeshProUGUI scanDeathTime;
+    public TextMeshProUGUI investigationDescript;
+    public TextMeshProUGUI investigationResult;
+    public TextMeshProUGUI investigationType;
 
     [Header("Zone Panels")]
     public Transform fieldPanel;
@@ -42,22 +57,30 @@ public class GamePlayUI : MonoBehaviour
     public GameObject uiButtonPrefab;
     public Transform disguiseButtonGroup;
     public Transform predictButtonGroup;
+    public Transform investigationButtonGroup;
     public GameObject playerIconPrefab;
+
+    public GameObject investigationObj;
 
     Animator textAni;
     Animator panelAni;
     Animator territoryAni;
     Animator descriptionAni;
-    Animator resultAni;
+    Animator resultAni;    
+
+    private Coroutine scanCo;
+    private Coroutine invCo;
 
     private Dictionary<GamePlayer, GameObject> iconMap = new();
-    private static TMP_InputField[] inputFields;
     public TMP_InputField chatInputField;
     private float disguiseTimer = 10f;
     private float predictTimer = 5f;
     private bool isSelected = false;
     private GamePlayer localPlayer;
     private AnimalType selectType;
+    
+    private uint InvestigationTargetNetId;
+    private string InvestigationTargetNickname;
     private void Awake()
     {
         Instance = this;
@@ -65,51 +88,20 @@ public class GamePlayUI : MonoBehaviour
 
     private void Start()
     {
-        inputFields = FindObjectsOfType<TMP_InputField>(true);
         textAni = characterText.GetComponent<Animator>();
         panelAni = characterPanel.GetComponent<Animator>();
         territoryAni = territoryText.GetComponent<Animator>();
         descriptionAni = descriptionText.GetComponent<Animator>();
         resultAni = resultUI.GetComponent<Animator>();
     }
-    void Update()
-    {       
-        PlayerMove.isStop = false;
-
-        foreach (var input in inputFields)
-        {
-            if (input.isFocused)
-            {
-                PlayerMove.isStop = true;
-                break;
-            }
-        }
-
-        if (Input.GetKeyDown(KeyCode.Return) && !string.IsNullOrWhiteSpace(chatInputField.text))
-        {
-            string msg = chatInputField.text.Trim();
-
-            if (NetworkClient.connection != null && NetworkClient.connection.identity != null)
-            {
-                ChatManager chatManager = FindObjectOfType<ChatManager>();
-
-                if (chatManager.currentChannel.type == ChatChannelType.Whisper && chatManager.currentChannel.targetPlayer != null)
-                {
-                    localPlayer.CmdSendWhisper(chatManager.currentChannel.targetPlayer.netId, msg);
-                }
-                else
-                {
-                    localPlayer.CmdSendChatMessage(msg);
-                }
-            }
-
-            chatInputField.text = "";
-        }
+    public void InitLocalPlayer(GamePlayer lgp)
+    {
+        localPlayer = lgp;
     }
 
     public IEnumerator ShowCharacter(AnimalType type)
     {
-        PlayerMove.isEvent = true;
+        UIManager.Instance.Push(UIPriority.Modal);
         CharacterInfoData info = CharacterConfig.Characters[type];
 
         characterText.text = $"{info.DisplayName}";
@@ -127,7 +119,7 @@ public class GamePlayUI : MonoBehaviour
 
         yield return new WaitForSeconds(0.1f);
 
-        PlayerMove.isEvent = false;
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
 
     public void UpdateRoundText(int round, RoundTime time)
@@ -155,11 +147,12 @@ public class GamePlayUI : MonoBehaviour
             
     }
     public void ShowDisguiseUI()
-    {
-        localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
+    {        
         if (localPlayer.animalType == AnimalType.Fox)
         {
+            UIManager.Instance.Push(UIPriority.Modal);
             disguiseUI.SetActive(true);
+            disguiseUI.transform.SetAsLastSibling();
             isSelected = false;
             StartCoroutine(CountdownDisguise());
         }     
@@ -177,6 +170,7 @@ public class GamePlayUI : MonoBehaviour
             PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
             slot.UpdateNicknameWithAnimal(updateText);
             disguiseUI.SetActive(false);
+            UIManager.Instance.Pop(UIPriority.Modal);
         }
     }
 
@@ -186,6 +180,7 @@ public class GamePlayUI : MonoBehaviour
         isSelected = true;
         localPlayer.CmdSetDisguise(type);
         disguiseUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
 
         string updateText = $"여우 > {AnimalNameMap.AnimalTypeToName[type]}";
         PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
@@ -193,13 +188,142 @@ public class GamePlayUI : MonoBehaviour
     }
     public void ShowPredictUI()
     {
-        localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
         if (localPlayer.animalType == AnimalType.Crow)
         {
+            UIManager.Instance.Push(UIPriority.Modal);
             predictUI.SetActive(true);
+            predictUI.transform.SetAsLastSibling();
             isSelected = false;
             StartCoroutine(CountdownPredict());
         }
+    }
+
+    public void BeginCorpseScan(Corpse corpse)
+    {
+        if (scanCo != null) StopCoroutine(scanCo);
+        scanCo = StartCoroutine(CoScanCorpse(corpse));
+    }
+
+    private IEnumerator CoScanCorpse(Corpse corpse)
+    {
+        if (localPlayer == null) Debug.Log("[CoScanCorpse] 로컬플레이어 Null");
+        if (localPlayer.scanner.CurrentTargetCorpse == null) Debug.Log("[CoScanCorpse] 시체옵젝 Null");
+        if (corpse.scanPlayers.Contains(localPlayer.netId)) yield break;
+
+        scanPanel.gameObject.SetActive(true);
+        scanPanel.transform.SetAsLastSibling();
+        scanPanel.value = 0f;
+        SetScanPanelPositionOnce(localPlayer.transform);
+        UIManager.Instance.Push(UIPriority.Scan);
+
+        float t = 0f;
+
+        while (t < 3)
+        {
+            t += Time.deltaTime;
+            scanPanel.value = Mathf.Clamp01(t / 3);
+
+            if (corpse == null)
+            {
+                CancelScanUI();
+                yield break;
+            }
+
+            Vector2 p = localPlayer.transform.position;
+            Vector2 c = corpse.transform.position;
+            if ((p - c).sqrMagnitude > 4)
+            {
+                CancelScanUI();
+                yield break;
+            }
+            yield return null;
+        }
+
+        CancelScanUI();
+
+        ActiveScanResult(corpse);
+    }
+    private void SetScanPanelPositionOnce(Transform transform)
+    {
+        var rt = scanPanel.GetComponent<RectTransform>();
+        Vector3 worldPos = transform.position + new Vector3(0, 1.2f, 0);
+
+        if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+        {
+            Vector3 screenPos = Camera.main.WorldToScreenPoint(worldPos);
+            rt.position = screenPos;
+            return;
+        }
+
+        Camera cam = canvas.worldCamera != null ? canvas.worldCamera : Camera.main;
+        Vector2 screen = RectTransformUtility.WorldToScreenPoint(cam, worldPos);
+
+        RectTransform parent = rt.parent as RectTransform;
+        if (parent != null &&
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, screen, cam, out var localPoint))
+        {
+            rt.anchoredPosition = localPoint;
+        }
+    }
+    private void CancelScanUI()
+    {
+        Debug.Log("[CancelScanUI] 스캔 취소");
+        scanPanel.gameObject.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Scan);
+        scanPanel.value = 0f;
+        scanCo = null;
+    }
+
+    public void ActiveScanResult(Corpse corpse)
+    {
+        int sec = Mathf.Max(0, Mathf.FloorToInt(corpse.ElapsedSec));       
+
+        var rec = new InvestigationRecord
+        {
+            type = InvestigationType.Corpse,
+            recordId = $"{corpse.netId}",
+            corpseAnimalType = corpse.deadAnimalType,
+            targetAnimalType = corpse.KillerType,
+
+            Day = corpse.deathDay,
+            WasNight = corpse.deathWasNight,
+            ElapsedSec = corpse.ElapsedSec,
+
+            title = $"{AnimalNameMap.AnimalTypeToName[corpse.deadAnimalType]}",
+            subtitle = $"{corpse.deathDay}일차 {(corpse.deathWasNight ? "밤" : "낮")} {sec}초 경과",
+            createdAtLocal = Time.time
+        };
+
+        InvestigationLog.Instance.Add(rec);
+        corpse.scanPlayers.Add(localPlayer.netId);
+        ActiveScanResult(rec);
+    }
+    public void ActiveScanResult(InvestigationRecord record)
+    {
+        int sec = Mathf.Max(0, Mathf.FloorToInt(record.ElapsedSec));
+        scanKillerType.text = AnimalNameMap.AnimalTypeToName[record.targetAnimalType];
+        scanCorpseType.text = AnimalNameMap.AnimalTypeToName[record.corpseAnimalType];
+        scanDeathTime.text = $"{record.Day}일차 {(record.WasNight ? "밤" : "낮")} {sec}초 경과";
+
+        scanResultUI.SetActive(true);
+        scanResultUI.transform.SetAsLastSibling();
+        UIManager.Instance.Push(UIPriority.Scan);
+    }
+    public void DeActiveScanResult()
+    {
+        scanResultUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Scan);
+    }
+
+    public void ActivePlayerScanResult(InvestigationRecord record)
+    {
+        scanKillerType.text = AnimalNameMap.AnimalTypeToName[record.targetAnimalType];
+        scanCorpseType.text = AnimalNameMap.AnimalTypeToName[record.corpseAnimalType];
+        scanDeathTime.text = $"{record.Day}일차 {(record.WasNight ? "밤" : "낮")} {record.ElapsedSec}초 경과";
+
+        scanResultUI.SetActive(true);
+        scanResultUI.transform.SetAsLastSibling();
+        UIManager.Instance.Push(UIPriority.Scan);
     }
 
     IEnumerator CountdownPredict()
@@ -211,6 +335,7 @@ public class GamePlayUI : MonoBehaviour
             localPlayer.CmdSetPredict(randomType);
 
             predictUI.SetActive(false);
+            UIManager.Instance.Pop(UIPriority.Modal);
         }
     }
 
@@ -224,6 +349,7 @@ public class GamePlayUI : MonoBehaviour
         }        
 
         predictUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
 
     public void CheckPredict()
@@ -232,6 +358,137 @@ public class GamePlayUI : MonoBehaviour
 
         var type = GetRandomAnimalType();
         localPlayer.CmdSetPredict(type);       
+    }
+    public void Startinvestigation()
+    {
+        ActiveInvestigationSelectUI();        
+    }
+
+    void ActiveInvestigationSelectUI()
+    {
+        UIManager.Instance.Push(UIPriority.Modal);
+
+        investigationUI.SetActive(true);
+        investigationUI.transform.SetAsLastSibling();
+
+        DestroyBtn();
+
+        investigationResult.text = string.Empty;
+        investigationType.text = string.Empty;
+        investigationType.text = string.Empty;
+        InitBtnGroup();       
+    }
+    public void DeActiveInvestigationSelectUI()
+    {
+        investigationUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
+    }
+    private void OnSelectInvestigationTarget(GamePlayer target)
+    {
+        if (target == null) return;
+
+        InvestigationTargetNetId = target.netId;
+        InvestigationTargetNickname = target.nickname;
+
+        DestroyBtn();
+        investigationResult.text = $"{target.nickname}를(을) 탐색하시겠습니까?";
+        invCheckBtnGroup.SetActive(true);
+    }
+
+    public void ProgressInvestigation()
+    {
+        if (invCo != null) StopCoroutine(invCo);
+        invCheckBtnGroup.SetActive(false);
+        invCo = StartCoroutine(CoInvestigatePlayerTarget(InvestigationTargetNetId, InvestigationTargetNickname));
+    }
+    public void CancleInvestigation()
+    {
+        InitBtnGroup();
+        investigationResult.text = string.Empty;
+        invCheckBtnGroup.SetActive(false);
+    }
+    void InitBtnGroup()
+    {
+        var players = GameMamager.Instance.players;
+
+        foreach (var p in players)
+        {
+            if (p == localPlayer) continue;
+
+            var btnObj = Instantiate(uiButtonPrefab, investigationButtonGroup);
+            var label = btnObj.GetComponentInChildren<TextMeshProUGUI>().text = p.nickname;
+
+            var button = btnObj.GetComponent<Button>();
+            button.onClick.AddListener(() => OnSelectInvestigationTarget(p));
+        }
+    }
+    void DestroyBtn()
+    {
+        foreach (Transform child in investigationButtonGroup)
+            Destroy(child.gameObject);
+    }
+    IEnumerator CoInvestigatePlayerTarget(uint netId, string nickname)
+    {
+        if (localPlayer == null) Debug.Log("[CoInvestigation] 로컬플레이어 Null");
+        if (localPlayer.scanner.CurrentInvestigation == null) Debug.Log("[CoInvestigation] 탐색 옵젝 Null");
+
+        DestroyBtn();
+
+        investigationDescript.text = "탐색 진행중";
+        invProgressPanel.gameObject.SetActive(true);
+        invProgressPanel.transform.SetAsLastSibling();
+        invProgressPanel.value = 0f;
+        
+        float t = 0f;
+
+        while (t < 5)
+        {
+            t += Time.deltaTime;
+            invProgressPanel.value = Mathf.Clamp01(t / 5);
+
+            yield return null;
+        }
+
+        CancelInvestigationScanUI();
+
+        GameMamager.Instance.RequestPlayerType(netId, nickname);
+    }
+    private void CancelInvestigationScanUI()
+    {
+        invProgressPanel.gameObject.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
+        invProgressPanel.value = 0f;
+        invCo = null;
+    }
+
+    public void ActiveInvestigationResult(uint targetNetId, string targetNickname, AnimalType targetType, bool isPredator)
+    {
+        var gameMamager = GameMamager.Instance;
+        
+        var rec = new InvestigationRecord
+        {
+            type = InvestigationType.PlayerIdentity,
+            recordId = $"{targetNetId}",
+            title = targetNickname,
+            subtitle = $"탐색 결과: {AnimalNameMap.AnimalTypeToName[targetType]}",
+            Day = gameMamager.currentRound,
+            WasNight = gameMamager.IsNightPhase,
+            ElapsedSec = gameMamager.timer,
+            targetAnimalType = targetType,
+            createdAtLocal = Time.time,
+        };
+
+        InvestigationLog.Instance.Add(rec);
+
+        investigationDescript.text = "탐색 완료";
+        investigationResult.text = "탐색 결과";
+        investigationType.text = AnimalNameMap.AnimalTypeToName[targetType];
+        investigationType.color = isPredator ? Color.red : Color.green;
+    }
+    public void DeActiveInvestigationResult()
+    {
+        investigationUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
     private string TranslateTerritory(TerritoryType type)
     {
@@ -341,22 +598,26 @@ public class GamePlayUI : MonoBehaviour
     {
         checkUI.SetActive(false);
         selectType = AnimalType.None;
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
     public void DeActiveDisguiseUI()
     {
         OnDisguiseSelected(selectType);
         checkUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
 
     public void DeActivePredictCheckUI()
     {
         predictCheckUI.SetActive(false);
         selectType = AnimalType.None;
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
     public void DeActivePredictUI()
     {
         OnPredictSelected(selectType);
         predictCheckUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
 
     public void OnClickMissionListUI()
@@ -365,7 +626,16 @@ public class GamePlayUI : MonoBehaviour
     }
     public void OnClickProfileSlotUI()
     {
-        playerSlotUI.SetActive(!playerSlotUI.activeSelf);
+        if (playerSlotUI.activeSelf)
+        {
+            playerSlotUI.SetActive(false);
+            UIManager.Instance.Pop(UIPriority.Modal);
+        }
+        else
+        {
+            playerSlotUI.SetActive(true);
+            UIManager.Instance.Push(UIPriority.Modal);
+        }
     }
     public void AddPlayer(GamePlayer player, ZoneType zone)
     {
@@ -390,10 +660,6 @@ public class GamePlayUI : MonoBehaviour
             Destroy(icon);
             iconMap.Remove(player);
         }
-    }
-    public static void RegisterInputField()
-    {
-        inputFields = FindObjectsOfType<TMP_InputField>();
     }
     AnimalType GetRandomAnimalType()
     {       

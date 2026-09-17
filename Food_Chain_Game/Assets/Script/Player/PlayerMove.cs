@@ -10,8 +10,6 @@ public class PlayerMove : NetworkBehaviour
     [SyncVar]public float moveSpeed = 5f;
     private Rigidbody2D rigid;
 
-    public static bool isStop;
-    public static bool isEvent;
     private GamePlayer localPlayer;
    
     public Vector2 movement;
@@ -19,17 +17,14 @@ public class PlayerMove : NetworkBehaviour
     {
         rigid = GetComponent<Rigidbody2D>();
         localPlayer = GetComponent<GamePlayer>();
-        
-        isStop = false;
-        isEvent = false;
     }
 
     private void Update()
     {
         if (!isLocalPlayer) return;
-
-        Attack();
+        
         Move();
+        Interaction();
     }
     void FixedUpdate()
     {
@@ -41,17 +36,12 @@ public class PlayerMove : NetworkBehaviour
     private void Move()
     {
         if (!isLocalPlayer) return;
-        if (isStop) return;
-        if (isEvent) return;
-        if (GameMamager.Instance != null)
+        if (!UIManager.Instance.CanMove()) return;
+        if (ChatInputFocus.IsFocused || (GameMamager.Instance != null && !GameMamager.Instance.isRoundActive))
         {
-            if (!GameMamager.Instance.isRoundActive)
-            {
-                movement = Vector2.zero;
-                return;
-            }               
+            movement = Vector2.zero;
+            return;
         }
-        if (SettingManager.isKeySetting == true) return;
 
         movement = Vector2.zero;
 
@@ -74,22 +64,56 @@ public class PlayerMove : NetworkBehaviour
 
         movement = movement.normalized;
     }
-    private void Attack()
+    private void Interaction()
     {
-        if (Input.GetKey(KeySetting.keys[KeyAction.INTERACT]))
+        if (!UIManager.Instance.CanInteract()) return;
+
+        if (Input.GetKeyDown(KeySetting.keys[KeyAction.INTERACT]))
         {
-            if (!TryGetComponent(out GamePlayer gp)) return;
-            if (gp.scanner == null) return;
+            if (localPlayer.scanner == null) return;
 
-            uint targetNetId = gp.scanner.CurrentTargetNetId;
+            var type = localPlayer.scanner.CurrentType;            
 
-            gp.CmdAttack(targetNetId);
+            if (type == Scanner.ScanTargetType.Player)
+            {
+                uint targetNetId = localPlayer.scanner.CurrentTargetNetId;
+                if (targetNetId != 0)
+                {
+                    localPlayer.CmdAttack(targetNetId);
+                    return;
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Corpse)
+            {
+                var corpse = localPlayer.scanner.CurrentTargetCorpse;
+                if (corpse != null)
+                {
+                    localPlayer.CmdScanCorpse(corpse.netId);
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Mission)
+            {
+                var mission = localPlayer.scanner.CurrentMission;
+                if (mission != null && localPlayer.CanStartMissionType(mission.MissionType))
+                {
+                    localPlayer.TryStartMission(mission.MissionType);
+                    return;
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Investigation)
+            {
+                var interact = localPlayer.scanner.CurrentInvestigation;
+                if (interact != null)
+                {
+                    localPlayer.TryStartInvestigation();
+                }
+            }                                                                               
         }
-    }  
-    
+    }
+
+
     public void StopMove()
     {
-        isEvent = true;
         movement = Vector2.zero;
     }
 }

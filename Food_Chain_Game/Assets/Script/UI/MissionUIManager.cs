@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -34,7 +34,7 @@ public class MissionUIManager : MonoBehaviour
     {
         if (!_missions.TryGetValue(type, out var prefab))
         {
-            Debug.LogError($"[MissionUIManager] ¹Ì¼Ç ÇÁ¸®ÆÕ ¾øÀ½: {type}");
+            Debug.LogError($"[MissionUIManager] ë¯¸ì…˜ í”„ë¦¬íŒ¹ ì—†ìŒ: {type}");
             return;
         }
         if (_activeInstance != null)

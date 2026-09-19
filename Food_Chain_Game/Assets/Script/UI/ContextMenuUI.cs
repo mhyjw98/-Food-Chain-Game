@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using Mirror.Examples.Chat;
 using System.Collections;
 using System.Collections.Generic;
@@ -36,10 +36,10 @@ public class ContextMenuUI : MonoBehaviour
 
         whisperBtn.interactable = (player.netId != localPlayer.netId);
         scanBtn.interactable = (localPlayer.canScan && player.netId != localPlayer.netId && GameMamager.Instance.IsExplorationPhase && localPlayer.maxScanCount > localPlayer.scanCount);
-        Debug.Log($"½ºÄµ °¡´ÉÇÑÁö : {localPlayer.canScan}, º»ÀÎÀÎÁö : {player.netId != localPlayer.netId}, Å½»ö½Ã°£ÀÎÁö : {GameMamager.Instance.IsExplorationPhase}, ½ºÄµÈ½¼ö°¡ ³²¾Ò´ÂÁö : {localPlayer.maxScanCount > localPlayer.scanCount}");
+        Debug.Log($"ìŠ¤ìº” ê°€ëŠ¥í•œì§€ : {localPlayer.canScan}, ë³¸ì¸ì¸ì§€ : {player.netId != localPlayer.netId}, íƒìƒ‰ì‹œê°„ì¸ì§€ : {GameMamager.Instance.IsExplorationPhase}, ìŠ¤ìº”íšŸìˆ˜ê°€ ë‚¨ì•˜ëŠ”ì§€ : {localPlayer.maxScanCount > localPlayer.scanCount}");
         predictBtn.interactable = localPlayer.canPredict && GameMamager.Instance.IsExplorationPhase;
 
-        // ¹öÆ° µ¿ÀÛ ¼³Á¤
+        // ë²„íŠ¼ ë™ìž‘ ì„¤ì •
         whisperBtn.onClick.AddListener(() => {
             chatManager.SelectWhisperTarget(targetPlayer);
             Close();

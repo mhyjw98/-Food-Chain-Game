@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -14,30 +14,30 @@ public class CropsA : BaseMission
 {
     [Header("Spawn Area")]
     [SerializeField] private RectTransform parent;          // Play Panel
-    [SerializeField] private RectTransform bagRect;         // °¡¹æ ¿µ¿ª
+    [SerializeField] private RectTransform bagRect;         // ê°€ë°© ì˜ì—­
     [SerializeField] private Vector2 offsetRange = new Vector2(40f, 40f);
     [SerializeField] private Vector2 padding = new Vector2(50f, 50f);
-    [SerializeField] private RectTransform[] spawnGroup;    // 8°³ ½ºÆù Æ÷ÀÎÆ®
+    [SerializeField] private RectTransform[] spawnGroup;    // 8ê°œ ìŠ¤í° í¬ì¸íŠ¸
 
     [Header("Data")]
     [SerializeField] private CropsItemA cropsPrefab;
-    [SerializeField] private CropsData[] cropsCandidates;   // ¿©·¯ ÀÛ¹° µ¥ÀÌÅÍ(id + sprite)
+    [SerializeField] private CropsData[] cropsCandidates;   // ì—¬ëŸ¬ ì‘ë¬¼ ë°ì´í„°(id + sprite)
 
     [Header("Setting")]
-    [SerializeField] private int totalObjectCount = 8;      // ÇÊµå À§¿¡ ³õÀÏ ÃÑ ÀÛ¹° ¼ö
-    [SerializeField] private int targetCount = 3;           // Á¤´ä ÀÛ¹° °³¼ö (3°³)
+    [SerializeField] private int totalObjectCount = 8;      // í•„ë“œ ìœ„ì— ë†“ì¼ ì´ ì‘ë¬¼ ìˆ˜
+    [SerializeField] private int targetCount = 3;           // ì •ë‹µ ì‘ë¬¼ ê°œìˆ˜ (3ê°œ)
 
     [Header("UI")]
-    [SerializeField] private Image[] sampleImages;          // Á¤´ä 3°³ º¸¿©ÁÙ Ä­ (3°³Â¥¸® ¹è¿­ ±ÇÀå)
+    [SerializeField] private Image[] sampleImages;          // ì •ë‹µ 3ê°œ ë³´ì—¬ì¤„ ì¹¸ (3ê°œì§œë¦¬ ë°°ì—´ ê¶Œì¥)
     [SerializeField] private TextMeshProUGUI progressText;
     [SerializeField] private TextMeshProUGUI statusText;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private float timeLimit = 20f;
 
-    // ³»ºÎ »óÅÂ
-    private int[] _targetIndices;                   // Á¤´ä ÀÛ¹°ÀÇ cropsCandidates ÀÎµ¦½º 3°³
+    // ë‚´ë¶€ ìƒíƒœ
+    private int[] _targetIndices;                   // ì •ë‹µ ì‘ë¬¼ì˜ cropsCandidates ì¸ë±ìŠ¤ 3ê°œ
     private HashSet<int> _targetSet = new HashSet<int>();
-    private int _currentCorrectCount;               // °¡¹æ¿¡ ´ãÀº Á¤´ä ¼ö
+    private int _currentCorrectCount;               // ê°€ë°©ì— ë‹´ì€ ì •ë‹µ ìˆ˜
 
     private List<CropsItemA> _spawnedItems = new List<CropsItemA>();
 
@@ -135,7 +135,7 @@ public class CropsA : BaseMission
 
         if (spawnGroup.Length < totalObjectCount)
         {
-            Debug.LogWarning("[CropsA] spawnGroup °³¼ö°¡ totalObjectCountº¸´Ù Àû½À´Ï´Ù.");
+            Debug.LogWarning("[CropsA] spawnGroup ê°œìˆ˜ê°€ totalObjectCountë³´ë‹¤ ì ìŠµë‹ˆë‹¤.");
             totalObjectCount = Mathf.Min(totalObjectCount, spawnGroup.Length);
         }
 
@@ -150,14 +150,14 @@ public class CropsA : BaseMission
     {
         List<int> result = new List<int>();
 
-        // Á¤´ä 3°³
+        // ì •ë‹µ 3ê°œ
         if (_targetIndices != null)
         {
             for (int i = 0; i < _targetIndices.Length; i++)
                 result.Add(_targetIndices[i]);
         }
 
-        // ¿À´ä
+        // ì˜¤ë‹µ
         List<int> wrongPool = new List<int>();
         for (int i = 0; i < cropsCandidates.Length; i++)
         {
@@ -272,7 +272,7 @@ public class CropsA : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "¼º °ø";
+            statusText.text = "ì„± ê³µ";
             statusText.color = Color.green;
             statusText.rectTransform.SetAsLastSibling();
         }
@@ -289,7 +289,7 @@ public class CropsA : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "½Ç ÆĞ";
+            statusText.text = "ì‹¤ íŒ¨";
             statusText.color = Color.red;
             statusText.rectTransform.SetAsLastSibling();
         }

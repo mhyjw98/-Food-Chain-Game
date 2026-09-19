@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -129,7 +129,7 @@ public class CropsItemB : MonoBehaviour, IPointerDownHandler
         switch (_state)
         {
             case PlantState.Mature:
-                // ¼öÈ® ¼º°ø
+                // ìˆ˜í™• ì„±ê³µ
                 _harvested = true;
                 _state = PlantState.Harvested;
                 UpdateVisual();
@@ -137,7 +137,7 @@ public class CropsItemB : MonoBehaviour, IPointerDownHandler
                 break;
 
             case PlantState.Wilted:
-                // ¹Ì¼Ç ½ÇÆÐ
+                // ë¯¸ì…˜ ì‹¤íŒ¨
                 _harvested = true;
                 _state = PlantState.Harvested;
                 UpdateVisual();

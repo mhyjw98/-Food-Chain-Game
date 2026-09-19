@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -23,7 +23,7 @@ public class CodeManager : MonoBehaviour
         } while (codeToIp.ContainsKey(code));
 
         codeToIp[code] = ipAddress;
-        Debug.Log($"�ڵ� : {code} IP : {ipAddress}");
+        Debug.Log($"코드 : {code} IP : {ipAddress}");
         return code;
     }
 

@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,7 +9,7 @@ public enum InvestigationType
 }
 public class InvestigationRecord
 {
-    // °ø¿ë
+    // ê³µìš©
     public string recordId;
     public InvestigationType type;
 

@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using TMPro;
@@ -126,7 +126,7 @@ public class SeedB : BaseMission
     IEnumerator CompleteCoroutine()
     {
         isComplete = true;
-        statusText.text = "¼º °ø";
+        statusText.text = "ì„± ê³µ";
         statusText.color = Color.green;
         statusText.rectTransform.SetAsLastSibling();
         yield return new WaitForSeconds(2);
@@ -136,7 +136,7 @@ public class SeedB : BaseMission
 
     IEnumerator FailCoroutine()
     {
-        statusText.text = "½Ç ÆÐ";
+        statusText.text = "ì‹¤ íŒ¨";
         statusText.color = Color.red;
         statusText.rectTransform.SetAsLastSibling();
         yield return new WaitForSeconds(2);

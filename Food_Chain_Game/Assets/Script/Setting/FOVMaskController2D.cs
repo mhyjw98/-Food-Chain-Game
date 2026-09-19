@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -115,7 +115,7 @@ public class FOVMaskController2D : MonoBehaviour
 
     void OnValidate()
     {
-        // ½ÇÇàÁß º¯°æ½Ã
+        // ì‹¤í–‰ì¤‘ ë³€ê²½ì‹œ
         if (rayCount < 30) rayCount = 30;
         if (Application.isPlaying)
             AllocateBuffers();

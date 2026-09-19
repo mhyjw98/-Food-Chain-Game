@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -25,9 +25,9 @@ public class MissionListItemUI : MonoBehaviour
     {
         switch (status)
         {
-            case MissionStatus.NotStarted: return "¹Ì¿Ï·á";
-            case MissionStatus.InProgress: return "ÁøÇàÁß";
-            case MissionStatus.Completed: return "¿Ï·á";
+            case MissionStatus.NotStarted: return "ë¯¸ì™„ë£Œ";
+            case MissionStatus.InProgress: return "ì§„í–‰ì¤‘";
+            case MissionStatus.Completed: return "ì™„ë£Œ";
             default: return "";
         }
     }

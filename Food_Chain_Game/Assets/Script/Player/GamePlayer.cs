@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -79,7 +79,7 @@ public class GamePlayer : NetworkBehaviour
     public override void OnStartLocalPlayer()
     {       
         base.OnStartLocalPlayer();
-        Debug.Log($"[GamePlayer] ³» Ä³¸¯ÅÍ´Â {characterName}");
+        Debug.Log($"[GamePlayer] ë‚´ ìºë¦­í„°ëŠ” {characterName}");
 
         LocalPlayer = this;
         visionUI = FindObjectOfType<VisionUIController>();
@@ -180,7 +180,7 @@ public class GamePlayer : NetworkBehaviour
     [Command]
     public void CmdScan(uint targetNetId)
     {
-        // Ã¤ÆÃ¿¡ °á°ú Ãâ·Â
+        // ì±„íŒ…ì— ê²°ê³¼ ì¶œë ¥
         GamePlayer target = NetworkServer.spawned[targetNetId].GetComponent<GamePlayer>();
 
         string character = AnimalNameMap.AnimalTypeToName[target.animalType];
@@ -189,12 +189,12 @@ public class GamePlayer : NetworkBehaviour
         string updateMsg;
         if (disguiseCh == "???")
         {
-            result = $"{target.nickname}´Â {character}ÀÔ´Ï´Ù.";
+            result = $"{target.nickname}ëŠ” {character}ì…ë‹ˆë‹¤.";
             updateMsg = character;
         }
         else
         {
-            result = $"{target.nickname}´Â {disguiseCh}ÀÔ´Ï´Ù.";
+            result = $"{target.nickname}ëŠ” {disguiseCh}ì…ë‹ˆë‹¤.";
             updateMsg = disguiseCh;
         }
         scanCount++;
@@ -206,21 +206,21 @@ public class GamePlayer : NetworkBehaviour
     {
         GamePlayer predicted = NetworkServer.spawned[targetNetId].GetComponent<GamePlayer>();
 
-        // ¿¹Ãø ±â·Ï
+        // ì˜ˆì¸¡ ê¸°ë¡
         predictedWinner = predicted.animalType;
 
-        // Å¬¶óÀÌ¾ğÆ®¿¡ ¿¹Ãø UI °»½Å ¿äÃ»
+        // í´ë¼ì´ì–¸íŠ¸ì— ì˜ˆì¸¡ UI ê°±ì‹  ìš”ì²­
         TargetShowPredictionUI(connectionToClient, predicted.netId);
 
-        Debug.Log($"{nickname}´ÔÀÌ {predicted.nickname}À»(¸¦) ½Â¸®ÀÚ·Î ¿¹ÃøÇß½À´Ï´Ù.");
+        Debug.Log($"{nickname}ë‹˜ì´ {predicted.nickname}ì„(ë¥¼) ìŠ¹ë¦¬ìë¡œ ì˜ˆì¸¡í–ˆìŠµë‹ˆë‹¤.");
     }
     [Command]
     public void CmdSetPredict(AnimalType type)
     {
-        // ¿¹Ãø ±â·Ï
+        // ì˜ˆì¸¡ ê¸°ë¡
         predictedWinner = type;
 
-        Debug.Log($"{nickname}´ÔÀÌ {AnimalNameMap.AnimalTypeToName[type]}À»(¸¦) ½Â¸®ÀÚ·Î ¿¹ÃøÇß½À´Ï´Ù.");
+        Debug.Log($"{nickname}ë‹˜ì´ {AnimalNameMap.AnimalTypeToName[type]}ì„(ë¥¼) ìŠ¹ë¦¬ìë¡œ ì˜ˆì¸¡í–ˆìŠµë‹ˆë‹¤.");
     }
     [Command]
     public void CmdScanCorpse(uint corpseNetId)
@@ -265,9 +265,8 @@ public class GamePlayer : NetworkBehaviour
         {
             SpawnCorpse();
             RpcApplyGhostMode();
-                
-            if (isPredator)
-                GameMamager.Instance.CheckGameOver();
+
+            GameMamager.Instance.CheckGameOver(isPredator);
         }
 
         GamePlayUI.Instance.RemovePlayer(this);
@@ -368,7 +367,7 @@ public class GamePlayer : NetworkBehaviour
     {
         GamePlayer scanned = NetworkClient.spawned[scannedNetId].GetComponent<GamePlayer>();
 
-        // 1. UI¿¡ Ä³¸¯ÅÍ¸í °ø°³
+        // 1. UIì— ìºë¦­í„°ëª… ê³µê°œ
         var slot = PlayerSlotUI.Instance.GetSlotByPlayer(scanned);
         if (slot != null)
             slot.UpdateNicknameWithAnimal(updateMsg);
@@ -381,9 +380,9 @@ public class GamePlayer : NetworkBehaviour
     public void TargetShowPredictionUI(NetworkConnection target, uint predictedId)
     {
         GamePlayer scanned = NetworkClient.spawned[predictedId].GetComponent<GamePlayer>();
-        // 1. UI¿¡ Ä³¸¯ÅÍ¸í °ø°³
+        // 1. UIì— ìºë¦­í„°ëª… ê³µê°œ
         var slot = PlayerSlotUI.Instance.GetSlotByPlayer(scanned);
-        slot.MarkPrediction(predictedId); // UI Ã³¸® ÇÔ¼ö
+        slot.MarkPrediction(predictedId); // UI ì²˜ë¦¬ í•¨ìˆ˜
     }
     
     [Command]
@@ -392,33 +391,33 @@ public class GamePlayer : NetworkBehaviour
         if (!isAlive || hasAttacked) return;
         if (!isPredator) return;
 
-        Debug.Log($"[CmdAttack] °ø°İ ·ÎÁ÷ È£Ãâ");
+        Debug.Log($"[CmdAttack] ê³µê²© ë¡œì§ í˜¸ì¶œ");
 
         if (targetNetId == 0)
         {
-            Debug.Log("[CmdAttack] targetNetId Å¸°Ù ¾øÀ½");
+            Debug.Log("[CmdAttack] targetNetId íƒ€ê²Ÿ ì—†ìŒ");
             return;
         }
 
         if (!NetworkServer.spawned.TryGetValue(targetNetId, out var identity))
         {
-            Debug.LogError($"[CmdAttack] NetworkServer.spawned¿¡ netId={targetNetId} ¾øÀ½");
+            Debug.LogError($"[CmdAttack] NetworkServer.spawnedì— netId={targetNetId} ì—†ìŒ");
             return;
         }           
 
         var target = identity.GetComponent<GamePlayer>();
         if (target == null)
         {
-            Debug.LogError("[CmdAttack] targetÀÌ null");
+            Debug.LogError("[CmdAttack] targetì´ null");
             return;
         }
         if (!target.isAlive) 
         {
-            Debug.LogError("[CmdAttack] targetÀÌ ÀÌ¹Ì Á×À½");
+            Debug.LogError("[CmdAttack] targetì´ ì´ë¯¸ ì£½ìŒ");
             return;
         } 
 
-        Debug.Log($"[CmdAttack] {nickname}ÀÌ {target.nickname} °ø°İ");
+        Debug.Log($"[CmdAttack] {nickname}ì´ {target.nickname} ê³µê²©");
 
         var ctx = new AttackContext
         {
@@ -444,7 +443,7 @@ public class GamePlayer : NetworkBehaviour
         for (int i = 0; i < targetAbilities.Length; i++)
             targetAbilities[i].OnBeforeAttack(ref ctx);
 
-        // ¿ª°ø
+        // ì—­ê³µ
         if (ctx.killAttacker)
         {
             Die(new DeathInfo
@@ -454,13 +453,13 @@ public class GamePlayer : NetworkBehaviour
                 KillerType = target.animalType
             });
         }
-        // °ø°İ Ãë¼Ò
+        // ê³µê²© ì·¨ì†Œ
         if (ctx.cancelAttack)
         {
             hasAttacked = true;
             return;
         }
-        // °ø°İ
+        // ê³µê²©
         if (ctx.killTarget) 
         {
             target.Die(new DeathInfo
@@ -559,7 +558,7 @@ public class GamePlayer : NetworkBehaviour
             yield return null;
 
         MissionRegistry.Instance.EnableOnly(missionTypes);
-        Debug.Log($"[GamePlayer] ¹Ì¼Ç ¼³Á¤ ¿Ï·á");
+        Debug.Log($"[GamePlayer] ë¯¸ì…˜ ì„¤ì • ì™„ë£Œ");
     }
     public bool CanStartMissionType(MissionType type)
     {
@@ -619,14 +618,14 @@ public class GamePlayer : NetworkBehaviour
         int idx = FindMissionIndex(missionType);
         if (idx < 0)
         {
-            Debug.Log($"[GamePlayer] ÀÌ ÇÃ·¹ÀÌ¾î¿¡°Ô ¾ø´Â ¹Ì¼Ç: {missionType}");
+            Debug.Log($"[GamePlayer] ì´ í”Œë ˆì´ì–´ì—ê²Œ ì—†ëŠ” ë¯¸ì…˜: {missionType}");
             return;
         }
 
         var slot = Missions[idx];
         if (slot.Status == MissionStatus.Completed)
         {
-            Debug.Log($"[GamePlayer] ÀÌ¹Ì ¿Ï·áÇÑ ¹Ì¼Ç: {missionType}");
+            Debug.Log($"[GamePlayer] ì´ë¯¸ ì™„ë£Œí•œ ë¯¸ì…˜: {missionType}");
             return;
         }
 

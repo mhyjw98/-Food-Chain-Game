@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -65,7 +65,7 @@ public class ChatManager : NetworkBehaviour
         trigger.triggers.Add(deselectEntry);
 
         if (tabContainer != null && tabPrefab != null)
-            CreateTab("ÀüÃ¼", allChannel);
+            CreateTab("ì „ì²´", allChannel);
     }
 
     private void Update()
@@ -77,7 +77,7 @@ public class ChatManager : NetworkBehaviour
 
             if (!ChatInputFocus.IsFocused)
             {
-                Debug.Log("Ã¤ÆÃ ÀÎÇ² Æ÷Ä¿½º");
+                Debug.Log("ì±„íŒ… ì¸í’‹ í¬ì»¤ìŠ¤");
                 EventSystem.current.SetSelectedGameObject(chatInputField.gameObject);
 
                 chatInputField.ActivateInputField();
@@ -135,7 +135,7 @@ public class ChatManager : NetworkBehaviour
             return;
         }
 
-        Debug.LogWarning("[ChatManager] GamePlayer/RoomPlayer¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù.");
+        Debug.LogWarning("[ChatManager] GamePlayer/RoomPlayerë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.");
     }
 
 //public void AddMessage(GamePlayer sender, string message, bool isWhisper)
@@ -220,7 +220,7 @@ private void RefreshChatView()
         else
         {
             if (channel.type == ChatChannelType.All)
-                label.text = "ÀüÃ¼";
+                label.text = "ì „ì²´";
             else if (channel.targetPlayer != null)
                 label.text = channel.targetPlayer.nickname;
         }

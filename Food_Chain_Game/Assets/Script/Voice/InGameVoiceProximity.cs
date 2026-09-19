@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -218,7 +218,7 @@ public class InGameVoiceProximity : MonoBehaviour
 
         _volCache[cacheKey] = next;
 
-        // Vivox ·ÎÄÃ º¼·ı ¹üÀ§: º¸Åë -50 ~ +10 Á¤µµ·Î ¿î¿ë
+        // Vivox ë¡œì»¬ ë³¼ë¥¨ ë²”ìœ„: ë³´í†µ -50 ~ +10 ì •ë„ë¡œ ìš´ìš©
         p.SetLocalVolume(Mathf.RoundToInt(Mathf.Clamp(next, -50f, 10f)));
     }
 

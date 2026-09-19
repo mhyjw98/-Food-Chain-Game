@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -124,7 +124,7 @@ public class PoisonA : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "¼º °ø";
+            statusText.text = "ì„± ê³µ";
             statusText.rectTransform.SetAsLastSibling();
         }
 
@@ -139,7 +139,7 @@ public class PoisonA : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "½Ç ÆÐ";
+            statusText.text = "ì‹¤ íŒ¨";
             statusText.rectTransform.SetAsLastSibling();
         }
 

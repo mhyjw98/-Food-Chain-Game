@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -25,12 +25,12 @@ public class PlayerSlotUI : MonoBehaviour
         if (NetworkClient.localPlayer != null)
             localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
 
-        // ·ÎÄÃÇÃ·¹ÀÌ¾î ½½·Ô »ı¼º ÈÄ 
+        // ë¡œì»¬í”Œë ˆì´ì–´ ìŠ¬ë¡¯ ìƒì„± í›„ 
         if (localPlayer != null && players.Contains(localPlayer))
         {
             CreateSlot(localPlayer);
         }
-        foreach (var player in players) // ³ª¸ÓÁö ½½·Ô »ı¼º
+        foreach (var player in players) // ë‚˜ë¨¸ì§€ ìŠ¬ë¡¯ ìƒì„±
         {
             if (player == localPlayer) continue;
             CreateSlot(player);

@@ -1,13 +1,13 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 public enum UIPriority
 {
-    None = 0,               // Á¦ÇÑ ¾øÀ½
-    Scan = 10,              // »óÈ£ÀÛ¿ë ºÒ°¡
-    Modal = 100             // ÀÌµ¿, »óÈ£ÀÛ¿ë ºÒ°¡
+    None = 0,               // ì œí•œ ì—†ìŒ
+    Scan = 10,              // ìƒí˜¸ì‘ìš© ë¶ˆê°€
+    Modal = 100             // ì´ë™, ìƒí˜¸ì‘ìš© ë¶ˆê°€
 }
 public class UIManager : MonoBehaviour
 {

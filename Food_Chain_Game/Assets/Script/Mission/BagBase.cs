@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -19,7 +19,7 @@ public abstract class BagBase : MonoBehaviour
 
     //private void OnTriggerEnter2D(Collider2D other)
     //{
-    //    Debug.Log("[BagBase] TriggerEnter ȣ��");
+    //    Debug.Log("[BagBase] TriggerEnter 호출");
     //    var bagItem = other.GetComponent<IBagItem>();
     //    if (bagItem == null) return;
 

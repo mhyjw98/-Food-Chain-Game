@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.VisualScripting;
@@ -135,7 +135,7 @@ public class WoodA : BaseMission
     {
         if (progressText != null)
         {
-            progressText.text = $"³ª¹µ°¡Áö ¼öÁý: {_collectCount} / {_totalWood}";
+            progressText.text = $"ë‚˜ë­‡ê°€ì§€ ìˆ˜ì§‘: {_collectCount} / {_totalWood}";
         }
     }
 
@@ -143,7 +143,7 @@ public class WoodA : BaseMission
     {
         _isComplete = true;
 
-        statusText.text = "¼º °ø";
+        statusText.text = "ì„± ê³µ";
         statusText.color = Color.green;
         statusText.rectTransform.SetAsLastSibling();
 
@@ -156,7 +156,7 @@ public class WoodA : BaseMission
     {
         _isComplete = true;
 
-        statusText.text = "½Ç ÆÐ";
+        statusText.text = "ì‹¤ íŒ¨";
         statusText.color = Color.red;
         statusText.rectTransform.SetAsLastSibling();
 

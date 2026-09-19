@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -82,26 +82,26 @@ public class PlayerSlot : MonoBehaviour, IPointerClickHandler
     }
     public void MarkPrediction(uint targetId)
     {
-        predictText.text = "¿¹ Ãø";
+        predictText.text = "ì˜ˆ ì¸¡";
     }
 }
 public static class AnimalNameMap
 {
     public static readonly Dictionary<AnimalType, string> AnimalTypeToName = new()
     {
-        { AnimalType.Wolf, "´Á´ë" },
-        { AnimalType.Crocodile, "¾Ç¾î" },
-        { AnimalType.Fox, "¿©¿ì" },
-        { AnimalType.Squirrel, "´Ù¶÷Áã" },
-        { AnimalType.Zebra, "¾ó·è¸»" },
-        { AnimalType.Badger, "¿À¼Ò¸®" },
-        { AnimalType.Scorpion, "Àü°¥" },
-        { AnimalType.Ostrich, "Å¸Á¶" },
-        { AnimalType.Hawk, "¸Å" },
-        { AnimalType.Plover, "¾Ç¾î»õ" },
-        { AnimalType.Skunk, "½ºÄÈÅ©" },
-        { AnimalType.Crow, "±î¸¶±Í" },
-        { AnimalType.Hyena, "ÇÏÀÌ¿¡³ª" },
+        { AnimalType.Wolf, "ëŠ‘ëŒ€" },
+        { AnimalType.Crocodile, "ì•…ì–´" },
+        { AnimalType.Fox, "ì—¬ìš°" },
+        { AnimalType.Squirrel, "ë‹¤ëŒì¥" },
+        { AnimalType.Zebra, "ì–¼ë£©ë§" },
+        { AnimalType.Badger, "ì˜¤ì†Œë¦¬" },
+        { AnimalType.Scorpion, "ì „ê°ˆ" },
+        { AnimalType.Ostrich, "íƒ€ì¡°" },
+        { AnimalType.Hawk, "ë§¤" },
+        { AnimalType.Plover, "ì•…ì–´ìƒˆ" },
+        { AnimalType.Skunk, "ìŠ¤ì»¹í¬" },
+        { AnimalType.Crow, "ê¹Œë§ˆê·€" },
+        { AnimalType.Hyena, "í•˜ì´ì—ë‚˜" },
         { AnimalType.None, "???" }
     };
 }

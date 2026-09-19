@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -53,7 +53,7 @@ public class SettingsTabController : MonoBehaviour
 
     void OnEnable()
     {
-        // ¼³Á¤ UI°¡ ÄÑÁú ¶§ ±âº» ÅÇ(¶Ç´Â ¸¶Áö¸· ÅÇ)À¸·Î ¼¼ÆÃ
+        // ì„¤ì • UIê°€ ì¼œì§ˆ ë•Œ ê¸°ë³¸ íƒ­(ë˜ëŠ” ë§ˆì§€ë§‰ íƒ­)ìœ¼ë¡œ ì„¸íŒ…
         if (!rememberLastTab || _currentIndex < 0)
             SelectTab(Mathf.Clamp(defaultTabIndex, 0, tabs.Length - 1));
         else
@@ -77,7 +77,7 @@ public class SettingsTabController : MonoBehaviour
     {
         var t = tabs[index];
 
-        // ÆĞ³Î Ç¥½Ã/¼û±è
+        // íŒ¨ë„ í‘œì‹œ/ìˆ¨ê¹€
         if (t.panelRoot != null)
         {
             if (visibilityMode == VisibilityMode.SetActive)
@@ -95,15 +95,15 @@ public class SettingsTabController : MonoBehaviour
             }
         }
 
-        // ¼±ÅÃ Ç¥½Ã(ÇÏÀÌ¶óÀÌÆ®)
+        // ì„ íƒ í‘œì‹œ(í•˜ì´ë¼ì´íŠ¸)
         if (t.selectedIndicator != null)
             t.selectedIndicator.SetActive(visible);
 
-        // ¼±ÅÃµÈ ÅÇ ¹öÆ° ºñÈ°¼º(¼±ÅÃ »óÅÂ Ç¥Çö ¿ëµµ)
+        // ì„ íƒëœ íƒ­ ë²„íŠ¼ ë¹„í™œì„±(ì„ íƒ ìƒíƒœ í‘œí˜„ ìš©ë„)
         if (t.tabButton != null)
             t.tabButton.interactable = !visible;
 
-        // ÅÇ ·ÎÁ÷ Äİ¹é
+        // íƒ­ ë¡œì§ ì½œë°±
         if (t.tabLogic is ISettingsTab logic)
         {
             if (visible) logic.OnShow();

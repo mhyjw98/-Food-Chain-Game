@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using UnityEngine;
 
 public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility, IMissionCompleteHandler
@@ -25,7 +25,7 @@ public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility,
         enabled = (type == AnimalType.Scorpion);
         if (!enabled) return;
 
-        Debug.Log("[ScorpionAbility] ServerActivate È£Ãâ" + enabled);
+        Debug.Log("[ScorpionAbility] ServerActivate í˜¸ì¶œ" + enabled);
 
         hasPoison = false;
 
@@ -50,7 +50,7 @@ public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility,
         if (ctx.target != local) return;
         if (ctx.attacker == null) return;
 
-        Debug.Log("µ¶ »óÅÂ :" + hasPoison);
+        Debug.Log("ë… ìƒíƒœ :" + hasPoison);
         if (hasPoison)
         {
             ctx.killAttacker = true;
@@ -86,7 +86,7 @@ public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility,
 
         if (!hasPoison)
         {
-            Debug.Log("ServerSyncPoisonMissionSlot µ¶ ¼öÁı ¹Ì¼Ç »ı¼º");
+            Debug.Log("ServerSyncPoisonMissionSlot ë… ìˆ˜ì§‘ ë¯¸ì…˜ ìƒì„±");
             local.Missions.Insert(0, new MissionSlot
             {
                 Type = MissionType.Scorpion_Poison,

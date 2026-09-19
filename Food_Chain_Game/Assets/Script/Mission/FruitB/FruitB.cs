@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -96,7 +96,7 @@ public class FruitB : BaseMission
     public void OnStoneExpired(FruitBStone stone)
     {
         if (_isComplete) return;
-        if (stone != _currentStone) return; // ÀÌ¹Ì ´Ù¸¥ µ¹ÀÌ »ı¼ºµÈ °æ¿ì
+        if (stone != _currentStone) return; // ì´ë¯¸ ë‹¤ë¥¸ ëŒì´ ìƒì„±ëœ ê²½ìš°
 
         if (_stoneRespawnScheduled) return;
         _stoneRespawnScheduled = true;
@@ -129,7 +129,7 @@ public class FruitB : BaseMission
     private void UpdateProgressUI()
     {
         if (progressText != null)
-            progressText.text = $"¿­¸Å ¸ÂÃß±â: {_fruitHitCount} / {_fruitTotal}";
+            progressText.text = $"ì—´ë§¤ ë§ì¶”ê¸°: {_fruitHitCount} / {_fruitTotal}";
     }
 
     public void TryHitFruits(RectTransform stoneRect)
@@ -159,7 +159,7 @@ public class FruitB : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "¼º °ø";
+            statusText.text = "ì„± ê³µ";
             statusText.color = Color.green;
             statusText.rectTransform.SetAsLastSibling();
         }
@@ -174,7 +174,7 @@ public class FruitB : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "½Ç ÆĞ";
+            statusText.text = "ì‹¤ íŒ¨";
             statusText.color = Color.red;
             statusText.rectTransform.SetAsLastSibling();
         }

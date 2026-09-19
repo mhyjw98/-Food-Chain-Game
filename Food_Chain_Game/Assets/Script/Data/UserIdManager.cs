@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -26,7 +26,7 @@ public static class UserIdManager
         }
     }
     /// <summary>
-    /// °íÀ¯ UserId¸¦ ¹İÈ¯ ¾øÀ¸¸é »ı¼ºÇØ¼­ ÀúÀå
+    /// ê³ ìœ  UserIdë¥¼ ë°˜í™˜ ì—†ìœ¼ë©´ ìƒì„±í•´ì„œ ì €ì¥
     /// </summary>
     public static string GenerateUserId()
     {

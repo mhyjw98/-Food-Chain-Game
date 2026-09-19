@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -222,10 +222,10 @@ public static class KeyCodeExtensions
             case KeyCode.LeftControl: return "Left Ctrl";
             case KeyCode.RightControl: return "Right Ctrl";
             case KeyCode.Backslash: return "|";
-            case KeyCode.UpArrow: return "°Ë";
-            case KeyCode.DownArrow: return "°È";
-            case KeyCode.LeftArrow: return "°Á";
-            case KeyCode.RightArrow: return "°Ê";
+            case KeyCode.UpArrow: return "‚Üë";
+            case KeyCode.DownArrow: return "‚Üì";
+            case KeyCode.LeftArrow: return "‚Üê";
+            case KeyCode.RightArrow: return "‚Üí";
             case KeyCode.LeftBracket: return "[";
             case KeyCode.RightBracket: return "]";
             case KeyCode.Minus: return "-";

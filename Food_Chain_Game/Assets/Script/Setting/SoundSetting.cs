@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -295,7 +295,7 @@ public class SoundSetting : MonoBehaviour
 
     private void OnSubSliderChanged(Channel ch)
     {
-        // ¸¶½ºÅÍº¸´Ù Å©Áö ¾Êµµ·Ï
+        // ë§ˆìŠ¤í„°ë³´ë‹¤ í¬ì§€ ì•Šë„ë¡
         if (ch.slider.value > masterChannel.slider.value)
         {
             ch.slider.value = masterChannel.slider.value;
@@ -335,10 +335,10 @@ public class SoundSetting : MonoBehaviour
         float masterVol = masterChannel.slider.value / 100f;
         bool masterMuted = masterChannel.muteToggle.isOn;
 
-        // ¸¶½ºÅÍ º¼·ı
+        // ë§ˆìŠ¤í„° ë³¼ë¥¨
         masterChannel.applyVolume(masterMuted ? 0f : masterVol);
 
-        // ¼­ºê Ã¤³Î º¼·ı
+        // ì„œë¸Œ ì±„ë„ ë³¼ë¥¨
         foreach (var ch in subChannels)
         {
             float v = ch.slider.value / 100f;
@@ -366,7 +366,7 @@ public class SoundSetting : MonoBehaviour
     }
 
     /// <summary>
-    /// ÇöÀç UI »óÅÂ¸¦ ÀúÀå
+    /// í˜„ì¬ UI ìƒíƒœë¥¼ ì €ì¥
     /// </summary>
     public void CaptureSnapshot()
     {
@@ -387,7 +387,7 @@ public class SoundSetting : MonoBehaviour
     }
 
     /// <summary>
-    /// ½º³À¼¦ ±âÁØÀ¸·Î º¯°æ ¿©ºÎ °Ë»ç
+    /// ìŠ¤ëƒ…ìƒ· ê¸°ì¤€ìœ¼ë¡œ ë³€ê²½ ì—¬ë¶€ ê²€ì‚¬
     /// </summary>
     public bool CheckDirty()
     {
@@ -418,7 +418,7 @@ public class SoundSetting : MonoBehaviour
     }
 
     /// <summary>
-    /// ÇöÀç UI °ªÀ» PlayerPrefs¿¡ ÀúÀå
+    /// í˜„ì¬ UI ê°’ì„ PlayerPrefsì— ì €ì¥
     /// </summary>
     public void SaveSoundSetting()
     {
@@ -439,7 +439,7 @@ public class SoundSetting : MonoBehaviour
     }
 
     /// <summary>
-    /// º¯°æÇÏ±â Àü ¸¶Áö¸· »óÅÂ·Î µÇµ¹¸®±â
+    /// ë³€ê²½í•˜ê¸° ì „ ë§ˆì§€ë§‰ ìƒíƒœë¡œ ë˜ëŒë¦¬ê¸°
     /// </summary>
     public void RevertToSnapshot()
     {
@@ -459,7 +459,7 @@ public class SoundSetting : MonoBehaviour
         uiValueField.text = savedSnapshot.ui.ToString();
         uiToggle.isOn = savedSnapshot.muteUi;
 
-        // ºñÁÖ¾ó & º¼·ı °»½Å
+        // ë¹„ì£¼ì–¼ & ë³¼ë¥¨ ê°±ì‹ 
         UpdateChannelVisual(masterChannel, !savedSnapshot.muteMaster);
         foreach (var ch in subChannels)
         {

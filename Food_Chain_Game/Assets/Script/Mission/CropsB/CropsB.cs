@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -29,7 +29,7 @@ public class CropsB : BaseMission
     {
         if (_isComplete) return;
 
-        // ÀüÃ¼ ¹Ì¼Ç Å¸ÀÌ¸Ó
+        // ì „ì²´ ë¯¸ì…˜ íƒ€ì´ë¨¸
         _remainTime -= Time.deltaTime;
         if (_remainTime < 0f) _remainTime = 0f;
 
@@ -131,7 +131,7 @@ public class CropsB : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "¼º °ø";
+            statusText.text = "ì„± ê³µ";
             statusText.color = Color.green;
             statusText.rectTransform.SetAsLastSibling();
         }
@@ -147,7 +147,7 @@ public class CropsB : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "½Ç ÆĞ";
+            statusText.text = "ì‹¤ íŒ¨";
             statusText.color = Color.red;
             statusText.rectTransform.SetAsLastSibling();
         }

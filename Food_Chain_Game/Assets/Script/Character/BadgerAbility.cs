@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -81,7 +81,7 @@ public class BadgerAbility : NetworkBehaviour, IAnimalAbility, IMissionCompleteH
         switch (completedType)
         {
             case MissionType.BadgerA:
-                Debug.Log("BadgerA ¹Ì¼Ç ¿Ï·á");
+                Debug.Log("BadgerA ë¯¸ì…˜ ì™„ë£Œ");
                 break;
 
             case MissionType.BadgerB:

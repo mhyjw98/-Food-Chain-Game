@@ -1,4 +1,4 @@
-using System.Collections;
+Ôªøusing System.Collections;
 using Unity.Services.Core;
 using Unity.Services.Authentication;
 using Unity.Services.Vivox;
@@ -335,7 +335,7 @@ public class VoiceManager : MonoBehaviour
 
             if (isAlive)
             {
-                // Alive: alive √§≥Œ∏∏ (º€Ω≈/ºˆΩ≈)
+                // Alive: alive Ï±ÑÎÑêÎßå (ÏÜ°Ïã†/ÏàòÏã†)
                 await LeaveChannelIfJoinedAsync(deadCh, ct);
 
                 await JoinGroupChannelAsync(aliveCh, makeActive: true, ct);

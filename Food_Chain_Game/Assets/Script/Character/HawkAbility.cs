@@ -1,4 +1,4 @@
-using Mirror;
+﻿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,7 +22,7 @@ public class HawkAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
         this.local = local;
 
         enabled = (type == AnimalType.Hawk);
-        Debug.Log("[HawkAbility] ServerActivate ȣ��" + enabled);
+        Debug.Log("[HawkAbility] ServerActivate 호출" + enabled);
     }
     [Server]
     public void OnNewDay(int day)

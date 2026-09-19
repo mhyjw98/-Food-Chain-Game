@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using static AnimalWinCondition;
@@ -8,21 +8,21 @@ public static class WinCondutionFactory
 {
     private static readonly Dictionary<AnimalType, IWinCondition> conditions = new()
     {
-        // Æ÷½ÄÀÚ
+        // í¬ì‹ì
         { AnimalType.Wolf, new WolfWinCondition() },
         { AnimalType.Crocodile, new CrocodileWinCondition() },
         { AnimalType.Hawk, new HawkWinCondition() },
         { AnimalType.Hyena, new HyenaWinCondition() },
-        // ÇÇ½ÄÀÚ
+        // í”¼ì‹ì
         { AnimalType.Squirrel, new SquirrelWinCondition() },
         { AnimalType.Zebra, new ZebraWinCondition() },
         { AnimalType.Badger, new BadgerWinCondition() },        
         { AnimalType.Skunk, new SkunkWinCondition() },
         { AnimalType.Ostrich, new OstrichWinCondition() },
-        // Á¶·ÂÀÚ
+        // ì¡°ë ¥ì
         { AnimalType.Plover, new PloverWinCondition() },
         { AnimalType.Crow, new CrowWinCondition() },
-        // Áß¸³
+        // ì¤‘ë¦½
         { AnimalType.Scorpion, new ScorpionWinCondition() },
         { AnimalType.Fox, new FoxWinCondition() },
     };

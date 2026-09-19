@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,7 +64,7 @@ public class GameMamager : NetworkBehaviour
         }
 
         if (isRoundActive)
-            timerText.text = $"{Mathf.CeilToInt(timer)}ÃÊ";
+            timerText.text = $"{Mathf.CeilToInt(timer)}ì´ˆ";
     }
     public override void OnStartClient()
     {
@@ -141,7 +141,7 @@ public class GameMamager : NetworkBehaviour
         GamePlayer player = NetworkClient.localPlayer.GetComponent<GamePlayer>();
         if (player == null)
         {
-            Debug.LogError($"[BlockSkyWhenReady] player°¡ null°ª");
+            Debug.LogError($"[BlockSkyWhenReady] playerê°€ nullê°’");
             yield break;
         }          
         if (!player.isFly)
@@ -227,49 +227,48 @@ public class GameMamager : NetworkBehaviour
     [Server]
     IEnumerator RoundFlow()
     {
-        // ½ÃÀÛ ¾Ö´Ï¸ŞÀÌ¼Ç
+        // ì‹œì‘ ì• ë‹ˆë©”ì´ì…˜
         yield return new WaitForSeconds(2.5f);
         InitPlayers();
         PlayerAbilitySet();
         SetGameUI();                        
         SetMissionsToAllPlayers();
-        DeleteRoomPlayer();
         yield return new WaitForSeconds(2.5f);
 
         ActiveTextGroup();
         isRoundActive = true;
-        // À§Àå ½Ã°£
+        // ìœ„ì¥ ì‹œê°„
         //currentTime = RoundTime.Disguise;
         //timer = disguiseTime;
         //RPCShowDisguiseUI();             
         //yield return new WaitForSeconds(disguiseTime);
 
-        // Å½»ö½Ã°£        
+        // íƒìƒ‰ì‹œê°„        
         //currentTime = RoundTime.Exploration;
         //timer = explorationRoundTime;
         //RPCShowPredictUI();
         //yield return new WaitForSeconds(explorationRoundTime);
         //RPCCheckPredict();
 
-        // ¶ó¿îµå ½ÃÀÛ
+        // ë¼ìš´ë“œ ì‹œì‘
         for (int day = 1; day <= maxRounds; day++)
         {
             currentRound = day;
 
-            // ³· ½Ã°£
+            // ë‚® ì‹œê°„
             currentTime = RoundTime.Day;
             timer = dayRoundTime;
             if(day != 1) RpcOnDayNightChanged(IsNightPhase);
             yield return new WaitForSeconds(dayRoundTime);
             
-            // ¹ã ½Ã°£
+            // ë°¤ ì‹œê°„
             currentTime = RoundTime.Night;
             timer = nightRoundTime;
             RpcBlockMap();
             RpcOnDayNightChanged(IsNightPhase);
             yield return new WaitForSeconds(nightRoundTime);
 
-            // Ã¼Å©
+            // ì²´í¬
             CheckDay(day);
             CheckPredatorSurvival();
             CheckPreySurvival(day);
@@ -282,19 +281,6 @@ public class GameMamager : NetworkBehaviour
         timerText.text = "";
 
         EvaluateGameResult();  
-    }
-    void DeleteRoomPlayer()
-    {
-        RoomPlayer[] roomPlayers = FindObjectsOfType<RoomPlayer>();
-
-        if (NetworkServer.active)
-        {
-            foreach (var rp in roomPlayers)
-            {
-                NetworkServer.Destroy(rp.gameObject);
-                ((RoomManager)RoomManager.singleton).roomPlayers.Remove(rp);
-            }
-        }
     }
     [Server]
     void CheckDay(int day)
@@ -323,7 +309,7 @@ public class GameMamager : NetworkBehaviour
                     int maxStreak = MaxHungryRounds[player.animalType];
                     if (player.hungryStreak >= maxStreak)
                     {
-                        Debug.Log($"{player.characterName}´Â {player.hungryStreak}¶ó¿îµå µ¿¾È ±¾¾î »ç¸ÁÇß½À´Ï´Ù.");
+                        Debug.Log($"{player.characterName}ëŠ” {player.hungryStreak}ë¼ìš´ë“œ ë™ì•ˆ êµ¶ì–´ ì‚¬ë§í–ˆìŠµë‹ˆë‹¤.");
                         player.Die(new DeathInfo
                         {
                             Reason = DeathReason.Hunger,
@@ -418,7 +404,7 @@ public class GameMamager : NetworkBehaviour
     [Server]
     void EvaluateGameResult()
     {
-        Debug.Log("°ÔÀÓ Á¾·á! ½ÂÆĞ ÆÇ´Ü ½ÃÀÛ");       
+        Debug.Log("ê²Œì„ ì¢…ë£Œ! ìŠ¹íŒ¨ íŒë‹¨ ì‹œì‘");       
 
         foreach (var player in players)
         {           
@@ -427,7 +413,7 @@ public class GameMamager : NetworkBehaviour
             bool isWinner = winCondition.Evaluate(player, players);
             player.isWin = isWinner;
 
-            Debug.Log($"[Evaluate] {player.characterName} °á°ú: {(isWinner ? "½Â¸®" : "ÆĞ¹è")}");
+            Debug.Log($"[Evaluate] {player.characterName} ê²°ê³¼: {(isWinner ? "ìŠ¹ë¦¬" : "íŒ¨ë°°")}");
         }
         RpcShowGameResult();
 
@@ -442,10 +428,17 @@ public class GameMamager : NetworkBehaviour
         NetworkManager.singleton.ServerChangeScene("GameRoom");
     }
 
-    public void CheckGameOver()
+    public void CheckGameOver(bool wasPredator)
     {
-        deadPredatorCount++;
-        if (deadPredatorCount == predatorCount)
+        if (!isRoundActive) return;
+
+        if (wasPredator)
+            deadPredatorCount++;
+
+        bool allPredatorsDead = deadPredatorCount == predatorCount;
+        bool noSurvivorsLeft = players.Count > 0 && players.All(p => p == null || !p.isAlive);
+
+        if (allPredatorsDead || noSurvivorsLeft)
         {
             isRoundActive = false;
             DeActiveTextGroup();
@@ -456,7 +449,7 @@ public class GameMamager : NetworkBehaviour
                 StopCoroutine(roundFlowCo);
 
             EvaluateGameResult();
-        }           
+        }
     }
 
     [ClientRpc]

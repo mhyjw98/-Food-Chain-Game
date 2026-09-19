@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -98,7 +98,7 @@ public class MeatAScanner : MonoBehaviour, IPointerDownHandler
             float dp = Mathf.Abs(progress - _prevProgress);
             if (dp > maxProgressStep)
             {
-                CancelScan("³Ê¹« ºü¸§");
+                CancelScan("ë„ˆë¬´ ë¹ ë¦„");
                 return;
             }
         }
@@ -108,7 +108,7 @@ public class MeatAScanner : MonoBehaviour, IPointerDownHandler
         float expected = Mathf.Clamp01(_elapsed / Mathf.Max(0.01f, scanDuration));
         if (progress > expected + leadTolerance)
         {
-            CancelScan("³Ê¹« ºü¸§");
+            CancelScan("ë„ˆë¬´ ë¹ ë¦„");
             return;
         }
 
@@ -173,7 +173,7 @@ public class MeatAScanner : MonoBehaviour, IPointerDownHandler
 
         if (coverage >= minCoverageRatio)
         {
-            SetMessage("¾È Àü");
+            SetMessage("ì•ˆ ì „");
 
             // AudioManager.Instance.PlayEffectSfx(...);
 
@@ -181,7 +181,7 @@ public class MeatAScanner : MonoBehaviour, IPointerDownHandler
             return;
         }
 
-        CancelScan("½ºÄµ ºÎÁ·");
+        CancelScan("ìŠ¤ìº” ë¶€ì¡±");
     }
 
     private void CancelScan(string msg)
@@ -267,8 +267,8 @@ public class MeatAScanner : MonoBehaviour, IPointerDownHandler
     private static float ComputeProgress(float centerY, float meatMinY, float meatMaxY, bool topToBottom)
     {
         float p = topToBottom
-            ? Mathf.InverseLerp(meatMaxY, meatMinY, centerY)   // À§ 0 ¾Æ·¡ 1
-            : Mathf.InverseLerp(meatMinY, meatMaxY, centerY);  // ¾Æ·¡ 0 À§ 1
+            ? Mathf.InverseLerp(meatMaxY, meatMinY, centerY)   // ìœ„ 0 ì•„ëž˜ 1
+            : Mathf.InverseLerp(meatMinY, meatMaxY, centerY);  // ì•„ëž˜ 0 ìœ„ 1
 
         return Mathf.Clamp01(p);
     }

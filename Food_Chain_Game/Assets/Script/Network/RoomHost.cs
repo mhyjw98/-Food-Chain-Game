@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -7,13 +7,19 @@ using UnityEngine.Networking;
 public class RoomHost : MonoBehaviour
 {
     private string nodeServerUrl;
+    private bool isConfigValid;
 
     private void Awake()
     {
+        isConfigValid = !string.IsNullOrWhiteSpace(ConfigManager.Config.IP);
         nodeServerUrl = "http://" + ConfigManager.Config.IP + ":3000";
+
+        if (!isConfigValid)
+            Debug.LogError("[RoomHost] ConfigManager.Config.IPê°€ ë¹„ì–´ìˆì–´ Node ì„œë²„ì™€ í†µì‹ í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤. Assets/StreamingAssets/config.jsonì„ í™•ì¸í•´ì£¼ì„¸ìš”.");
     }
     public void RegisterRoom(string code, string ip, int maxPlayer)
     {
+        if (!isConfigValid) return;
         StartCoroutine(RegisterRoomToServer(code, ip, maxPlayer));
     }
 
@@ -32,18 +38,19 @@ public class RoomHost : MonoBehaviour
 
         if (req.responseCode == 200)
         {
-            Debug.Log("¹æ ÄÚµå µî·Ï ¼º°ø");
+            Debug.Log("ë°© ì½”ë“œ ë“±ë¡ ì„±ê³µ");
         }          
         else
         {
-            Debug.LogError($"ÄÚµå µî·Ï ½ÇÆĞ {req.error}");
-            Debug.LogError($"ÀÀ´ä ÄÚµå: {req.responseCode}");
-            Debug.LogError($"¼­¹ö ÀÀ´ä: {req.downloadHandler.text}");
+            Debug.LogError($"ì½”ë“œ ë“±ë¡ ì‹¤íŒ¨ {req.error}");
+            Debug.LogError($"ì‘ë‹µ ì½”ë“œ: {req.responseCode}");
+            Debug.LogError($"ì„œë²„ ì‘ë‹µ: {req.downloadHandler.text}");
             Debug.LogError($"IP: {ip}");
         }
     }
     public void ComeAndGoing(string code, int delta)
     {
+        if (!isConfigValid) return;
         StartCoroutine(ComeAndGoingCoroutine(code, delta));
     }
     IEnumerator ComeAndGoingCoroutine(string code, int delta)
@@ -59,12 +66,13 @@ public class RoomHost : MonoBehaviour
         yield return request.SendWebRequest();
 
         if (request.responseCode == 200)
-            Debug.Log("[Room] ÃâÀÔ ¼º°ø");
+            Debug.Log("[Room] ì¶œì… ì„±ê³µ");
         else
-            Debug.LogError("[Room] ÃâÀÔ ½ÇÆĞ");
+            Debug.LogError("[Room] ì¶œì… ì‹¤íŒ¨");
     }
     public void DeleteRoom(string code)
     {
+        if (!isConfigValid) return;
         StartCoroutine(DeleteRoomCoroutine(code));
     }
 
@@ -74,9 +82,9 @@ public class RoomHost : MonoBehaviour
         yield return request.SendWebRequest();
 
         if (request.result == UnityWebRequest.Result.Success)
-            Debug.Log("»èÁ¦ ¼º°ø");
+            Debug.Log("ì‚­ì œ ì„±ê³µ");
         else
-            Debug.LogError($"[RoomManager] ¹æ »èÁ¦ ½ÇÆĞ: {request.error}");
+            Debug.LogError($"[RoomManager] ë°© ì‚­ì œ ì‹¤íŒ¨: {request.error}");
     }
 
     [System.Serializable]

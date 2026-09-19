@@ -1,4 +1,4 @@
-using System.Collections;
+Ôªøusing System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using static MissionSelector;
@@ -13,7 +13,7 @@ public class MissionSelector : MonoBehaviour
         new Dictionary<AnimalType, MissionCategory[]>
    
         {
-            { AnimalType.Squirrel, new[] // ¥Ÿ∂˜¡„
+            { AnimalType.Squirrel, new[] // Îã§ÎûåÏ•ê
             {
                 MissionCategory.Grass,                
                 MissionCategory.Seed,
@@ -22,7 +22,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Ostrich, new[] // ≈∏¡∂
+        { AnimalType.Ostrich, new[] // ÌÉÄÏ°∞
             {
                 MissionCategory.Seed,
                 MissionCategory.Branch,
@@ -31,7 +31,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Badger, new[] // ø¿º“∏Æ
+        { AnimalType.Badger, new[] // Ïò§ÏÜåÎ¶¨
             {
                 MissionCategory.Fruit,
                 MissionCategory.Branch,
@@ -40,7 +40,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Zebra, new[] // æÛ∑Ë∏ª
+        { AnimalType.Zebra, new[] // ÏñºÎ£©Îßê
             {
                 MissionCategory.Grass,
                 MissionCategory.Branch,
@@ -49,7 +49,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Skunk, new[] // Ω∫ƒ»≈©
+        { AnimalType.Skunk, new[] // Ïä§ÏªπÌÅ¨
             {
                 MissionCategory.Insect,
                 MissionCategory.Fruit,
@@ -58,7 +58,7 @@ public class MissionSelector : MonoBehaviour
                 MissionCategory.Fish,
             }
         },
-        { AnimalType.Crow, new[] // ±Ó∏∂±Õ
+        { AnimalType.Crow, new[] // ÍπåÎßàÍ∑Ä
             {
                 MissionCategory.Insect,
                 MissionCategory.Fruit,
@@ -66,7 +66,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Plover, new[] // æ«æÓªı
+        { AnimalType.Plover, new[] // ÏïÖÏñ¥ÏÉà
             {
                 MissionCategory.Meat,
                 MissionCategory.Insect,
@@ -74,7 +74,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Scorpion, new[] // ¿¸∞•
+        { AnimalType.Scorpion, new[] // Ï†ÑÍ∞à
             {
                 MissionCategory.Fish,
                 MissionCategory.Insect,
@@ -106,7 +106,7 @@ public class MissionSelector : MonoBehaviour
         var categories = GetCategoriesForAnimal(animal);
         if (categories == null || categories.Length == 0)
         {
-            Debug.LogWarning($"[MissionSelector] {animal} ø° ¥Î«— ƒ´≈◊∞Ì∏Æ æ¯¿Ω");
+            Debug.LogWarning($"[MissionSelector] {animal} Ïóê ÎåÄÌïú Ïπ¥ÌÖåÍ≥†Î¶¨ ÏóÜÏùå");
             return System.Array.Empty<MissionType>();
         }
 
@@ -187,36 +187,36 @@ public static class MissionMeta
     public static readonly Dictionary<MissionType, MissionCategory> CategoryByType =
         new Dictionary<MissionType, MissionCategory>
     {
-        // «Æ
+        // ÌíÄ
         { MissionType.Grass_A, MissionCategory.Grass },
         { MissionType.Grass_B, MissionCategory.Grass },
         //{ MissionType.Grass_C, MissionCategory.Grass },
 
-        // æææ—
+        // Ïî®Ïïó
         { MissionType.Seed_A, MissionCategory.Seed },
         { MissionType.Seed_B, MissionCategory.Seed },
 
-        // ø≠∏≈
+        // Ïó¥Îß§
         { MissionType.Fruit_A, MissionCategory.Fruit },
         { MissionType.Fruit_B, MissionCategory.Fruit },
 
-        // ∞Ô√Ê
+        // Í≥§Ï∂©
         { MissionType.Insect_A, MissionCategory.Insect },
         { MissionType.Insect_B, MissionCategory.Insect },
 
-        // æÓ∑˘
+        // Ïñ¥Î•ò
         { MissionType.Fish_A, MissionCategory.Fish },
         { MissionType.Fish_B, MissionCategory.Fish },
 
-        // ≥™πµ∞°¡ˆ
+        // ÎÇòÎ≠áÍ∞ÄÏßÄ
         { MissionType.Wood_A, MissionCategory.Branch },
         { MissionType.Wood_B, MissionCategory.Branch },
 
-        // ¿€π∞
+        // ÏûëÎ¨º
         { MissionType.Crops_A, MissionCategory.Crops },
         { MissionType.Crops_B, MissionCategory.Crops },
 
-        // ∞Ì±‚
+        // Í≥†Í∏∞
         { MissionType.Meat_A, MissionCategory.Meat },
         { MissionType.Meat_B, MissionCategory.Meat },
     };

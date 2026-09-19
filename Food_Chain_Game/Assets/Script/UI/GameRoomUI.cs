@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -31,7 +31,7 @@ public class GameRoomUI : MonoBehaviour
    
     public void CheckHostStatus(RoomPlayer player)
     {
-        Debug.Log("RoomPlayerÀÇ isHost Ã¼Å© ·ÎÁ÷ ½ÇÇà");
+        Debug.Log("RoomPlayerì˜ isHost ì²´í¬ ë¡œì§ ì‹¤í–‰");
 
         if (player.isLocalPlayer)
         {

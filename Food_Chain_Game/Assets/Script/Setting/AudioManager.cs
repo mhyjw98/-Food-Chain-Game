@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -93,7 +93,7 @@ public class AudioManager : MonoBehaviour
         if (Camera.main != null)
             bgmEffect = Camera.main.GetComponent<AudioHighPassFilter>();
 
-        // Effect Sfx �ʱ�ȭ
+        // Effect Sfx 초기화
         GameObject effectSfxObject = new GameObject("EffectSfxPlayer");
         effectSfxObject.transform.parent = transform;
         effectSfxPlayers = new AudioSource[effectChannels];
@@ -106,7 +106,7 @@ public class AudioManager : MonoBehaviour
             effectSfxPlayers[i].volume = effectSfxVolume;
         }
 
-        // UI Sfx �ʱ�ȭ
+        // UI Sfx 초기화
         GameObject uiSfxObject = new GameObject("UiSfxPlayer");
         uiSfxObject.transform.parent = transform;
         uiSfxPlayers = new AudioSource[uiChannels];

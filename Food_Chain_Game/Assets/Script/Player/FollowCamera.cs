@@ -1,4 +1,4 @@
-using Cinemachine;
+ï»¿using Cinemachine;
 using Mirror;
 using System.Collections;
 using System.Collections.Generic;
@@ -27,7 +27,7 @@ public class FollowCamera : NetworkBehaviour
         if (vCam != null)
         {
             vCam.Follow = transform;
-            Debug.Log("[FollowCamera] VirtualCamera Follow¿¡ ·ÎÄÃ ÇÃ·¹ÀÌ¾î ¿¬°á ¿Ï·á");
+            Debug.Log("[FollowCamera] VirtualCamera Followì— ë¡œì»¬ í”Œë ˆì´ì–´ ì—°ê²° ì™„ë£Œ");
         }
     }
 }

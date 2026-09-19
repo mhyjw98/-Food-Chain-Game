@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -79,7 +79,7 @@ public class TitleUI : MonoBehaviour
         }
         else
         {
-            nicknameDisplay.text = $"´Ğ³×ÀÓ: {NickNamemanager.GetNickname()}";
+            nicknameDisplay.text = $"ë‹‰ë„¤ì„: {NickNamemanager.GetNickname()}";
             changeButton.gameObject.SetActive(true);
         }
     }
@@ -133,19 +133,19 @@ public class TitleUI : MonoBehaviour
         {
             if(nickname.Length > 8)
             {
-                noticeText.text = "´Ğ³×ÀÓÀº 8±ÛÀÚ ÀÌÇÏ·Î Áö¾îÁÖ¼¼¿ä.";
+                noticeText.text = "ë‹‰ë„¤ì„ì€ 8ê¸€ì ì´í•˜ë¡œ ì§€ì–´ì£¼ì„¸ìš”.";
                 return;
             }
                 
             NickNamemanager.SetNickname(nickname);
-            nicknameDisplay.text = $"´Ğ³×ÀÓ: {nickname}";
+            nicknameDisplay.text = $"ë‹‰ë„¤ì„: {nickname}";
             nicknamePopup.SetActive(false);
             changeButton.gameObject.SetActive(true);
             activeUi = null;
         }
         else
         {
-            noticeText.text = "´Ğ³×ÀÓÀ» ÀÛ¼ºÇØÁÖ¼¼¿ä.";
+            noticeText.text = "ë‹‰ë„¤ì„ì„ ì‘ì„±í•´ì£¼ì„¸ìš”.";
         }
     }
 
@@ -173,13 +173,13 @@ public class TitleUI : MonoBehaviour
     }
     public void StartHost()
     {
-        Debug.Log("È£½ºÆ® ½ÃÀÛ");
+        Debug.Log("í˜¸ìŠ¤íŠ¸ ì‹œì‘");
         ((RoomManager)RoomManager.singleton).maxPlayerCount = SelectedPlayerCount;       
 
         string hostIp = ConfigManager.Config.IP;
         string roomCode = CodeManager.Instance.RegisterRoom(hostIp);
 
-        Debug.Log($"[¹æ »ı¼º ¿Ï·á] ³» IP: {hostIp}, ¹æ ÄÚµå: {roomCode}");
+        Debug.Log($"[ë°© ìƒì„± ì™„ë£Œ] ë‚´ IP: {hostIp}, ë°© ì½”ë“œ: {roomCode}");
         RoomSessionData.CurrentRoomCode = roomCode;
 
         roomHost.RegisterRoom(roomCode, hostIp, maxPlayer);
@@ -199,11 +199,11 @@ public class TitleUI : MonoBehaviour
         {
             SelectedPlayerCount = result;
             maxPlayer = result;
-            Debug.Log($"¼±ÅÃµÈ ÀÎ¿ø ¼ö: {SelectedPlayerCount}");
+            Debug.Log($"ì„ íƒëœ ì¸ì› ìˆ˜: {SelectedPlayerCount}");
         }
         else
         {
-            Debug.LogWarning("µå·Ó´Ù¿î °ª ÆÄ½Ì ½ÇÆĞ");
+            Debug.LogWarning("ë“œë¡­ë‹¤ìš´ ê°’ íŒŒì‹± ì‹¤íŒ¨");
         }
     }
 
@@ -212,7 +212,7 @@ public class TitleUI : MonoBehaviour
         string code = codeInputField.text;
         if (string.IsNullOrEmpty(code))
         {
-            Debug.Log("ÀÔ·ÂÃ¢ÀÌ ºó °ª");
+            Debug.Log("ì…ë ¥ì°½ì´ ë¹ˆ ê°’");
             return;
         }
 

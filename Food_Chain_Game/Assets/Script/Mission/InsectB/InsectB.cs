@@ -1,4 +1,4 @@
-using System.Collections;
+Ôªøusing System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -72,7 +72,7 @@ public class InsectB : BaseMission
     {
         if (bugPrefab == null || playPanel == null || bushes == null || bushes.Length == 0)
         {
-            Debug.LogWarning("[InsectB] ºº∆√¿Ã ∫Œ¡∑«’¥œ¥Ÿ.");
+            Debug.LogWarning("[InsectB] ÏÑ∏ÌåÖÏù¥ Î∂ÄÏ°±Ìï©ÎãàÎã§.");
             return;
         }
 
@@ -100,7 +100,7 @@ public class InsectB : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "º∫ ∞¯";
+            statusText.text = "ÏÑ± Í≥µ";
             statusText.color = Color.green;
             statusText.rectTransform.SetAsLastSibling();
         }
@@ -116,7 +116,7 @@ public class InsectB : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "Ω« ∆–";
+            statusText.text = "Ïã§ Ìå®";
             statusText.color = Color.red;
             statusText.rectTransform.SetAsLastSibling();
         }

@@ -1,4 +1,4 @@
-using System.Collections;
+Ôªøusing System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -208,7 +208,7 @@ public class SeedA : BaseMission
     }
     IEnumerator CompleteCoroutine()
     {
-        statusText.text = "º∫ ∞¯";
+        statusText.text = "ÏÑ± Í≥µ";
         statusText.color = Color.green;
         statusText.rectTransform.SetAsLastSibling();
         isComplete = true;
@@ -218,7 +218,7 @@ public class SeedA : BaseMission
     }
     IEnumerator FailCoroutine()
     {
-        statusText.text = "Ω« ∆–";
+        statusText.text = "Ïã§ Ìå®";
         statusText.color = Color.red;
         statusText.rectTransform.SetAsLastSibling();
         yield return new WaitForSeconds(2);
@@ -229,7 +229,7 @@ public class SeedA : BaseMission
     {
         if (progressText != null)
         {
-            progressText.text = $"∞°πÊø° æææ— ¥„±‚ ({_collectedCount} / {targetSeedToCollect})";
+            progressText.text = $"Í∞ÄÎ∞©Ïóê Ïî®Ïïó Îã¥Í∏∞ ({_collectedCount} / {targetSeedToCollect})";
         }
     }
 }

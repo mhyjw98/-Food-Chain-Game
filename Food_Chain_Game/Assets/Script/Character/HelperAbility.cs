@@ -1,4 +1,4 @@
-using Mirror;
+﻿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,7 +22,7 @@ public class HelperAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
         this.local = local;
 
         enabled = (type == AnimalType.Crow || type == AnimalType.Plover || type == AnimalType.Squirrel);
-        Debug.Log("[HelperAbilty] ServerActivate ȣ��" + enabled);
+        Debug.Log("[HelperAbilty] ServerActivate 호출" + enabled);
     }
     [Server]
     public void OnNewDay(int day)

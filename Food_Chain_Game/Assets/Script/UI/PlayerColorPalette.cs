@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -23,7 +23,7 @@ public class PlayerColorPalette : MonoBehaviour
         }
     }
 
-    // Ω«¡¶ ªˆ µ•¿Ã≈Õ πËø≠
+    // Ïã§Ï†ú ÏÉâ Îç∞Ïù¥ÌÑ∞ Î∞∞Ïó¥
     private static readonly ColorEntry[] _colors =
     {
         new ColorEntry( 0, "Lavender",    new Color32(138,  43, 226, 255)),
@@ -136,15 +136,18 @@ public class PlayerColorPalette : MonoBehaviour
 
     public static void OnUnSelectColor(int index)
     {
+        if (colorBtns == null || index < 0 || index >= colorBtns.Length) return;
+
         _usedIndices.Remove(index);
-        colorBtns[index].interactable = true;
+        if (colorBtns[index] != null)
+            colorBtns[index].interactable = true;
     }
     public static void RefreshButtons(int oldIndex, int newIndex)
     {
         if(newIndex == -1)
         {
             if (oldIndex < 0 && oldIndex >= colorBtns.Length)
-                Debug.LogWarning($"±‚¡∏ index∞™ : {oldIndex}");
+                Debug.LogWarning($"Í∏∞Ï°¥ indexÍ∞í : {oldIndex}");
             colorBtns[oldIndex].interactable = true;            
         }
         else

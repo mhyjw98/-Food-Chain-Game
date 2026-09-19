@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +36,7 @@ public class AnimalWinCondition : MonoBehaviour
             {
                 if (p.animalType == AnimalType.Wolf)
                 {
-                    return !p.isAlive; // »çÀÚ°¡ Á×À¸¸é ½Â¸®
+                    return !p.isAlive; // ì‚¬ìê°€ ì£½ìœ¼ë©´ ìŠ¹ë¦¬
                 }
             }
             return false;
@@ -74,7 +74,7 @@ public class AnimalWinCondition : MonoBehaviour
     {
         public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
-            // 8¸í ÀÌ»ó »ç¸Á
+            // 8ëª… ì´ìƒ ì‚¬ë§
             int deadCount = allPlayers.Count(p => !p.isAlive);
             return deadCount >= 8;
         }
@@ -87,7 +87,7 @@ public class AnimalWinCondition : MonoBehaviour
             {
                 if (p.animalType == AnimalType.Wolf)
                 {
-                    return p.isAlive; // ´Á´ëÀÇ ½Â¸®
+                    return p.isAlive; // ëŠ‘ëŒ€ì˜ ìŠ¹ë¦¬
                 }
             }
             return false;
@@ -101,7 +101,7 @@ public class AnimalWinCondition : MonoBehaviour
             {
                 if (p.animalType == AnimalType.Crocodile)
                 {
-                    return p.isAlive; // ¾Ç¾îÀÇ ½Â¸®
+                    return p.isAlive; // ì•…ì–´ì˜ ìŠ¹ë¦¬
                 }
             }
             return false;

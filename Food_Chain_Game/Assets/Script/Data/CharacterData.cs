@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
@@ -15,19 +15,19 @@ public static class CharacterData
     {
         public static readonly Dictionary<AnimalType, CharacterInfoData> Characters = new()
         {
-            { AnimalType.Wolf, new CharacterInfoData("´Á´ë", TerritoryType.Field, "µ¿¹°µéÀ» Àâ¾Æ¸ÔÀ¸¸ç »ıÁ¸ÇÏ¼¼¿ä.\nÇÑ ¶ó¿îµå¶óµµ ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-            { AnimalType.Crocodile, new CharacterInfoData("¾Ç¾î", TerritoryType.River, "µ¿¹°µéÀ» Àâ¾Æ¸ÔÀ¸¸ç »ıÁ¸ÇÏ¼¼¿ä.\nµÎ ¶ó¿îµå¸¦ ¿¬¼ÓÀ¸·Î ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-            { AnimalType.Hawk, new CharacterInfoData("¸Å", TerritoryType.Sky, "µ¿¹°µéÀ» Àâ¾Æ¸ÔÀ¸¸ç »ıÁ¸ÇÏ¼¼¿ä.\nµÎ ¶ó¿îµå¸¦ ¿¬¼ÓÀ¸·Î ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-            { AnimalType.Hyena, new CharacterInfoData("ÇÏÀÌ¿¡³ª", TerritoryType.Field, "´Á´ë°¡ »ç¸ÁÇÏ¸é ½Â¸®ÇÕ´Ï´Ù.\n¼¼ ¶ó¿îµå¸¦ ¿¬¼ÓÀ¸·Î ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-            { AnimalType.Scorpion, new CharacterInfoData("Àü°¥", TerritoryType.Forest, "µ¶À¸·Î ¹İ°İÇØ Æ÷½ÄÀÚ¸¦ Á×ÀÌ¸é ½Â¸®ÇÕ´Ï´Ù.") },
-            { AnimalType.Skunk, new CharacterInfoData("½ºÄÈÅ©", TerritoryType.Forest, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-            { AnimalType.Zebra, new CharacterInfoData("¾ó·è¸»", TerritoryType.Field, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä. ") },
-            { AnimalType.Badger, new CharacterInfoData("¿À¼Ò¸®", TerritoryType.River, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-            { AnimalType.Squirrel, new CharacterInfoData("´Ù¶÷Áã", TerritoryType.Forest, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-            { AnimalType.Ostrich, new CharacterInfoData("Å¸Á¶", TerritoryType.Sky, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-            { AnimalType.Crow, new CharacterInfoData("±î¸¶±Í", TerritoryType.Sky, "´Á´ë°¡ »ıÁ¸ÇÒ ¼ö ÀÖµµ·Ï µµ¿ÍÁÖ¼¼¿ä. ´Á´ë°¡ »ç¸Á½Ã ÆĞ¹èÇÕ´Ï´Ù.") },
-            { AnimalType.Plover, new CharacterInfoData("¾Ç¾î»õ", TerritoryType.River, "¾Ç¾î°¡ »ıÁ¸ÇÒ ¼ö ÀÖµµ·Ï µµ¿ÍÁÖ¼¼¿ä. ¾Ç¾î°¡ »ç¸Á½Ã ÆĞ¹èÇÕ´Ï´Ù.") },
-            { AnimalType.Fox, new CharacterInfoData("¿©¿ì", TerritoryType.Forest, "Æ÷½ÄÀÚ, ÇÇ½ÄÀÚ Áß ¾î´ÀÆí¿¡ ºÙÀ»Áö ¼±ÅÃÇÒ ¼ö ÀÖ½À´Ï´Ù. ÇØ´ç Áø¿µ ½Â¸®½Ã ½Â¸®ÇÕ´Ï´Ù.") },
+            { AnimalType.Wolf, new CharacterInfoData("ëŠ‘ëŒ€", TerritoryType.Field, "ë™ë¬¼ë“¤ì„ ì¡ì•„ë¨¹ìœ¼ë©° ìƒì¡´í•˜ì„¸ìš”.\ní•œ ë¼ìš´ë“œë¼ë„ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Crocodile, new CharacterInfoData("ì•…ì–´", TerritoryType.River, "ë™ë¬¼ë“¤ì„ ì¡ì•„ë¨¹ìœ¼ë©° ìƒì¡´í•˜ì„¸ìš”.\në‘ ë¼ìš´ë“œë¥¼ ì—°ì†ìœ¼ë¡œ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Hawk, new CharacterInfoData("ë§¤", TerritoryType.Sky, "ë™ë¬¼ë“¤ì„ ì¡ì•„ë¨¹ìœ¼ë©° ìƒì¡´í•˜ì„¸ìš”.\në‘ ë¼ìš´ë“œë¥¼ ì—°ì†ìœ¼ë¡œ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Hyena, new CharacterInfoData("í•˜ì´ì—ë‚˜", TerritoryType.Field, "ëŠ‘ëŒ€ê°€ ì‚¬ë§í•˜ë©´ ìŠ¹ë¦¬í•©ë‹ˆë‹¤.\nì„¸ ë¼ìš´ë“œë¥¼ ì—°ì†ìœ¼ë¡œ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Scorpion, new CharacterInfoData("ì „ê°ˆ", TerritoryType.Forest, "ë…ìœ¼ë¡œ ë°˜ê²©í•´ í¬ì‹ìë¥¼ ì£½ì´ë©´ ìŠ¹ë¦¬í•©ë‹ˆë‹¤.") },
+            { AnimalType.Skunk, new CharacterInfoData("ìŠ¤ì»¹í¬", TerritoryType.Forest, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+            { AnimalType.Zebra, new CharacterInfoData("ì–¼ë£©ë§", TerritoryType.Field, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”. ") },
+            { AnimalType.Badger, new CharacterInfoData("ì˜¤ì†Œë¦¬", TerritoryType.River, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+            { AnimalType.Squirrel, new CharacterInfoData("ë‹¤ëŒì¥", TerritoryType.Forest, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+            { AnimalType.Ostrich, new CharacterInfoData("íƒ€ì¡°", TerritoryType.Sky, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+            { AnimalType.Crow, new CharacterInfoData("ê¹Œë§ˆê·€", TerritoryType.Sky, "ëŠ‘ëŒ€ê°€ ìƒì¡´í•  ìˆ˜ ìˆë„ë¡ ë„ì™€ì£¼ì„¸ìš”. ëŠ‘ëŒ€ê°€ ì‚¬ë§ì‹œ íŒ¨ë°°í•©ë‹ˆë‹¤.") },
+            { AnimalType.Plover, new CharacterInfoData("ì•…ì–´ìƒˆ", TerritoryType.River, "ì•…ì–´ê°€ ìƒì¡´í•  ìˆ˜ ìˆë„ë¡ ë„ì™€ì£¼ì„¸ìš”. ì•…ì–´ê°€ ì‚¬ë§ì‹œ íŒ¨ë°°í•©ë‹ˆë‹¤.") },
+            { AnimalType.Fox, new CharacterInfoData("ì—¬ìš°", TerritoryType.Forest, "í¬ì‹ì, í”¼ì‹ì ì¤‘ ì–´ëŠí¸ì— ë¶™ì„ì§€ ì„ íƒí•  ìˆ˜ ìˆìŠµë‹ˆë‹¤. í•´ë‹¹ ì§„ì˜ ìŠ¹ë¦¬ì‹œ ìŠ¹ë¦¬í•©ë‹ˆë‹¤.") },
         };
     }
     public struct CharacterInfoData

@@ -7,13 +7,24 @@ using UnityEngine.Networking;
 public class RoomJoin : MonoBehaviour
 {
     private string nodeServerUrl;
+    private bool isConfigValid;
 
     private void Awake()
     {
+        isConfigValid = !string.IsNullOrWhiteSpace(ConfigManager.Config.IP);
         nodeServerUrl = "http://" + ConfigManager.Config.IP + ":3000";
+
+        if (!isConfigValid)
+            Debug.LogError("[RoomJoin] ConfigManager.Config.IP가 비어있어 Node 서버와 통신할 수 없습니다. Assets/StreamingAssets/config.json을 확인해주세요.");
     }
     public void CheckRoomBeforeJoin(string code, Action<bool, string> onResult)
     {
+        if (!isConfigValid)
+        {
+            onResult(false, "서버 설정(IP)이 올바르지 않습니다.");
+            return;
+        }
+
         StartCoroutine(GetIpFromCode(code, (ip, error) =>
         {
             if (!string.IsNullOrEmpty(error))

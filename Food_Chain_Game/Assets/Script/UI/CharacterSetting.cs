@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,7 +12,7 @@ public class CharacterSetting : MonoBehaviour
     public void SetLocalPlayer(RoomPlayer rp, int index)
     {
         localRoomPlayer = rp;
-        Debug.Log("[CharacterSetting] ·ÎÄÃ RoomPlayer µî·Ï ¿Ï·á");
+        Debug.Log("[CharacterSetting] ë¡œì»¬ RoomPlayer ë“±ë¡ ì™„ë£Œ");
 
         if (playerImg != null)
         {

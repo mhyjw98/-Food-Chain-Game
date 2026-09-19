@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -105,7 +105,7 @@ public class GamePlayUI : MonoBehaviour
         CharacterInfoData info = CharacterConfig.Characters[type];
 
         characterText.text = $"{info.DisplayName}";
-        territoryText.text = $"°ÅÁÖÁö: {TranslateTerritory(info.HomeTerritory)}";
+        territoryText.text = $"ê±°ì£¼ì§€: {TranslateTerritory(info.HomeTerritory)}";
         descriptionText.text = info.WinConditionDescription;
 
         textAni.SetTrigger("ShowText");
@@ -126,23 +126,23 @@ public class GamePlayUI : MonoBehaviour
     {
         if(time == RoundTime.Disguise)
         {
-            roundText.text = "À§Àå ½Ã°£";
-            timerDisplay.text = "À§Àå Á¾·á±îÁö";
+            roundText.text = "ìœ„ì¥ ì‹œê°„";
+            timerDisplay.text = "ìœ„ì¥ ì¢…ë£Œê¹Œì§€";
         }
         else if (time == RoundTime.Exploration)
         {
-            roundText.text = "Å½»ö ½Ã°£";
-            timerDisplay.text = "Å½»ö Á¾·á±îÁö";
+            roundText.text = "íƒìƒ‰ ì‹œê°„";
+            timerDisplay.text = "íƒìƒ‰ ì¢…ë£Œê¹Œì§€";
         }
         else if (time == RoundTime.End)
         {
-            roundText.text = "°ÔÀÓ Á¾·á";
+            roundText.text = "ê²Œì„ ì¢…ë£Œ";
             timerDisplay.text = "";
         }
         else
         {
-            roundText.text = $"{round}ÀÏÂ÷ {GetTimeName(time)}";
-            timerDisplay.text = $"{GetTimeName(time)} Á¾·á±îÁö";
+            roundText.text = $"{round}ì¼ì°¨ {GetTimeName(time)}";
+            timerDisplay.text = $"{GetTimeName(time)} ì¢…ë£Œê¹Œì§€";
         }
             
     }
@@ -166,7 +166,7 @@ public class GamePlayUI : MonoBehaviour
             var randomType = GetRandomAnimalType();
             localPlayer.CmdSetDisguise(randomType);
 
-            string updateText = $"¿©¿ì > {AnimalNameMap.AnimalTypeToName[randomType]}";
+            string updateText = $"ì—¬ìš° > {AnimalNameMap.AnimalTypeToName[randomType]}";
             PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
             slot.UpdateNicknameWithAnimal(updateText);
             disguiseUI.SetActive(false);
@@ -182,7 +182,7 @@ public class GamePlayUI : MonoBehaviour
         disguiseUI.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Modal);
 
-        string updateText = $"¿©¿ì > {AnimalNameMap.AnimalTypeToName[type]}";
+        string updateText = $"ì—¬ìš° > {AnimalNameMap.AnimalTypeToName[type]}";
         PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
         slot.UpdateNicknameWithAnimal(updateText);
     }
@@ -206,8 +206,8 @@ public class GamePlayUI : MonoBehaviour
 
     private IEnumerator CoScanCorpse(Corpse corpse)
     {
-        if (localPlayer == null) Debug.Log("[CoScanCorpse] ·ÎÄÃÇÃ·¹ÀÌ¾î Null");
-        if (localPlayer.scanner.CurrentTargetCorpse == null) Debug.Log("[CoScanCorpse] ½ÃÃ¼¿ÉÁ§ Null");
+        if (localPlayer == null) Debug.Log("[CoScanCorpse] ë¡œì»¬í”Œë ˆì´ì–´ Null");
+        if (localPlayer.scanner.CurrentTargetCorpse == null) Debug.Log("[CoScanCorpse] ì‹œì²´ì˜µì  Null");
         if (corpse.scanPlayers.Contains(localPlayer.netId)) yield break;
 
         scanPanel.gameObject.SetActive(true);
@@ -267,7 +267,7 @@ public class GamePlayUI : MonoBehaviour
     }
     private void CancelScanUI()
     {
-        Debug.Log("[CancelScanUI] ½ºÄµ Ãë¼Ò");
+        Debug.Log("[CancelScanUI] ìŠ¤ìº” ì·¨ì†Œ");
         scanPanel.gameObject.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Scan);
         scanPanel.value = 0f;
@@ -290,7 +290,7 @@ public class GamePlayUI : MonoBehaviour
             ElapsedSec = corpse.ElapsedSec,
 
             title = $"{AnimalNameMap.AnimalTypeToName[corpse.deadAnimalType]}",
-            subtitle = $"{corpse.deathDay}ÀÏÂ÷ {(corpse.deathWasNight ? "¹ã" : "³·")} {sec}ÃÊ °æ°ú",
+            subtitle = $"{corpse.deathDay}ì¼ì°¨ {(corpse.deathWasNight ? "ë°¤" : "ë‚®")} {sec}ì´ˆ ê²½ê³¼",
             createdAtLocal = Time.time
         };
 
@@ -303,7 +303,7 @@ public class GamePlayUI : MonoBehaviour
         int sec = Mathf.Max(0, Mathf.FloorToInt(record.ElapsedSec));
         scanKillerType.text = AnimalNameMap.AnimalTypeToName[record.targetAnimalType];
         scanCorpseType.text = AnimalNameMap.AnimalTypeToName[record.corpseAnimalType];
-        scanDeathTime.text = $"{record.Day}ÀÏÂ÷ {(record.WasNight ? "¹ã" : "³·")} {sec}ÃÊ °æ°ú";
+        scanDeathTime.text = $"{record.Day}ì¼ì°¨ {(record.WasNight ? "ë°¤" : "ë‚®")} {sec}ì´ˆ ê²½ê³¼";
 
         scanResultUI.SetActive(true);
         scanResultUI.transform.SetAsLastSibling();
@@ -319,7 +319,7 @@ public class GamePlayUI : MonoBehaviour
     {
         scanKillerType.text = AnimalNameMap.AnimalTypeToName[record.targetAnimalType];
         scanCorpseType.text = AnimalNameMap.AnimalTypeToName[record.corpseAnimalType];
-        scanDeathTime.text = $"{record.Day}ÀÏÂ÷ {(record.WasNight ? "¹ã" : "³·")} {record.ElapsedSec}ÃÊ °æ°ú";
+        scanDeathTime.text = $"{record.Day}ì¼ì°¨ {(record.WasNight ? "ë°¤" : "ë‚®")} {record.ElapsedSec}ì´ˆ ê²½ê³¼";
 
         scanResultUI.SetActive(true);
         scanResultUI.transform.SetAsLastSibling();
@@ -391,7 +391,7 @@ public class GamePlayUI : MonoBehaviour
         InvestigationTargetNickname = target.nickname;
 
         DestroyBtn();
-        investigationResult.text = $"{target.nickname}¸¦(À») Å½»öÇÏ½Ã°Ú½À´Ï±î?";
+        investigationResult.text = $"{target.nickname}ë¥¼(ì„) íƒìƒ‰í•˜ì‹œê² ìŠµë‹ˆê¹Œ?";
         invCheckBtnGroup.SetActive(true);
     }
 
@@ -429,12 +429,12 @@ public class GamePlayUI : MonoBehaviour
     }
     IEnumerator CoInvestigatePlayerTarget(uint netId, string nickname)
     {
-        if (localPlayer == null) Debug.Log("[CoInvestigation] ·ÎÄÃÇÃ·¹ÀÌ¾î Null");
-        if (localPlayer.scanner.CurrentInvestigation == null) Debug.Log("[CoInvestigation] Å½»ö ¿ÉÁ§ Null");
+        if (localPlayer == null) Debug.Log("[CoInvestigation] ë¡œì»¬í”Œë ˆì´ì–´ Null");
+        if (localPlayer.scanner.CurrentInvestigation == null) Debug.Log("[CoInvestigation] íƒìƒ‰ ì˜µì  Null");
 
         DestroyBtn();
 
-        investigationDescript.text = "Å½»ö ÁøÇàÁß";
+        investigationDescript.text = "íƒìƒ‰ ì§„í–‰ì¤‘";
         invProgressPanel.gameObject.SetActive(true);
         invProgressPanel.transform.SetAsLastSibling();
         invProgressPanel.value = 0f;
@@ -470,7 +470,7 @@ public class GamePlayUI : MonoBehaviour
             type = InvestigationType.PlayerIdentity,
             recordId = $"{targetNetId}",
             title = targetNickname,
-            subtitle = $"Å½»ö °á°ú: {AnimalNameMap.AnimalTypeToName[targetType]}",
+            subtitle = $"íƒìƒ‰ ê²°ê³¼: {AnimalNameMap.AnimalTypeToName[targetType]}",
             Day = gameMamager.currentRound,
             WasNight = gameMamager.IsNightPhase,
             ElapsedSec = gameMamager.timer,
@@ -480,8 +480,8 @@ public class GamePlayUI : MonoBehaviour
 
         InvestigationLog.Instance.Add(rec);
 
-        investigationDescript.text = "Å½»ö ¿Ï·á";
-        investigationResult.text = "Å½»ö °á°ú";
+        investigationDescript.text = "íƒìƒ‰ ì™„ë£Œ";
+        investigationResult.text = "íƒìƒ‰ ê²°ê³¼";
         investigationType.text = AnimalNameMap.AnimalTypeToName[targetType];
         investigationType.color = isPredator ? Color.red : Color.green;
     }
@@ -494,16 +494,16 @@ public class GamePlayUI : MonoBehaviour
     {
         return type switch
         {
-            TerritoryType.Sky => "ÇÏ´Ã",
-            TerritoryType.River => "°­",
-            TerritoryType.Field => "µé",
-            TerritoryType.Forest => "½£",
+            TerritoryType.Sky => "í•˜ëŠ˜",
+            TerritoryType.River => "ê°•",
+            TerritoryType.Field => "ë“¤",
+            TerritoryType.Forest => "ìˆ²",
             _ => "???"
         };
     }
     private string GetTimeName(RoundTime time)
     {
-        return time == RoundTime.Day ? "³·" : "¹ã";
+        return time == RoundTime.Day ? "ë‚®" : "ë°¤";
     }
     public void ActiveSkyBlock()
     {
@@ -530,9 +530,9 @@ public class GamePlayUI : MonoBehaviour
     public void ShowResult(bool isWin)
     {
         if (isWin)
-            resultText.text = "½Â ¸®";
+            resultText.text = "ìŠ¹ ë¦¬";
         else
-            resultText.text = "ÆĞ ¹è";
+            resultText.text = "íŒ¨ ë°°";
 
         chatUI.SetActive(false);
         resultUI.SetActive(true);
@@ -541,7 +541,7 @@ public class GamePlayUI : MonoBehaviour
 
     public void SetDisguiseOptions()
     {
-        // ±âÁ¸ ¹öÆ° Á¦°Å
+        // ê¸°ì¡´ ë²„íŠ¼ ì œê±°
         foreach (Transform child in disguiseButtonGroup)
             Destroy(child.gameObject);
 
@@ -554,7 +554,7 @@ public class GamePlayUI : MonoBehaviour
             btn.GetComponent<Button>().onClick.AddListener(() =>
             {
                 selectType = type;
-                checkText.text = $"Á¤¸»·Î {label}(À¸)·Î \nÀ§ÀåÇÏ½Ã°Ú½À´Ï±î??";
+                checkText.text = $"ì •ë§ë¡œ {label}(ìœ¼)ë¡œ \nìœ„ì¥í•˜ì‹œê² ìŠµë‹ˆê¹Œ??";
                 checkUI.SetActive(true);
             });
         }
@@ -563,7 +563,7 @@ public class GamePlayUI : MonoBehaviour
 
     public void SetPredictOptions()
     {
-        // ±âÁ¸ ¹öÆ° Á¦°Å
+        // ê¸°ì¡´ ë²„íŠ¼ ì œê±°
         foreach (Transform child in predictButtonGroup)
             Destroy(child.gameObject);
 
@@ -576,16 +576,16 @@ public class GamePlayUI : MonoBehaviour
             btn.GetComponent<Button>().onClick.AddListener(() =>
             {
                 selectType = type;
-                predictCheckText.text = $"{label}(À»)¸¦ ½Â¸®ÀÚ·Î\n¿¹Ãø ÇÏ½Ã°Ú½À´Ï±î??";
+                predictCheckText.text = $"{label}(ì„)ë¥¼ ìŠ¹ë¦¬ìë¡œ\nì˜ˆì¸¡ í•˜ì‹œê² ìŠµë‹ˆê¹Œ??";
                 predictCheckUI.SetActive(true);
             });
         }
         GameObject cancleBtn = Instantiate(uiButtonPrefab, predictButtonGroup);
-        cancleBtn.GetComponentInChildren<TextMeshProUGUI>().text = "ÇÃ·¹ÀÌ¾î ¿¹Ãø";
+        cancleBtn.GetComponentInChildren<TextMeshProUGUI>().text = "í”Œë ˆì´ì–´ ì˜ˆì¸¡";
         cancleBtn.GetComponent<Button>().onClick.AddListener(() =>
         {
             selectType = AnimalType.None;
-            predictCheckText.text = $"µ¿¹°ÀÌ ¾Æ´Ñ ÇÃ·¹ÀÌ¾î·Î ½Â¸®ÀÚ¸¦ ¿¹Ãø ÇÏ½Ã°Ú½À´Ï±î??\nÇÃ·¹ÀÌ¾î ¿¹ÃøÀº ¿ìÃø »ó´ÜÀÇ ÇÁ·ÎÇÊ > ¿ìÅ¬¸¯ > ¿¹Ãø¹öÆ°À» ÅëÇØ °¡´ÉÇÕ´Ï´Ù.";
+            predictCheckText.text = $"ë™ë¬¼ì´ ì•„ë‹Œ í”Œë ˆì´ì–´ë¡œ ìŠ¹ë¦¬ìë¥¼ ì˜ˆì¸¡ í•˜ì‹œê² ìŠµë‹ˆê¹Œ??\ní”Œë ˆì´ì–´ ì˜ˆì¸¡ì€ ìš°ì¸¡ ìƒë‹¨ì˜ í”„ë¡œí•„ > ìš°í´ë¦­ > ì˜ˆì¸¡ë²„íŠ¼ì„ í†µí•´ ê°€ëŠ¥í•©ë‹ˆë‹¤.";
             predictCheckUI.SetActive(true);
         });
         predictUI.SetActive(false);

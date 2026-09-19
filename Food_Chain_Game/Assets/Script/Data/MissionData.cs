@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,80 +7,80 @@ public static class MissionData
     private static readonly Dictionary<MissionType, string> _table
         = new Dictionary<MissionType, string>
     {
-        // === Ç® ===
+        // === í’€ ===
         {
-            MissionType.Grass_A, "¸ÀÀÖ´Â Ç® ¸ğÀ¸±â"            
+            MissionType.Grass_A, "ë§›ìˆëŠ” í’€ ëª¨ìœ¼ê¸°"            
         },
         {
-            MissionType.Grass_B, "Ç® ¼öÁıÇÏ±â"
+            MissionType.Grass_B, "í’€ ìˆ˜ì§‘í•˜ê¸°"
         },
         //{
-        //    MissionType.Grass_C, "Ç® ¼¼Ã´ÇÏ±â"
+        //    MissionType.Grass_C, "í’€ ì„¸ì²™í•˜ê¸°"
         //},
 
-        // === ¾¾¾Ñ ===
+        // === ì”¨ì•— ===
         {
-            MissionType.Seed_A, "¾¾¾Ñ ¼öÁıÇÏ±â"
+            MissionType.Seed_A, "ì”¨ì•— ìˆ˜ì§‘í•˜ê¸°"
         },
         {
-            MissionType.Seed_B, "¾¾¾Ñ ½É±â"
-        },
-
-        // === ¿­¸Å ===
-        {
-            MissionType.Fruit_A, "¿­¸Å ¼öÁıÇÏ±â"
-        },
-        {
-            MissionType.Fruit_B, "¿­¸Å ¼öÁıÇÏ±â"
+            MissionType.Seed_B, "ì”¨ì•— ì‹¬ê¸°"
         },
 
-        // === °ïÃæ ===
+        // === ì—´ë§¤ ===
         {
-            MissionType.Insect_A, "¹ú·¹ Àâ¾Æ¸Ô±â"
+            MissionType.Fruit_A, "ì—´ë§¤ ìˆ˜ì§‘í•˜ê¸°"
         },
         {
-            MissionType.Insect_B, "Ç®½£¿¡¼­ ¹ú·¹ ¼öÁıÇÏ±â"
-        },
-
-        // === ¾î·ù ===
-        {
-            MissionType.Fish_A, "¹°°í±â ³¬±â"
-        },
-        {
-            MissionType.Fish_B, "¹°°í±â Àâ±â"
+            MissionType.Fruit_B, "ì—´ë§¤ ìˆ˜ì§‘í•˜ê¸°"
         },
 
-        // === ³ª¹µ°¡Áö ===
+        // === ê³¤ì¶© ===
         {
-            MissionType.Wood_A, "ÀÜ°¡Áö ¼öÁıÇÏ±â"
+            MissionType.Insect_A, "ë²Œë ˆ ì¡ì•„ë¨¹ê¸°"
         },
         {
-            MissionType.Wood_B, "ÀÜ°¡Áö ¼öÁıÇÏ±â"
-        },
-
-        // === ÀÛ¹° ===
-        {
-            MissionType.Crops_A, "ÀÛ¹° ¼öÁıÇÏ±â"
-        },
-        {
-            MissionType.Crops_B, "ÀÛ¹° ¼öÈ®ÇÏ±â"
+            MissionType.Insect_B, "í’€ìˆ²ì—ì„œ ë²Œë ˆ ìˆ˜ì§‘í•˜ê¸°"
         },
 
+        // === ì–´ë¥˜ ===
+        {
+            MissionType.Fish_A, "ë¬¼ê³ ê¸° ë‚šê¸°"
+        },
+        {
+            MissionType.Fish_B, "ë¬¼ê³ ê¸° ì¡ê¸°"
+        },
 
-        // === °í±â ===
+        // === ë‚˜ë­‡ê°€ì§€ ===
         {
-            MissionType.Meat_A, "¾Ç¾î ÀÌ»¡ Ã»¼ÒÇÏ±â"
+            MissionType.Wood_A, "ì”ê°€ì§€ ìˆ˜ì§‘í•˜ê¸°"
         },
         {
-            MissionType.Meat_B, "°í±â ¼öÁıÇÏ±â"
+            MissionType.Wood_B, "ì”ê°€ì§€ ìˆ˜ì§‘í•˜ê¸°"
         },
-        // === Àü°¥ ===
+
+        // === ì‘ë¬¼ ===
         {
-            MissionType.Scorpion_Poison, "µ¶ ¼öÁıÇÏ±â"
+            MissionType.Crops_A, "ì‘ë¬¼ ìˆ˜ì§‘í•˜ê¸°"
         },
-        // === ¿À¼Ò¸® ===
         {
-            MissionType.BadgerA, "º¹¼ö A ¹Ì¼Ç"
+            MissionType.Crops_B, "ì‘ë¬¼ ìˆ˜í™•í•˜ê¸°"
+        },
+
+
+        // === ê³ ê¸° ===
+        {
+            MissionType.Meat_A, "ì•…ì–´ ì´ë¹¨ ì²­ì†Œí•˜ê¸°"
+        },
+        {
+            MissionType.Meat_B, "ê³ ê¸° ìˆ˜ì§‘í•˜ê¸°"
+        },
+        // === ì „ê°ˆ ===
+        {
+            MissionType.Scorpion_Poison, "ë… ìˆ˜ì§‘í•˜ê¸°"
+        },
+        // === ì˜¤ì†Œë¦¬ ===
+        {
+            MissionType.BadgerA, "ë³µìˆ˜ A ë¯¸ì…˜"
         },
     };
 

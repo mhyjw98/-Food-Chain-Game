@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -70,7 +70,7 @@ public class InsectA : BaseMission
     {
         if (insectPrefab == null || playPanel == null)
         {
-            Debug.LogWarning("[InsectA] insectPrefab ¶Ç´Â playPanelÀÌ ºñ¾îÀÖ½À´Ï´Ù.");
+            Debug.LogWarning("[InsectA] insectPrefab ë˜ëŠ” playPanelì´ ë¹„ì–´ìˆìŠµë‹ˆë‹¤.");
             return;
         }
 
@@ -82,7 +82,7 @@ public class InsectA : BaseMission
     {
         if (swatterPrefab == null || playPanel == null)
         {
-            Debug.LogWarning("[InsectA] swatterPrefab ¶Ç´Â playPanelÀÌ ºñ¾îÀÖ½À´Ï´Ù.");
+            Debug.LogWarning("[InsectA] swatterPrefab ë˜ëŠ” playPanelì´ ë¹„ì–´ìˆìŠµë‹ˆë‹¤.");
             return;
         }
 
@@ -108,7 +108,7 @@ public class InsectA : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "¼º °ø";
+            statusText.text = "ì„± ê³µ";
             statusText.color = Color.green;
             statusText.rectTransform.SetAsLastSibling();
         }
@@ -124,7 +124,7 @@ public class InsectA : BaseMission
 
         if (statusText != null)
         {
-            statusText.text = "½Ç ÆĞ";
+            statusText.text = "ì‹¤ íŒ¨";
             statusText.color = Color.red;
             statusText.rectTransform.SetAsLastSibling();
         }

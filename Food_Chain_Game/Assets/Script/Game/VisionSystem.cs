@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -41,24 +41,24 @@ public class VisionSystem : MonoBehaviour
     {
         BindLocalOnce();
 
-        // ½Ã°£ ÁøÇà
+        // ì‹œê°„ ì§„í–‰
         if (dayCycleSeconds <= 1f) dayCycleSeconds = 1f;
         _t01 += Time.deltaTime / dayCycleSeconds;
         if (_t01 > 1f) _t01 -= 1f;
 
-        // °î¼± Æò°¡
+        // ê³¡ì„  í‰ê°€
         float targetGlobal = globalIntensityCurve.Evaluate(_t01);
         float targetRadius = preyRadiusCurve.Evaluate(_t01);
 
-        // ¿ªÇÒ º¸Á¤
+        // ì—­í•  ë³´ì •
         if (_localGamePlayer != null)
         {
             bool isPred = _localGamePlayer.isPredator;
-            bool isSquirrel = (_localGamePlayer.animalType == AnimalType.Squirrel); // enum ¸ÂÃç ¼öÁ¤
+            bool isSquirrel = (_localGamePlayer.animalType == AnimalType.Squirrel); // enum ë§žì¶° ìˆ˜ì •
 
             if (isSquirrel)
             {
-                targetRadius *= squirrelRadiusMultiplier; // ±âº» 1.0
+                targetRadius *= squirrelRadiusMultiplier; // ê¸°ë³¸ 1.0
             }
             else if (isPred)
             {
@@ -66,7 +66,7 @@ public class VisionSystem : MonoBehaviour
             }
         }
 
-        // ºÎµå·´°Ô ¹Ý¿µ
+        // ë¶€ë“œëŸ½ê²Œ ë°˜ì˜
         if (globalLight)
             globalLight.intensity = Mathf.SmoothDamp(globalLight.intensity, targetGlobal, ref _globalVel, smoothSeconds);
 
@@ -91,7 +91,7 @@ public class VisionSystem : MonoBehaviour
         if (lv != null) _localPlayerLight = lv.GetLight();
     }
 
-    // µð¹ö±×¿ë: ½Ã°£À» Æ¯Á¤ À§Ä¡·Î Á¡ÇÁ
+    // ë””ë²„ê·¸ìš©: ì‹œê°„ì„ íŠ¹ì • ìœ„ì¹˜ë¡œ ì í”„
     [ContextMenu("Set Midnight (t=0.5)")]
     public void SetMidnight() => _t01 = 0.5f;
 

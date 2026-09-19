@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,8 +35,8 @@ public class VoiceSetting : MonoBehaviour
     private const int DEFAULT = 70;
     private const int MAX_BOOST_VIVOX = 10;
 
-    private const string LABEL_SCANNING = "ÀåÄ¡ Å½»öÁß...";
-    private const string LABEL_NONE = "ÀåÄ¡ ¾øÀ½";
+    private const string LABEL_SCANNING = "ì¥ì¹˜ íƒìƒ‰ì¤‘...";
+    private const string LABEL_NONE = "ì¥ì¹˜ ì—†ìŒ";
 
     private bool _uiLock;
     private Snapshot _snapshot;
@@ -334,7 +334,7 @@ public class VoiceSetting : MonoBehaviour
 
         if (VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn)
         {
-            SetStatus("ÀåÄ¡ ¸ñ·Ï Å½»öÁß...");
+            SetStatus("ì¥ì¹˜ ëª©ë¡ íƒìƒ‰ì¤‘...");
             return;
         }
 
@@ -362,7 +362,7 @@ public class VoiceSetting : MonoBehaviour
             BuildDropdown(outputDeviceDropdown, _cachedOutputs.Select(d => d.DeviceName).ToList());
         }
 
-        SetStatus($"ÀÔ·Â {_cachedInputs.Count}°³ / Ãâ·Â {_cachedOutputs.Count}°³ µğ¹ÙÀÌ½º ·ÎµåµÊ");
+        SetStatus($"ì…ë ¥ {_cachedInputs.Count}ê°œ / ì¶œë ¥ {_cachedOutputs.Count}ê°œ ë””ë°”ì´ìŠ¤ ë¡œë“œë¨");
     }
     private void ApplySavedDeviceSelection()
     {
@@ -502,7 +502,7 @@ public class VoiceSetting : MonoBehaviour
         }
         catch (Exception e)
         {
-            SetStatus($"ÀÔ·Â µğ¹ÙÀÌ½º º¯°æ ½ÇÆĞ: {e.Message}");
+            SetStatus($"ì…ë ¥ ë””ë°”ì´ìŠ¤ ë³€ê²½ ì‹¤íŒ¨: {e.Message}");
         }
     }
 
@@ -515,7 +515,7 @@ public class VoiceSetting : MonoBehaviour
         }
         catch (Exception e)
         {
-            SetStatus($"Ãâ·Â µğ¹ÙÀÌ½º º¯°æ ½ÇÆĞ: {e.Message}");
+            SetStatus($"ì¶œë ¥ ë””ë°”ì´ìŠ¤ ë³€ê²½ ì‹¤íŒ¨: {e.Message}");
         }
     }
 

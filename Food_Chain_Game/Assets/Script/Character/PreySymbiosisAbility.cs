@@ -1,4 +1,4 @@
-using Mirror;
+ï»¿using Mirror;
 using System.Collections;
 using System.Reflection;
 using UnityEngine;
@@ -18,7 +18,7 @@ public class PreySymbiosisAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbi
     [SerializeField] private float boostedNightVision = 11f;
     [SerializeField] private float proximityPollSeconds = 0.2f;
 
-    // °æ°è¿¡¼­ ±ôºıÀÏ ¶§ Ãß°¡·Î ¾ÈÁ¤È­(Åä±Û ÃÖ¼Ò °£°İ)
+    // ê²½ê³„ì—ì„œ ê¹œë¹¡ì¼ ë•Œ ì¶”ê°€ë¡œ ì•ˆì •í™”(í† ê¸€ ìµœì†Œ ê°„ê²©)
     [SerializeField] private float minToggleInterval = 0.35f;
 
     [Header("Attack Alert")]

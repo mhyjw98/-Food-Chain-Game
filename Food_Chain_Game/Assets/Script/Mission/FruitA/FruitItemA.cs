@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -68,7 +68,7 @@ public class FruitItemA : MonoBehaviour, IEndDragHandler
        
     IEnumerator DropCoroutine(Vector2 start, Vector2 end)
     {
-        // ·£´ı È¸Àü
+        // ëœë¤ íšŒì „
         float targetZ = Random.Range(minRotation, maxRotation);
         Quaternion rotStart = _rect.localRotation;
         Quaternion rotEnd = Quaternion.Euler(0f, 0f, targetZ);

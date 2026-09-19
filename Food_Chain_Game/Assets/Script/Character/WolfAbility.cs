@@ -1,4 +1,4 @@
-using Mirror;
+﻿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -20,7 +20,7 @@ public class WolfAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
     public void ServerActivate(GamePlayer local, AnimalType type)
     {
         enabled = (type == AnimalType.Wolf);
-        Debug.Log("[WolfAbility] ServerActivate ȣ��" + enabled);
+        Debug.Log("[WolfAbility] ServerActivate 호출" + enabled);
     }
     [Server]
     public void OnNewDay(int day)

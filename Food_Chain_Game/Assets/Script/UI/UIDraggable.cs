@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -48,19 +48,19 @@ public class UIDraggable : MonoBehaviour, IDragHandler, IBeginDragHandler
         Vector2 moveOffset = eventData.position - _moveBegin;
         Vector2 targetWorldPos = _startingPoint + moveOffset;
 
-        // È­¸é »çÀÌÁî ¾ò±â
+        // í™”ë©´ ì‚¬ì´ì¦ˆ ì–»ê¸°
         Vector2 canvasSize = _canvas.pixelRect.size;
 
-        // UIÀÇ ¿ùµå Å©±â °è»ê
+        // UIì˜ ì›”ë“œ í¬ê¸° ê³„ì‚°
         Vector2 uiSize = _rectTransform.rect.size * _rectTransform.lossyScale;
 
-        // Clamp ¹üÀ§ °è»ê (Pivot ±âÁØ °í·Á)
+        // Clamp ë²”ìœ„ ê³„ì‚° (Pivot ê¸°ì¤€ ê³ ë ¤)
         float minX = uiSize.x * _rectTransform.pivot.x;
         float maxX = canvasSize.x - uiSize.x * (1f - _rectTransform.pivot.x);
         float minY = uiSize.y * _rectTransform.pivot.y;
         float maxY = canvasSize.y - uiSize.y * (1f - _rectTransform.pivot.y);
 
-        // À§Ä¡ Clamp
+        // ìœ„ì¹˜ Clamp
         Vector2 clampedScreenPos = new Vector2(
             Mathf.Clamp(targetWorldPos.x, minX, maxX),
             Mathf.Clamp(targetWorldPos.y, minY, maxY)
@@ -73,13 +73,13 @@ public class UIDraggable : MonoBehaviour, IDragHandler, IBeginDragHandler
     {
         if (isLock)
         {
-            // Àá±İÀÌ Ç®¸° ÀÌ¹ÌÁö·Î º¯È¯ Ãß°¡
+            // ì ê¸ˆì´ í’€ë¦° ì´ë¯¸ì§€ë¡œ ë³€í™˜ ì¶”ê°€
             lockText.text = "L";
             isLock = false;
         }
         else
         {
-            // Àá±İµÈ ÀÌ¹ÌÁö·Î º¯È¯ Ãß°¡
+            // ì ê¸ˆëœ ì´ë¯¸ì§€ë¡œ ë³€í™˜ ì¶”ê°€
             lockText.text = "UL";
             isLock = true;
         }        

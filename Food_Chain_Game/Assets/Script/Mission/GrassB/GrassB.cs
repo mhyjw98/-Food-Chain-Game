@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -147,7 +147,7 @@ public class GrassB : BaseMission, IPointerDownHandler, IDragHandler
     {
         if (progressText != null)
         {
-            progressText.text = $"¸ðµç ÀâÃÊ¸¦ Â÷·Ê´ë·Î º£¾î ¼öÁýÇÏ¼¼¿ä.";
+            progressText.text = $"ëª¨ë“  ìž¡ì´ˆë¥¼ ì°¨ë¡€ëŒ€ë¡œ ë² ì–´ ìˆ˜ì§‘í•˜ì„¸ìš”.";
         }
     }
 
@@ -155,7 +155,7 @@ public class GrassB : BaseMission, IPointerDownHandler, IDragHandler
     {
         _isComplete = true;
 
-        statusText.text = "¼º °ø";
+        statusText.text = "ì„± ê³µ";
         statusText.color = Color.green;
         statusText.rectTransform.SetAsLastSibling();        
 
@@ -168,7 +168,7 @@ public class GrassB : BaseMission, IPointerDownHandler, IDragHandler
     {
         _isComplete = true;
 
-        statusText.text = "½Ç ÆÐ";
+        statusText.text = "ì‹¤ íŒ¨";
         statusText.color = Color.red;
         statusText.rectTransform.SetAsLastSibling();        
 

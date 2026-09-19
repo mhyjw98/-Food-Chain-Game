@@ -57,12 +57,31 @@ public class RoomManager : NetworkRoomManager
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
+
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        // 새 호스팅 세션이 시작되는 시점이므로, 이전 세션 종료 때 세워둔
+        // 정리 가드를 다시 풀어줘야 다음 연결 끊김/에러도 정상적으로 처리된다.
+        _isCleaningUp = false;
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        _isCleaningUp = false;
+    }
+
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
         base.OnServerAddPlayer(conn);        
 
         var roomPlayer = conn.identity.GetComponent<RoomPlayer>();
-        roomPlayer.gameObject.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
+
+        if (SpawnManager.Instance != null)
+            roomPlayer.gameObject.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
+        else
+            Debug.LogWarning("[RoomManager] SpawnManager.Instance가 아직 준비되지 않아 스폰 위치를 지정하지 못했습니다.");
 
         roomPlayers.Add(roomPlayer);
         Debug.Log($"[OnServerAddPlayer] roomPlayers 등록 roomPlayers count : {roomPlayers.Count}");
@@ -79,11 +98,6 @@ public class RoomManager : NetworkRoomManager
             Debug.Log($"[Room] 입장 처리 완료: {conn.connectionId}");
         }
 
-        if (joinedConnections.Count == maxPlayerCount)
-        {
-            Debug.Log("모든 인원 입장 완료! 캐릭터 배정 시작");
-            ServerAssignCharacters();
-        }
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
@@ -115,6 +129,11 @@ public class RoomManager : NetworkRoomManager
             int oldIdx = roomPlayer.colorIndex;
             roomPlayer.colorIndex = -1;
 
+            // SyncVar 훅은 오브젝트가 파괴되기 전에 동기화된다는 보장이 없어
+            // RPC로 명시적으로 색상 해제를 알린다.
+            if (oldIdx >= 0)
+                roomPlayer.RpcColorReleased(oldIdx);
+
             if (roomPlayers.Contains(roomPlayer))
                 roomPlayers.Remove(roomPlayer);
 
@@ -137,9 +156,18 @@ public class RoomManager : NetworkRoomManager
         string code = RoomSessionData.CurrentRoomCode;
 
         if (!string.IsNullOrEmpty(code))
-            roomHost.ComeAndGoing(code, -1);       
+            roomHost.ComeAndGoing(code, -1);
 
-        RoomSessionData.Reset();
+        // 방에 아무도 남지 않았을 때만 방을 완전히 닫는다.
+        // (한 명이라도 남아있으면 roomCode는 계속 유효해야 하고,
+        //  그동안은 그 코드로만 입장이 가능한 구조를 유지해야 한다)
+        if (roomPlayers.Count == 0)
+        {
+            if (!string.IsNullOrEmpty(code))
+                roomHost.DeleteRoom(code);
+
+            RoomSessionData.Reset();
+        }
 
         base.OnServerDisconnect(conn);
     }
@@ -174,21 +202,13 @@ public class RoomManager : NetworkRoomManager
 
         VoiceManager.Instance?.LeaveAllChannels();
 
-        if (NetworkServer.active && NetworkClient.isConnected)
-        {
-            Debug.Log("[RoomManager] Cleanup: StopHost()");
-            StopHost();
-        }
-        else if (NetworkClient.isConnected)
-        {
-            Debug.Log("[RoomManager] Cleanup: StopClient()");
-            StopClient();
-        }
-        else if (NetworkServer.active)
-        {
-            Debug.Log("[RoomManager] Cleanup: StopServer()");
-            StopServer();
-        }
+        // NetworkServer.active/NetworkClient.isConnected는 타임아웃성 끊김 직후
+        // 이미 바뀌어 있을 수 있어 조건부 분기로는 정리가 스킵될 수 있었다.
+        // Stop*()는 이미 꺼져있으면 스스로 아무 동작도 하지 않으므로(Mirror 소스 확인)
+        // 상태 체크 없이 항상 호출해서 확실히 정리한다.
+        Debug.Log("[RoomManager] Cleanup: StopClient()/StopServer()");
+        StopClient();
+        StopServer();
 
         RoomSessionData.Reset();
 
@@ -220,7 +240,12 @@ public class RoomManager : NetworkRoomManager
             {
                 gamePlayer.homeZone = zone;
             }
-            gamePlayerObj.transform.position = SpawnManager.Instance.GetRandomPositionInZone();
+
+            if (SpawnManager.Instance != null)
+                gamePlayerObj.transform.position = SpawnManager.Instance.GetRandomPositionInZone();
+            else
+                Debug.LogWarning("[RoomManager] SpawnManager.Instance가 아직 준비되지 않아 게임 스폰 위치를 지정하지 못했습니다.");
+
             gamePlayer.SetAnimalType(roomPlayer.assignedCharacter);
         }
 
@@ -270,10 +295,19 @@ public class RoomManager : NetworkRoomManager
             NetworkConnectionToClient conn = playerObj.GetComponent<NetworkIdentity>().connectionToClient;
 
             string assignedCharacter;
-            do
+            if (assigned.Count < pool.Count)
             {
+                do
+                {
+                    assignedCharacter = pool[UnityEngine.Random.Range(0, pool.Count)];
+                } while (assigned.Contains(assignedCharacter));
+            }
+            else
+            {
+                // 설계 범위(6~13명)를 벗어나 풀이 부족한 예외 상황 — 무한루프 대신 중복 배정으로 안전하게 대체
+                Debug.LogWarning($"[RoomManager] 캐릭터 풀({pool.Count}종)보다 플레이어 수가 많아 캐릭터가 중복 배정됩니다.");
                 assignedCharacter = pool[UnityEngine.Random.Range(0, pool.Count)];
-            } while (assigned.Contains(assignedCharacter));
+            }
 
             assigned.Add(assignedCharacter);
 
@@ -298,6 +332,10 @@ public class RoomManager : NetworkRoomManager
     {
         yield return null;
         yield return new WaitForSeconds(0.1f);
+
+        // 동물(직업) 배정은 로비 색상/닉네임과 달리 매 게임 시작마다 새로 무작위 배정한다.
+        ServerAssignCharacters();
+
         ServerChangeScene("GamePlay");
     }
     public void ReassignHostAfterDisconnect()
@@ -309,7 +347,6 @@ public class RoomManager : NetworkRoomManager
         if (remainPlayers.Count == 0)
         {
             Debug.Log("[RoomManager] 남아 있는 플레이어가 없어 호스트 재지정 생략");
-            RoomSessionData.PreviousHostId = string.Empty;
             return;
         }
 
@@ -333,8 +370,6 @@ public class RoomManager : NetworkRoomManager
         {
             rp.isHost = (rp == newHost);
         }
-
-        RoomSessionData.PreviousHostId = newHost.userId;
 
         Debug.Log($"[RoomManager] 호스트 재지정 완료: {newHost.userId} (connId={newHost.connectionToClient?.connectionId})");
     }
@@ -360,6 +395,44 @@ public class RoomManager : NetworkRoomManager
             _voiceJoinGameplayCo = StartCoroutine(CoJoinGameplayVoiceWhenReady());
             return;
         }
+    }
+
+    // 서버에서 씬 전환이 실제로 끝난 뒤 호출되는 Mirror 훅.
+    // RoomPlayer의 OnClientEnterRoom(클라이언트 훅)은 NetworkClient.isConnected가
+    // false인 타이밍에는 호출 자체가 스킵되어(로비 복귀 시 재호출되지 않는 것을 로그로 확인)
+    // 표시/숨김을 여기서 서버가 직접 RPC로 지시하는 방식으로 대체했다.
+    // 로비로 복귀했을 때는 위치도 게임 씬 좌표에 남아있지 않도록 재배치한다(서버 권위).
+    public override void OnRoomServerSceneChanged(string sceneName)
+    {
+        base.OnRoomServerSceneChanged(sceneName);
+
+        Debug.Log($"[RoomManager] OnRoomServerSceneChanged({sceneName}), roomPlayers.Count={roomPlayers.Count}, SpawnManager.Instance={(SpawnManager.Instance != null)}");
+
+        if (sceneName == "GamePlay")
+        {
+            foreach (var rp in roomPlayers)
+            {
+                if (rp == null) continue;
+                rp.RpcSetRoomVisualsActive(false);
+            }
+            return;
+        }
+
+        if (sceneName != "GameRoom")
+            return;
+
+        foreach (var rp in roomPlayers)
+        {
+            if (rp == null) continue;
+
+            rp.RpcSetRoomVisualsActive(true);
+
+            if (SpawnManager.Instance != null)
+                rp.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
+        }
+
+        if (SpawnManager.Instance == null)
+            Debug.LogWarning("[RoomManager] OnRoomServerSceneChanged: SpawnManager.Instance가 null이라 RoomPlayer 재배치를 건너뜁니다.");
     }
 
     IEnumerator CoJoinLobbyVoiceWhenReady()

@@ -62,9 +62,12 @@ public class InsectB : BaseMission
             _bugInstance = null;
         }
 
+        if (bushes == null) return;
+
         foreach(var bush in bushes)
         {
-            bush.initBush();
+            if (bush != null)
+                bush.initBush();
         }
     }
 

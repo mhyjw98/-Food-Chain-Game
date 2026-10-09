@@ -4,7 +4,7 @@
 
 ---
 
-## 세션 7 — 게임 흐름 & 매니저 [ ]
+## 세션 7 — 게임 흐름 & 매니저 [x] (2026-10-09 완료, 치명적 1~4번 수정 — 상세 결과는 review-progress-2.md 참고)
 게임 시작부터 종료까지의 전체 흐름을 담당하는 매니저 레이어.
 
 **대상 파일**
@@ -27,8 +27,10 @@
 
 ---
 
-## 세션 8 — UI 시스템 [ ]
-인게임/로비 UI 전반.
+## 세션 8 — UI 시스템 [x] (2026-10-09 완료 — 8-A, 8-B 모두. review-progress-2.md 참고)
+인게임/로비 UI 전반. 대상이 24개라 둘로 나눠 진행.
+- **8-A 인게임 UI [x]** (2026-10-09 완료 — review-progress-2.md 참고): `GamePlayUI`, `MissionUIManager`, `MissionListUI`, `MissionListItemUI`, `InvestigationListUI`, `InvestigationListItem`, `InvestigationResultPresenter`, `ContextMenuUI`, `PartnerAttackAlertUI`
+- **8-B 로비·공용 UI [x]**: `GameRoomUI`, `TitleUI`, `ChatManager`, `ChatInputFocus`, `PlayerSlot`, `PlayerSlotUI`, `PlayerColorPalette`, `CharacterSetting`, `UIManager`, `UIDraggable`, `UIResizable`, `SortingSprite`, `SpriteSorter`, `SpeechBubble`, `ReturnToTitleConfirmUI`(신규)
 
 **대상 파일**
 - `Assets/Script/UI/GamePlayUI.cs`
@@ -56,7 +58,7 @@
 
 ---
 
-## 세션 9 — 설정 & 음성 채팅 [ ]
+## 세션 9 — 설정 & 음성 채팅 [x] (2026-10-09 설정 부분 완료. **음성(Vivox)은 구현 중이라 사용자 결정으로 제외** — `Voice/*`, `VivoxSmokeTest`는 미리뷰)
 설정 화면과 Vivox 기반 음성 시스템.
 
 **대상 파일**
@@ -80,7 +82,7 @@
 
 ---
 
-## 세션 10 — 데이터 계층 & 기타 유틸 [ ]
+## 세션 10 — 데이터 계층 & 기타 유틸 [x]
 전역 데이터 클래스와 유틸리티, 마무리 점검.
 
 **대상 파일**
@@ -93,6 +95,37 @@
 - 전역 싱글톤/매니저의 생명주기 관리
 - 네이밍 오타(`GameMamager`, `NickNamemanager` 등) 등 사소하지만 누적된 이슈 정리
 - 현재 git status에 걸려있는 미커밋 변경사항 정리 필요 여부
+
+---
+
+## 리뷰 이후 리팩토링 계획 (미착수)
+
+리뷰 중 발견했지만 범위가 커서 미뤄둔 구조 개선. **리뷰 수정분의 플레이 테스트(review-tests*.md)를 먼저 통과시킨 뒤** 별도 작업으로 진행한다. 상세 근거는 각 세션 기록 참고.
+
+### R-1. 미션 공통 뼈대를 베이스 클래스로 (세션 6) — 우선순위 높음
+- 대상: 미션 본체 18개 (`Assets/Script/Mission/*/`)
+- 내용: 타이머 `Update`, 종료 플래그, "성 공/실 패" 표시 후 대기하는 완료/실패 코루틴(미션당 약 40줄)을 `BaseMission`(또는 `TimedMission`)으로 이동. `timeLimit`, 결과 표시 시간, 타이머/상태 텍스트를 베이스의 `[SerializeField]`로 통일
+- 효과: 종료 플래그 누락류 버그가 한 곳에서 해결됨. 플래그 이름(`isComplete`/`_isComplete`/`_isFinished`/`_done`) 통일
+- 주의: 프리팹의 직렬화 필드명이 바뀌면 값이 날아가므로 `[FormerlySerializedAs]` 사용
+
+### R-2. 통째로 같은 미션 파일 통합 (세션 6)
+- `FruitA` ≡ `WoodB`, `FruitItemA` ≡ `WoodItemB` → "나무 흔들어 담기" 미션 하나 + 설정값
+- 가방 4종(`FruitBag`/`GrassBag`/`SeedBag`/`WoodBag`) → 제네릭 가방 하나. `BagBase`의 죽은 수락 로직 정리
+- `GrassA`/`CropsA`의 스폰·가방 판정 공통화
+- `BadgerA` ≡ `PoisonA`는 임시 구현이므로 통합보다 실제 미니게임 구현이 먼저
+
+### R-3. 미션 정의 단일화 (세션 5)
+- 새 미션 추가 시 6군데(`MissionType`, `MissionMeta`, `MissionData`, `MissionSelector` 풀, `MissionUIManager` 프리팹 목록, 씬 `MissionObject`)를 고쳐야 함 → ScriptableObject 하나로 모으고 시작 시 누락 검사
+
+### R-4. 캐릭터 데이터 단일화 (세션 4)
+- `GamePlayer.SetAnimalType`의 130줄 switch, `CharacterConfig`, `CharacterZoneData`, `MaxHungryRounds`, `PredatorPriority` 5곳 → 캐릭터 테이블 하나
+- 능력 컴포넌트 7개(늑대/매/악어/조력자는 현재 빈 구현) 정리, 여우/스컹크 위장 플래그 정리
+
+### R-5. 역할 관련 잔여 동기화를 본인 전용으로 (세션 3~4) — ✅ 2026-10-09 완료 (review-progress-2.md 참고)
+- `hasEate`/`hasAttacked`/`hungryStreak`/`scanCount`/`Missions`/능력 상태 등은 아직 전원에게 동기화됨 → 오너 전용 컴포넌트(`syncMode = Owner`)로 분리. 프리팹 수정이 필요해 MCP 연결 세션에서 진행
+
+### R-6. 상호작용 오브젝트 공통화 (세션 3)
+- `MissionObject`/`InvestigationObject`, `MissionTrigger`/`InvestigationTrigger` 복붙 → 공통 베이스. 스캔 전용 오브젝트 추가 예정이므로 그 작업과 함께 진행
 
 ---
 

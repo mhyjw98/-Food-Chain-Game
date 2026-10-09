@@ -19,6 +19,11 @@ public class VoiceSetting : MonoBehaviour
     [SerializeField] private TMP_InputField inputValueField;
     [SerializeField] private TMP_Dropdown inputDeviceDropdown;
 
+    [Header("Mic Mode (Optional)")]
+    [Tooltip("켜면 눌러서 말하기, 끄면 항상 켜짐")]
+    [SerializeField] private Toggle pushToTalkToggle;
+    [SerializeField] private Toggle micMuteToggle;
+
     [Header("Optional")]
     [SerializeField] private Button refreshDevicesButton;
     [SerializeField] private TMP_Text statusText;
@@ -64,6 +69,7 @@ public class VoiceSetting : MonoBehaviour
         SetDropdownSingleLabel(outputDeviceDropdown, LABEL_SCANNING, interactable: false);
 
         HookEvents();
+        HookMicEvents();
         LoadFromPrefsToUI();
         CaptureSnapshot();      
     }
@@ -72,8 +78,10 @@ public class VoiceSetting : MonoBehaviour
         if (VoiceManager.Instance != null)
         {
             VoiceManager.Instance.OnDeviceListsChanged += OnDeviceListsChanged;
+            VoiceManager.Instance.OnMicStateChanged += RefreshMicUI;
             OnDeviceListsChanged();
-        }             
+            RefreshMicUI();
+        }
 
         RefreshDeviceDropdownsFromManager();
         TryApplyAllToVivox();
@@ -82,7 +90,10 @@ public class VoiceSetting : MonoBehaviour
     private void OnDisable()
     {
         if (VoiceManager.Instance != null)
+        {
             VoiceManager.Instance.OnDeviceListsChanged -= OnDeviceListsChanged;
+            VoiceManager.Instance.OnMicStateChanged -= RefreshMicUI;
+        }
     }
     private void OnDeviceListsChanged()
     {
@@ -124,12 +135,12 @@ public class VoiceSetting : MonoBehaviour
         if (dd.captionText != null)
         {
             dd.captionText.overflowMode = TextOverflowModes.Ellipsis;
-            dd.captionText.enableWordWrapping = false;
+            dd.captionText.textWrappingMode = TextWrappingModes.NoWrap;
         }
         if (dd.itemText != null)
         {
             dd.itemText.overflowMode = TextOverflowModes.Ellipsis;
-            dd.itemText.enableWordWrapping = false;
+            dd.itemText.textWrappingMode = TextWrappingModes.NoWrap;
         }
 
         if (dd.template != null)
@@ -482,15 +493,37 @@ public class VoiceSetting : MonoBehaviour
     {
         if (!IsVivoxInitialized()) return;
 
-        int v = Map01ToVivox(GetOutput01());
-        VivoxService.Instance.SetOutputDeviceVolume(v);
+        // 출력 장치 음량만 정한다. 채널 음량까지 같이 낮추면 같은 값이 두 번 적용되고,
+        // 방을 나가는 중에는 이미 떠난 채널에 적용하려다 Vivox 에러가 났다
+        VivoxService.Instance.SetOutputDeviceVolume(Map01ToVivox(GetOutput01()));
+    }
 
-        string ch = null;
-        if (VoiceManager.Instance != null) ch = VoiceManager.Instance.CurrentChannel;
-        if (!string.IsNullOrEmpty(ch))
-        {
-            _ = VivoxService.Instance.SetChannelVolumeAsync(ch, v);
-        }
+    // 마이크 방식/음소거 UI(선택 사항): VoiceManager의 상태를 보여 주고 바꾼다
+    private void HookMicEvents()
+    {
+        if (pushToTalkToggle != null)
+            pushToTalkToggle.onValueChanged.AddListener(isOn =>
+            {
+                if (_uiLock || VoiceManager.Instance == null) return;
+                VoiceManager.Instance.SetMicMode(isOn ? VoiceManager.MicMode.PushToTalk : VoiceManager.MicMode.Open);
+            });
+
+        if (micMuteToggle != null)
+            micMuteToggle.onValueChanged.AddListener(isOn =>
+            {
+                if (_uiLock || VoiceManager.Instance == null) return;
+                VoiceManager.Instance.SetMicMuted(isOn);
+            });
+    }
+
+    private void RefreshMicUI()
+    {
+        if (VoiceManager.Instance == null) return;
+
+        _uiLock = true;
+        if (pushToTalkToggle != null) pushToTalkToggle.isOn = VoiceManager.Instance.Mode == VoiceManager.MicMode.PushToTalk;
+        if (micMuteToggle != null) micMuteToggle.isOn = VoiceManager.Instance.IsMicMuted;
+        _uiLock = false;
     }
 
     private async System.Threading.Tasks.Task SafeSetActiveInput(VivoxInputDevice dev)

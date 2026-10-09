@@ -27,7 +27,7 @@ public class SeedB : BaseMission
     private int _coveredCount;
     private List<PlantSeed> plantSeeds = new();
 
-    private float timeLimit = 20f;
+    [SerializeField] private float timeLimit = 20f;
     private float remainTime;
     private bool isComplete;
     public Phase CurrentPhase => _phase;
@@ -36,7 +36,7 @@ public class SeedB : BaseMission
     {
         if (isComplete) return;
 
-        remainTime -= Time.deltaTime;
+        remainTime = Mathf.Max(0f, remainTime - Time.deltaTime);
         timerText.text = remainTime.ToString("0.0");
 
         if (remainTime <= 0f)
@@ -70,6 +70,7 @@ public class SeedB : BaseMission
 
     public void OnSoilDug(SoilCell cell)
     {
+        if (isComplete) return;
         if (_phase != Phase.Digging) return;
 
         _dugCount++;
@@ -84,6 +85,7 @@ public class SeedB : BaseMission
 
     public void OnSeedPlanted(SoilCell cell)
     {
+        if (isComplete) return;
         if (_phase != Phase.Planting) return;
 
         _plantedCount++;
@@ -98,6 +100,7 @@ public class SeedB : BaseMission
 
     public void OnSoilCovered(SoilCell cell)
     {
+        if (isComplete) return;
         if (_phase != Phase.Covering) return;
 
         _coveredCount++;
@@ -136,6 +139,9 @@ public class SeedB : BaseMission
 
     IEnumerator FailCoroutine()
     {
+        if (isComplete) yield break;
+        isComplete = true;
+
         statusText.text = "실 패";
         statusText.color = Color.red;
         statusText.rectTransform.SetAsLastSibling();

@@ -1,22 +1,26 @@
-using Mirror;
+﻿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Cinemachine;
 using UnityEngine.SceneManagement;
 using TMPro;
-using Unity.VisualScripting;
-using static UnityEngine.EventSystems.EventTrigger;
 public class RoomPlayer : NetworkRoomPlayer
 {
     [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;
     [SyncVar(hook = nameof(OnColorIndexChanged))] public int colorIndex = -1;
     [SyncVar(hook = nameof(OnColorChanged))] public Color rpColor = Color.white;
-    [SyncVar] public string userId;
-    [SyncVar] public string assignedCharacter;
+    // 음성 채팅 참가자 ID: 음성 참가자 목록에서 닉네임을 찾는 데 쓰고, 게임 시작 시 GamePlayer로 넘긴다
+    [SyncVar] public string voiceId;
+    // 배정된 캐릭터는 서버만 가진다(SyncVar 아님). 클라이언트에 보내면 게임 시작 전에 전원의 역할이 노출된다
+    [System.NonSerialized] public string assignedCharacter;
     [SyncVar] public bool isHost;
 
     public TextMeshProUGUI nicknameText;
+
+    [Header("Input Limits")]
+    [SerializeField] private int maxNicknameLength = 8;
+    [SerializeField] private int maxChatLength = 200;
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
@@ -29,20 +33,76 @@ public class RoomPlayer : NetworkRoomPlayer
 
         CmdSetData(NickNamemanager.GetNickname());
 
-        string generatedId = UserIdManager.GenerateUserId();
-        Debug.Log($"[RoomPlayer] 로컬에서 생성된 UserId: {generatedId}");
-        CmdSetUserId(generatedId);
-
         int index = RoomSessionData.ColorIndex;
         CmdSetColor(index);
         PlayerColorPalette.InitColorIndex(index);
 
-        var setting = FindObjectOfType<CharacterSetting>();
+        var setting = FindFirstObjectByType<CharacterSetting>();
         if (setting != null)
             setting.SetLocalPlayer(this, index);
 
+        StartCoroutine(CoReportVoiceId());
+
         Debug.Log("내 플레이어가 생성됨");
     }
+
+    // 음성 로그인이 끝나면 내 음성 ID를 서버에 알린다
+    private IEnumerator CoReportVoiceId()
+    {
+        while (VoiceManager.Instance == null || string.IsNullOrEmpty(VoiceManager.Instance.LocalVoiceId))
+            yield return null;
+
+        string localVoiceId = VoiceManager.Instance.LocalVoiceId;
+        if (voiceId != localVoiceId)
+            CmdSetVoiceId(localVoiceId);
+    }
+
+    [Command]
+    private void CmdSetVoiceId(string id)
+    {
+        if (!VoiceManager.IsValidVoiceId(id)) return;
+
+        // 다른 플레이어의 ID를 사칭하지 못하게 한다
+        foreach (var other in FindObjectsByType<RoomPlayer>(FindObjectsSortMode.None))
+        {
+            if (other != this && other.voiceId == id) return;
+        }
+
+        voiceId = id;
+    }
+    // Mirror 기본 방 디버그 GUI(준비/제거 버튼)는 쓰지 않는다
+    public override void OnGUI() { }
+
+    // 표시/숨김을 클라이언트가 현재 씬을 보고 스스로 결정한다.
+    // 서버 RPC(RpcSetRoomVisualsActive)는 그 시점에 준비(ready)된 클라이언트에게만 전달되므로,
+    // 서버보다 씬 로딩이 늦은 클라이언트는 놓칠 수 있다
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+
+        SceneManager.activeSceneChanged += OnActiveSceneChanged;
+        RefreshRoomVisualsForCurrentScene();
+    }
+
+    public override void OnStopClient()
+    {
+        SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+        base.OnStopClient();
+    }
+
+    private void OnActiveSceneChanged(Scene previous, Scene current)
+    {
+        RefreshRoomVisualsForCurrentScene();
+    }
+
+    private void RefreshRoomVisualsForCurrentScene()
+    {
+        var room = NetworkManager.singleton as NetworkRoomManager;
+        if (room == null) return;
+
+        SetRoomVisualsActive(Utils.IsSceneActive(room.RoomScene));
+    }
+
     public override void ReadyStateChanged(bool oldReadyState, bool newReadyState)
     {
         Debug.Log($"플레이어 {netId} 준비 상태 변경: {newReadyState}");
@@ -103,19 +163,13 @@ public class RoomPlayer : NetworkRoomPlayer
     }
 
     [Command]
-    private void CmdSetUserId(string id)
-    {
-        userId = id;
-        ((RoomManager)RoomManager.singleton).ReassignHostAfterDisconnect();
-
-        if (GameRoomUI.Instance != null)
-            GameRoomUI.Instance.CheckHostStatus(this);
-    }
-
-    [Command]
     public void CmdSendChatMessage(string message)
     {
-        foreach (var player in FindObjectsOfType<RoomPlayer>())
+        if (string.IsNullOrWhiteSpace(message)) return;
+        if (message.Length > maxChatLength) message = message.Substring(0, maxChatLength);
+        message = TextSanitizer.BlockRichText(message);
+
+        foreach (var player in FindObjectsByType<RoomPlayer>(FindObjectsSortMode.None))
         {
             player.TargetReceiveMessage(netId, this.nickname, message);
         }
@@ -127,7 +181,7 @@ public class RoomPlayer : NetworkRoomPlayer
     [TargetRpc]
     public void TargetReceiveMessage(uint senderNetId, string sender, string message)
     {
-        var chatManager = FindObjectOfType<ChatManager>();
+        var chatManager = FindFirstObjectByType<ChatManager>();
         if (chatManager != null)
             chatManager.AddSystemMessage(sender, message);
 
@@ -159,6 +213,16 @@ public class RoomPlayer : NetworkRoomPlayer
     void OnColorIndexChanged(int oldIndex, int newIndex)
     {
         PlayerColorPalette.RefreshButtons(oldIndex, newIndex);
+
+        // 요청한 색이 이미 사용 중이라 서버가 다른 색을 배정한 경우, 내 미리보기와 저장값을 실제 색에 맞춘다
+        if (isLocalPlayer && newIndex >= 0 && newIndex != RoomSessionData.ColorIndex)
+        {
+            RoomSessionData.ColorIndex = newIndex;
+
+            var setting = FindFirstObjectByType<CharacterSetting>();
+            if (setting != null)
+                setting.SetLocalPlayer(this, newIndex);
+        }
     }
 
     [ClientRpc]
@@ -170,11 +234,36 @@ public class RoomPlayer : NetworkRoomPlayer
     [Command]
     void CmdSetData(string nick)
     {
-        nickname = nick;
+        nick = string.IsNullOrWhiteSpace(nick) ? "Player" : nick.Trim();
+        if (nick.Length > maxNicknameLength) nick = nick.Substring(0, maxNicknameLength);
 
-        var chatManager = FindObjectOfType<ChatManager>();
-        if (chatManager != null)
-            chatManager.AddSystemMessage("System", $"{nickname}님이 입장하셨습니다.");
+        nickname = TextSanitizer.BlockRichText(nick);
+
+        ServerBroadcastSystemMessage($"{nickname}님이 입장하셨습니다.");
+
+        // 새 플레이어가 들어올 때마다 방장을 다시 정한다(첫 입장자가 방장이 되는 것도 여기서 결정)
+        var roomManager = RoomManager.singleton as RoomManager;
+        if (roomManager != null)
+            roomManager.ReassignHostAfterDisconnect();
+
+        if (GameRoomUI.Instance != null)
+            GameRoomUI.Instance.CheckHostStatus(this);
+    }
+
+    // 방에 있는 모든 플레이어의 채팅창에 안내 문구를 보낸다.
+    // (서버에서 ChatManager에 직접 적으면 방장 화면에만 보인다)
+    [Server]
+    public static void ServerBroadcastSystemMessage(string message, RoomPlayer except = null)
+    {
+        if (string.IsNullOrEmpty(message)) return;
+
+        foreach (var player in FindObjectsByType<RoomPlayer>(FindObjectsSortMode.None))
+        {
+            if (player == null || player == except) continue;
+            if (player.connectionToClient == null) continue;
+
+            player.TargetReceiveMessage(0, "System", message);
+        }
     }
     [Command]
     public void CmdSetColor(int index)
@@ -185,6 +274,16 @@ public class RoomPlayer : NetworkRoomPlayer
             return;
         }
 
+        // 다른 플레이어가 쓰는 색이면: 아직 색이 없는 최초 입장은 빈 색으로 대신 배정하고,
+        // 이미 색이 있는 변경 요청은 거부한다(입장 전에는 방의 색 사용 현황을 알 수 없어 겹칠 수 있다)
+        if (ServerIsColorTaken(index))
+        {
+            if (colorIndex >= 0) return;
+
+            index = ServerFindFreeColorIndex();
+            if (index < 0) return;
+        }
+
         Color newColor = PlayerColorPalette.GetByIndex(index).Color;
 
         colorIndex = index;
@@ -193,6 +292,31 @@ public class RoomPlayer : NetworkRoomPlayer
     [Command]
     public void CmdSetIndex(int index)
     {
+        if (index < 0 || index >= PlayerColorPalette.Count) return;
+        if (ServerIsColorTaken(index)) return;
+
         colorIndex = index;
+    }
+
+    [Server]
+    private bool ServerIsColorTaken(int index)
+    {
+        foreach (var other in FindObjectsByType<RoomPlayer>(FindObjectsSortMode.None))
+        {
+            if (other != this && other.colorIndex == index)
+                return true;
+        }
+        return false;
+    }
+
+    [Server]
+    private int ServerFindFreeColorIndex()
+    {
+        for (int i = 0; i < PlayerColorPalette.Count; i++)
+        {
+            if (!ServerIsColorTaken(i))
+                return i;
+        }
+        return -1;
     }
 }

@@ -26,7 +26,7 @@ public class LocalVisionLight : NetworkBehaviour
     public override void OnStartLocalPlayer()
     {
         if (visionLight) visionLight.gameObject.SetActive(true);
-        if (!fovMask) fovMask = FindObjectOfType<FOVMaskController2D>();
+        if (!fovMask) fovMask = FindFirstObjectByType<FOVMaskController2D>();
     }
 
     public void InitFOV(FOVMaskController2D fov)

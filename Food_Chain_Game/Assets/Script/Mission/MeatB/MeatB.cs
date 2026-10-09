@@ -105,7 +105,8 @@ public class MeatB : BaseMission
             float h = pr.rect.height;
             float up = baseUpOffset + (h * sizeToUpOffsetFactor);
 
-            Vector3 worldPos = sp.position + new Vector3(0f, up, 0f);
+            // up은 캔버스 단위라서, 화면 좌표에 더할 때는 캔버스 배율을 곱한다(해상도에 따라 배율이 달라진다)
+            Vector3 worldPos = sp.position + new Vector3(0f, up * pr.lossyScale.y, 0f);
             pr.position = worldPos;
 
             _spawned.Add(piece);

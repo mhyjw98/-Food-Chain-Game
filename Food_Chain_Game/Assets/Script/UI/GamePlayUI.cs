@@ -3,7 +3,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 using static CharacterData;
@@ -47,6 +46,19 @@ public class GamePlayUI : MonoBehaviour
     public TextMeshProUGUI investigationResult;
     public TextMeshProUGUI investigationType;
 
+    [Header("Scan Result Labels")]
+    [Tooltip("결과 창의 항목 이름. 시체 조사 기록과 플레이어 탐색 기록이 같은 창을 쓰므로 기록 종류에 맞게 바꿔 표시한다")]
+    [SerializeField] private TextMeshProUGUI scanTimeLabel;
+    [SerializeField] private TextMeshProUGUI scanCorpseLabel;
+    [SerializeField] private TextMeshProUGUI scanKillerLabel;
+    [Tooltip("게임 도중 나간 플레이어의 시체를 조사했을 때 공격자 칸에 표시할 문구(임시)")]
+    [SerializeField] private string leftDeathText = "퇴장";
+
+    [Header("Timing")]
+    [Tooltip("캐릭터 소개 연출 동안 조작을 막는 시간(초)")]
+    [SerializeField] private float characterIntroSeconds = 5f;
+    [SerializeField] private float characterIntroUnlockDelay = 0.1f;
+
     [Header("Zone Panels")]
     public Transform fieldPanel;
     public Transform forestPanel;
@@ -70,11 +82,13 @@ public class GamePlayUI : MonoBehaviour
 
     private Coroutine scanCo;
     private Coroutine invCo;
+    private bool isInvestigating;
+    private bool isCorpseScanning;
 
     private Dictionary<GamePlayer, GameObject> iconMap = new();
     public TMP_InputField chatInputField;
-    private float disguiseTimer = 10f;
-    private float predictTimer = 5f;
+    private bool _predictOpen;
+    private bool _disguiseOpen;
     private bool isSelected = false;
     private GamePlayer localPlayer;
     private AnimalType selectType;
@@ -101,8 +115,13 @@ public class GamePlayUI : MonoBehaviour
 
     public IEnumerator ShowCharacter(AnimalType type)
     {
+        if (!CharacterConfig.Characters.TryGetValue(type, out CharacterInfoData info))
+        {
+            Debug.LogWarning($"[GamePlayUI] 캐릭터 정보가 없어 소개 연출을 건너뜁니다: {type}");
+            yield break;
+        }
+
         UIManager.Instance.Push(UIPriority.Modal);
-        CharacterInfoData info = CharacterConfig.Characters[type];
 
         characterText.text = $"{info.DisplayName}";
         territoryText.text = $"거주지: {TranslateTerritory(info.HomeTerritory)}";
@@ -113,11 +132,11 @@ public class GamePlayUI : MonoBehaviour
         territoryAni.SetTrigger("Territory");
         descriptionAni.SetTrigger("Description");
  
-        yield return new WaitForSeconds(5f);
+        yield return new WaitForSeconds(characterIntroSeconds);
 
         characterPanel.SetActive(false);
 
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSeconds(characterIntroUnlockDelay);
 
         UIManager.Instance.Pop(UIPriority.Modal);
     }
@@ -146,102 +165,150 @@ public class GamePlayUI : MonoBehaviour
         }
             
     }
+    // 위장 창. "위장 시간" 단계는 없어지고 위장 오브젝트로 대체될 예정이라 시간 제한(자동 무작위 선택)은 두지 않는다.
+    // 이동 잠금(Modal)은 창을 열 때 한 번 걸고, 닫을 때(CloseDisguiseUI) 한 번만 푼다
     public void ShowDisguiseUI()
-    {        
-        if (localPlayer.animalType == AnimalType.Fox)
-        {
-            UIManager.Instance.Push(UIPriority.Modal);
-            disguiseUI.SetActive(true);
-            disguiseUI.transform.SetAsLastSibling();
-            isSelected = false;
-            StartCoroutine(CountdownDisguise());
-        }     
+    {
+        if (localPlayer == null || localPlayer.animalType != AnimalType.Fox) return;
+        if (_disguiseOpen) return;
+
+        _disguiseOpen = true;
+        selectType = AnimalType.None;
+
+        UIManager.Instance.Push(UIPriority.Modal);
+        checkUI.SetActive(false);
+        disguiseUI.SetActive(true);
+        disguiseUI.transform.SetAsLastSibling();
     }
 
-    IEnumerator CountdownDisguise()
+    // 선택하지 않고 닫을 때도 이 메서드를 쓴다(닫기 버튼/위장 오브젝트에서 벗어남 등)
+    public void CloseDisguiseUI()
     {
-        yield return new WaitForSeconds(disguiseTimer);
-        if (!isSelected)
-        {
-            var randomType = GetRandomAnimalType();
-            localPlayer.CmdSetDisguise(randomType);
+        checkUI.SetActive(false);
+        disguiseUI.SetActive(false);
+        selectType = AnimalType.None;
 
-            string updateText = $"여우 > {AnimalNameMap.AnimalTypeToName[randomType]}";
-            PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
-            slot.UpdateNicknameWithAnimal(updateText);
-            disguiseUI.SetActive(false);
-            UIManager.Instance.Pop(UIPriority.Modal);
-        }
+        if (!_disguiseOpen) return;
+        _disguiseOpen = false;
+        UIManager.Instance.Pop(UIPriority.Modal);
     }
 
     public void OnDisguiseSelected(AnimalType type)
     {
-        if (isSelected) return;
-        isSelected = true;
-        localPlayer.CmdSetDisguise(type);
-        disguiseUI.SetActive(false);
-        UIManager.Instance.Pop(UIPriority.Modal);
+        if (!_disguiseOpen || localPlayer == null) return;
+        if (type == AnimalType.None || !AnimalNameMap.AnimalTypeToName.TryGetValue(type, out string animalName)) return;
 
-        string updateText = $"여우 > {AnimalNameMap.AnimalTypeToName[type]}";
-        PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer);
-        slot.UpdateNicknameWithAnimal(updateText);
+        localPlayer.CmdSetDisguise(type);
+
+        PlayerSlot slot = PlayerSlotUI.Instance != null ? PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer) : null;
+        if (slot != null) slot.UpdateNicknameWithAnimal($"여우 > {animalName}");
+
+        CloseDisguiseUI();
     }
+    // 예측 창(까마귀). "탐색 시간" 단계는 없어지고 예측 오브젝트로 대체될 예정이라 시간 제한(자동 무작위 선택)은 두지 않는다.
+    // 이동 잠금(Modal)은 창을 열 때 한 번 걸고, 닫을 때(ClosePredictUI) 한 번만 푼다
     public void ShowPredictUI()
     {
-        if (localPlayer.animalType == AnimalType.Crow)
-        {
-            UIManager.Instance.Push(UIPriority.Modal);
-            predictUI.SetActive(true);
-            predictUI.transform.SetAsLastSibling();
-            isSelected = false;
-            StartCoroutine(CountdownPredict());
-        }
+        if (localPlayer == null || localPlayer.animalType != AnimalType.Crow) return;
+        if (_predictOpen) return;
+
+        _predictOpen = true;
+        selectType = AnimalType.None;
+
+        UIManager.Instance.Push(UIPriority.Modal);
+        predictCheckUI.SetActive(false);
+        predictUI.SetActive(true);
+        predictUI.transform.SetAsLastSibling();
     }
 
+    // 선택하지 않고 닫을 때도 이 메서드를 쓴다(닫기 버튼/예측 오브젝트에서 벗어남 등)
+    public void ClosePredictUI()
+    {
+        predictCheckUI.SetActive(false);
+        predictUI.SetActive(false);
+        selectType = AnimalType.None;
+
+        if (!_predictOpen) return;
+        _predictOpen = false;
+        UIManager.Instance.Pop(UIPriority.Modal);
+    }
+
+    // 서버가 조사 시작을 승인했을 때 호출됨(GamePlayer.TargetStartCorpseScan)
     public void BeginCorpseScan(Corpse corpse)
     {
-        if (scanCo != null) StopCoroutine(scanCo);
-        scanCo = StartCoroutine(CoScanCorpse(corpse));
+        if (isCorpseScanning || corpse == null || localPlayer == null) return;
+
+        isCorpseScanning = true;
+        UIManager.Instance.Push(UIPriority.Scan);
+        scanCo = StartCoroutine(CoScanCorpse(corpse, localPlayer.CorpseScanDuration, localPlayer.CorpseScanRange));
     }
 
-    private IEnumerator CoScanCorpse(Corpse corpse)
+    // 진행 바는 연출용. 실제 판정과 사망 정보 전송은 서버(GamePlayer.ServerCoScanCorpse)가 한다
+    private IEnumerator CoScanCorpse(Corpse corpse, float duration, float range)
     {
-        if (localPlayer == null) Debug.Log("[CoScanCorpse] 로컬플레이어 Null");
-        if (localPlayer.scanner.CurrentTargetCorpse == null) Debug.Log("[CoScanCorpse] 시체옵젝 Null");
-        if (corpse.scanPlayers.Contains(localPlayer.netId)) yield break;
-
         scanPanel.gameObject.SetActive(true);
         scanPanel.transform.SetAsLastSibling();
         scanPanel.value = 0f;
         SetScanPanelPositionOnce(localPlayer.transform);
-        UIManager.Instance.Push(UIPriority.Scan);
 
         float t = 0f;
 
-        while (t < 3)
+        while (t < duration)
         {
             t += Time.deltaTime;
-            scanPanel.value = Mathf.Clamp01(t / 3);
+            scanPanel.value = duration > 0f ? Mathf.Clamp01(t / duration) : 1f;
 
-            if (corpse == null)
-            {
-                CancelScanUI();
-                yield break;
-            }
+            bool outOfRange = corpse == null
+                || ((Vector2)localPlayer.transform.position - (Vector2)corpse.transform.position).sqrMagnitude > range * range;
 
-            Vector2 p = localPlayer.transform.position;
-            Vector2 c = corpse.transform.position;
-            if ((p - c).sqrMagnitude > 4)
+            if (outOfRange)
             {
+                localPlayer.CmdCancelCorpseScan();
                 CancelScanUI();
                 yield break;
             }
             yield return null;
         }
 
+        // 바가 다 찬 뒤에는 서버 결과(OnCorpseScanResult / OnCorpseScanCanceled)를 기다린다
+        scanCo = null;
+    }
+
+    public void OnCorpseScanResult(uint corpseNetId, AnimalType deadType, AnimalType killerType, DeathReason deathReason, int day, bool wasNight, float elapsedSec)
+    {
+        if (!isCorpseScanning) return;
         CancelScanUI();
 
-        ActiveScanResult(corpse);
+        int sec = Mathf.Max(0, Mathf.FloorToInt(elapsedSec));
+        AnimalNameMap.AnimalTypeToName.TryGetValue(deadType, out string deadName);
+
+        var rec = new InvestigationRecord
+        {
+            type = InvestigationType.Corpse,
+            recordId = $"{corpseNetId}",
+            corpseAnimalType = deadType,
+            targetAnimalType = killerType,
+            deathReason = deathReason,
+
+            Day = day,
+            WasNight = wasNight,
+            ElapsedSec = elapsedSec,
+
+            title = deadName ?? "???",
+            subtitle = $"{day}일차 {(wasNight ? "밤" : "낮")} {sec}초 경과",
+            createdAtLocal = Time.time
+        };
+
+        if (InvestigationLog.Instance != null)
+            InvestigationLog.Instance.Add(rec);
+
+        ActiveScanResult(rec);
+    }
+
+    public void OnCorpseScanCanceled()
+    {
+        if (!isCorpseScanning) return;
+        CancelScanUI();
     }
     private void SetScanPanelPositionOnce(Transform transform)
     {
@@ -267,101 +334,108 @@ public class GamePlayUI : MonoBehaviour
     }
     private void CancelScanUI()
     {
-        Debug.Log("[CancelScanUI] 스캔 취소");
+        // Push는 BeginCorpseScan에서 한 번만 하므로 조사 중일 때만 한 번 Pop
+        if (!isCorpseScanning) return;
+        isCorpseScanning = false;
+
+        if (scanCo != null)
+        {
+            StopCoroutine(scanCo);
+            scanCo = null;
+        }
+
         scanPanel.gameObject.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Scan);
         scanPanel.value = 0f;
-        scanCo = null;
     }
-
-    public void ActiveScanResult(Corpse corpse)
-    {
-        int sec = Mathf.Max(0, Mathf.FloorToInt(corpse.ElapsedSec));       
-
-        var rec = new InvestigationRecord
-        {
-            type = InvestigationType.Corpse,
-            recordId = $"{corpse.netId}",
-            corpseAnimalType = corpse.deadAnimalType,
-            targetAnimalType = corpse.KillerType,
-
-            Day = corpse.deathDay,
-            WasNight = corpse.deathWasNight,
-            ElapsedSec = corpse.ElapsedSec,
-
-            title = $"{AnimalNameMap.AnimalTypeToName[corpse.deadAnimalType]}",
-            subtitle = $"{corpse.deathDay}일차 {(corpse.deathWasNight ? "밤" : "낮")} {sec}초 경과",
-            createdAtLocal = Time.time
-        };
-
-        InvestigationLog.Instance.Add(rec);
-        corpse.scanPlayers.Add(localPlayer.netId);
-        ActiveScanResult(rec);
-    }
+    // 시체 조사 기록: 사망 시각 / 사망자 / 공격자
     public void ActiveScanResult(InvestigationRecord record)
     {
-        int sec = Mathf.Max(0, Mathf.FloorToInt(record.ElapsedSec));
-        scanKillerType.text = AnimalNameMap.AnimalTypeToName[record.targetAnimalType];
-        scanCorpseType.text = AnimalNameMap.AnimalTypeToName[record.corpseAnimalType];
-        scanDeathTime.text = $"{record.Day}일차 {(record.WasNight ? "밤" : "낮")} {sec}초 경과";
+        SetScanResultLabels("사망 시각 :", "사망자 :", "공격자 :");
 
-        scanResultUI.SetActive(true);
-        scanResultUI.transform.SetAsLastSibling();
-        UIManager.Instance.Push(UIPriority.Scan);
+        scanDeathTime.text = FormatRecordTime(record);
+        scanCorpseType.text = GetAnimalName(record.corpseAnimalType);
+        // 게임 도중 나간 플레이어의 시체는 공격자 대신 "퇴장"으로 표시(임시)
+        scanKillerType.text = record.deathReason == DeathReason.Left ? leftDeathText : GetAnimalName(record.targetAnimalType);
+
+        OpenScanResultUI();
     }
     public void DeActiveScanResult()
     {
+        if (!scanResultUI.activeSelf) return;
+
         scanResultUI.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Scan);
     }
 
+    // 플레이어 탐색 기록: 탐색 시각 / 대상(닉네임) / 정체.
+    // 시체 조사와 같은 창을 쓰므로 항목 이름을 바꿔 준다(그대로 두면 "사망자: 늑대"처럼 엉뚱하게 표시된다)
     public void ActivePlayerScanResult(InvestigationRecord record)
     {
-        scanKillerType.text = AnimalNameMap.AnimalTypeToName[record.targetAnimalType];
-        scanCorpseType.text = AnimalNameMap.AnimalTypeToName[record.corpseAnimalType];
-        scanDeathTime.text = $"{record.Day}일차 {(record.WasNight ? "밤" : "낮")} {record.ElapsedSec}초 경과";
+        SetScanResultLabels("탐색 시각 :", "대상 :", "정체 :");
+
+        scanDeathTime.text = FormatRecordTime(record);
+        scanCorpseType.text = record.title;
+        scanKillerType.text = GetAnimalName(record.targetAnimalType);
+
+        OpenScanResultUI();
+    }
+
+    // 결과 창이 이미 열려 있을 때 다른 기록을 누르면 내용만 바뀐다.
+    // Push는 창을 열 때 한 번만 해야 닫을 때의 Pop 한 번과 짝이 맞는다(중복 Push는 상호작용 잠금이 풀리지 않는 원인)
+    private void OpenScanResultUI()
+    {
+        scanResultUI.transform.SetAsLastSibling();
+        if (scanResultUI.activeSelf) return;
 
         scanResultUI.SetActive(true);
-        scanResultUI.transform.SetAsLastSibling();
         UIManager.Instance.Push(UIPriority.Scan);
     }
 
-    IEnumerator CountdownPredict()
+    private void SetScanResultLabels(string time, string corpse, string killer)
     {
-        yield return new WaitForSeconds(predictTimer);
-        if (!isSelected)
-        {
-            var randomType = GetRandomAnimalType();
-            localPlayer.CmdSetPredict(randomType);
-
-            predictUI.SetActive(false);
-            UIManager.Instance.Pop(UIPriority.Modal);
-        }
+        if (scanTimeLabel != null) scanTimeLabel.text = time;
+        if (scanCorpseLabel != null) scanCorpseLabel.text = corpse;
+        if (scanKillerLabel != null) scanKillerLabel.text = killer;
     }
 
+    private static string FormatRecordTime(InvestigationRecord record)
+    {
+        int sec = Mathf.Max(0, Mathf.FloorToInt(record.ElapsedSec));
+        return $"{record.Day}일차 {(record.WasNight ? "밤" : "낮")} {sec}초 경과";
+    }
+
+    private static string GetAnimalName(AnimalType type)
+    {
+        return AnimalNameMap.AnimalTypeToName.TryGetValue(type, out string animalName) ? animalName : "???";
+    }
+
+    // type이 None이면 "플레이어 예측"을 고른 것: 서버에 보내지 않고 창만 닫는다(플레이어 목록에서 따로 예측)
     public void OnPredictSelected(AnimalType type)
     {
-        if (isSelected) return;
-        if(type != AnimalType.None)
+        if (!_predictOpen || localPlayer == null) return;
+
+        if (type != AnimalType.None)
         {
             isSelected = true;
             localPlayer.CmdSetPredict(type);
-        }        
+        }
 
-        predictUI.SetActive(false);
-        UIManager.Instance.Pop(UIPriority.Modal);
+        ClosePredictUI();
     }
 
     public void CheckPredict()
     {
-        if (localPlayer.animalType != AnimalType.Crow || isSelected || selectType != AnimalType.None) return;
+        if (localPlayer == null || localPlayer.animalType != AnimalType.Crow || isSelected || selectType != AnimalType.None) return;
 
         var type = GetRandomAnimalType();
-        localPlayer.CmdSetPredict(type);       
+        localPlayer.CmdSetPredict(type);
     }
     public void Startinvestigation()
     {
-        ActiveInvestigationSelectUI();        
+        if (investigationUI.activeSelf) return;
+
+        ActiveInvestigationSelectUI();
     }
 
     void ActiveInvestigationSelectUI()
@@ -373,13 +447,25 @@ public class GamePlayUI : MonoBehaviour
 
         DestroyBtn();
 
+        investigationDescript.text = string.Empty;
         investigationResult.text = string.Empty;
         investigationType.text = string.Empty;
-        investigationType.text = string.Empty;
-        InitBtnGroup();       
+        invCheckBtnGroup.SetActive(false);
+        HideInvestigationProgress();
+        InitBtnGroup();
     }
+    // Modal은 창을 열 때 한 번 Push, 닫을 때 한 번만 Pop
     public void DeActiveInvestigationSelectUI()
     {
+        if (!investigationUI.activeSelf) return;
+
+        if (isInvestigating)
+        {
+            isInvestigating = false;
+            if (localPlayer != null) localPlayer.CmdCancelInvestigation();
+        }
+        HideInvestigationProgress();
+
         investigationUI.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Modal);
     }
@@ -397,9 +483,14 @@ public class GamePlayUI : MonoBehaviour
 
     public void ProgressInvestigation()
     {
-        if (invCo != null) StopCoroutine(invCo);
+        if (isInvestigating || localPlayer == null) return;
+
         invCheckBtnGroup.SetActive(false);
-        invCo = StartCoroutine(CoInvestigatePlayerTarget(InvestigationTargetNetId, InvestigationTargetNickname));
+        isInvestigating = true;
+        localPlayer.CmdBeginInvestigation(InvestigationTargetNetId);
+
+        if (invCo != null) StopCoroutine(invCo);
+        invCo = StartCoroutine(CoInvestigationProgress(localPlayer.InvestigationDuration));
     }
     public void CancleInvestigation()
     {
@@ -409,11 +500,14 @@ public class GamePlayUI : MonoBehaviour
     }
     void InitBtnGroup()
     {
+        if (GameMamager.Instance == null) return;
+
         var players = GameMamager.Instance.players;
 
         foreach (var p in players)
         {
-            if (p == localPlayer) continue;
+            // 나간 플레이어는 목록에 null로 남을 수 있다
+            if (p == null || p == localPlayer) continue;
 
             var btnObj = Instantiate(uiButtonPrefab, investigationButtonGroup);
             var label = btnObj.GetComponentInChildren<TextMeshProUGUI>().text = p.nickname;
@@ -427,68 +521,89 @@ public class GamePlayUI : MonoBehaviour
         foreach (Transform child in investigationButtonGroup)
             Destroy(child.gameObject);
     }
-    IEnumerator CoInvestigatePlayerTarget(uint netId, string nickname)
+    // 진행 바는 연출용. 실제 시간/조건 판정과 결과 전송은 서버(GamePlayer.ServerCoInvestigate)가 한다
+    IEnumerator CoInvestigationProgress(float duration)
     {
-        if (localPlayer == null) Debug.Log("[CoInvestigation] 로컬플레이어 Null");
-        if (localPlayer.scanner.CurrentInvestigation == null) Debug.Log("[CoInvestigation] 탐색 옵젝 Null");
-
         DestroyBtn();
 
         investigationDescript.text = "탐색 진행중";
+        investigationResult.text = string.Empty;
         invProgressPanel.gameObject.SetActive(true);
         invProgressPanel.transform.SetAsLastSibling();
         invProgressPanel.value = 0f;
-        
+
         float t = 0f;
 
-        while (t < 5)
+        while (t < duration)
         {
             t += Time.deltaTime;
-            invProgressPanel.value = Mathf.Clamp01(t / 5);
+            invProgressPanel.value = duration > 0f ? Mathf.Clamp01(t / duration) : 1f;
 
             yield return null;
         }
 
-        CancelInvestigationScanUI();
-
-        GameMamager.Instance.RequestPlayerType(netId, nickname);
-    }
-    private void CancelInvestigationScanUI()
-    {
-        invProgressPanel.gameObject.SetActive(false);
-        UIManager.Instance.Pop(UIPriority.Modal);
-        invProgressPanel.value = 0f;
         invCo = null;
+    }
+    private void HideInvestigationProgress()
+    {
+        if (invCo != null)
+        {
+            StopCoroutine(invCo);
+            invCo = null;
+        }
+
+        invProgressPanel.gameObject.SetActive(false);
+        invProgressPanel.value = 0f;
+    }
+
+    public void OnInvestigationCanceled()
+    {
+        if (!isInvestigating) return;
+        isInvestigating = false;
+
+        HideInvestigationProgress();
+
+        investigationDescript.text = "탐색 실패";
+        investigationResult.text = "탐색 장소를 벗어났거나 탐색할 수 없는 상태입니다.";
+        investigationType.text = string.Empty;
+
+        DestroyBtn();
+        InitBtnGroup();
     }
 
     public void ActiveInvestigationResult(uint targetNetId, string targetNickname, AnimalType targetType, bool isPredator)
     {
+        if (!isInvestigating) return;
+        isInvestigating = false;
+
+        HideInvestigationProgress();
+
         var gameMamager = GameMamager.Instance;
-        
+
         var rec = new InvestigationRecord
         {
             type = InvestigationType.PlayerIdentity,
             recordId = $"{targetNetId}",
             title = targetNickname,
-            subtitle = $"탐색 결과: {AnimalNameMap.AnimalTypeToName[targetType]}",
+            subtitle = $"탐색 결과: {GetAnimalName(targetType)}",
             Day = gameMamager.currentRound,
             WasNight = gameMamager.IsNightPhase,
-            ElapsedSec = gameMamager.timer,
+            ElapsedSec = gameMamager.PhaseElapsedSeconds,
             targetAnimalType = targetType,
             createdAtLocal = Time.time,
         };
 
-        InvestigationLog.Instance.Add(rec);
+        if (InvestigationLog.Instance != null)
+            InvestigationLog.Instance.Add(rec);
 
         investigationDescript.text = "탐색 완료";
         investigationResult.text = "탐색 결과";
-        investigationType.text = AnimalNameMap.AnimalTypeToName[targetType];
+        investigationType.text = GetAnimalName(targetType);
         investigationType.color = isPredator ? Color.red : Color.green;
     }
     public void DeActiveInvestigationResult()
     {
-        investigationUI.SetActive(false);
-        UIManager.Instance.Pop(UIPriority.Modal);
+        DeActiveInvestigationSelectUI();
     }
     private string TranslateTerritory(TerritoryType type)
     {
@@ -545,17 +660,22 @@ public class GamePlayUI : MonoBehaviour
         foreach (Transform child in disguiseButtonGroup)
             Destroy(child.gameObject);
 
-        foreach (var type in allAnimals)
+        // 위장 후보는 모든 동물
+        foreach (AnimalType type in Enum.GetValues(typeof(AnimalType)))
         {
+            if (type == AnimalType.None) continue;
+            if (!AnimalNameMap.AnimalTypeToName.TryGetValue(type, out string label)) continue;
+
+            AnimalType candidate = type;
             GameObject btn = Instantiate(uiButtonPrefab, disguiseButtonGroup);
-            string label = AnimalNameMap.AnimalTypeToName[type];
             btn.GetComponentInChildren<TextMeshProUGUI>().text = label;
 
             btn.GetComponent<Button>().onClick.AddListener(() =>
             {
-                selectType = type;
+                selectType = candidate;
                 checkText.text = $"정말로 {label}(으)로 \n위장하시겠습니까??";
                 checkUI.SetActive(true);
+                checkUI.transform.SetAsLastSibling();
             });
         }
         disguiseUI.SetActive(false);
@@ -578,6 +698,7 @@ public class GamePlayUI : MonoBehaviour
                 selectType = type;
                 predictCheckText.text = $"{label}(을)를 승리자로\n예측 하시겠습니까??";
                 predictCheckUI.SetActive(true);
+                predictCheckUI.transform.SetAsLastSibling();
             });
         }
         GameObject cancleBtn = Instantiate(uiButtonPrefab, predictButtonGroup);
@@ -587,6 +708,7 @@ public class GamePlayUI : MonoBehaviour
             selectType = AnimalType.None;
             predictCheckText.text = $"동물이 아닌 플레이어로 승리자를 예측 하시겠습니까??\n플레이어 예측은 우측 상단의 프로필 > 우클릭 > 예측버튼을 통해 가능합니다.";
             predictCheckUI.SetActive(true);
+            predictCheckUI.transform.SetAsLastSibling();
         });
         predictUI.SetActive(false);
     }
@@ -594,30 +716,31 @@ public class GamePlayUI : MonoBehaviour
     {
         chatUI.SetActive(!chatUI.activeSelf);
     }
+    // 위장 확인창 "아니요": 확인창만 닫고 선택 창으로 돌아간다(잠금은 그대로)
     public void DeActiveCheckUI()
     {
         checkUI.SetActive(false);
         selectType = AnimalType.None;
-        UIManager.Instance.Pop(UIPriority.Modal);
     }
+    // 위장 확인창 "네": 선택을 확정하고 창을 닫는다
     public void DeActiveDisguiseUI()
     {
-        OnDisguiseSelected(selectType);
         checkUI.SetActive(false);
-        UIManager.Instance.Pop(UIPriority.Modal);
+        OnDisguiseSelected(selectType);
     }
 
+    // 예측 확인창 "아니요": 확인창만 닫고 선택 창으로 돌아간다(잠금은 그대로)
     public void DeActivePredictCheckUI()
     {
         predictCheckUI.SetActive(false);
         selectType = AnimalType.None;
-        UIManager.Instance.Pop(UIPriority.Modal);
     }
+    // 예측 확인창 "네": 선택을 확정하고 창을 닫는다
     public void DeActivePredictUI()
     {
-        OnPredictSelected(selectType);
+        AnimalType chosen = selectType;
         predictCheckUI.SetActive(false);
-        UIManager.Instance.Pop(UIPriority.Modal);
+        OnPredictSelected(chosen);
     }
 
     public void OnClickMissionListUI()

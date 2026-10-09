@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,11 +8,39 @@ public class InvestigationObject : MonoBehaviour
 
     [SerializeField] private Collider2D triggerCollider;
 
+    [Tooltip("서버가 탐색을 허용하는 최대 거리. Scanner의 scanRadius보다 조금 크게 잡아 지연 오차를 허용")]
+    [SerializeField] private float interactRange = 2f;
+
+    private static readonly List<InvestigationObject> _instances = new();
+
     private Color[] _defaultColors;
     private GamePlayer _localPlayerInRange;
+    private Collider2D _bodyCollider;
+
+    public static bool IsAnyInRange(Vector2 position)
+    {
+        for (int i = 0; i < _instances.Count; i++)
+        {
+            if (_instances[i] != null && _instances[i].IsInRange(position))
+                return true;
+        }
+        return false;
+    }
+
+    public bool IsInRange(Vector2 position)
+    {
+        Vector2 closest = (_bodyCollider != null && _bodyCollider.enabled)
+            ? _bodyCollider.ClosestPoint(position)
+            : (Vector2)transform.position;
+
+        return (closest - position).sqrMagnitude <= interactRange * interactRange;
+    }
 
     private void Awake()
     {
+        _bodyCollider = GetComponent<Collider2D>();
+        _instances.Add(this);
+
         if (renderers == null || renderers.Length == 0)
             renderers = GetComponentsInChildren<SpriteRenderer>();
 
@@ -21,6 +49,11 @@ public class InvestigationObject : MonoBehaviour
             _defaultColors[i] = renderers[i] != null ? renderers[i].color : Color.white;
 
         SetEnabled(false);
+    }
+
+    private void OnDestroy()
+    {
+        _instances.Remove(this);
     }
 
     public void SetEnabled(bool enabled)

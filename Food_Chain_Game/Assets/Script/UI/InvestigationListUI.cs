@@ -19,6 +19,8 @@ public class InvestigationListUI : MonoBehaviour
         for (int i = content.childCount - 1; i >= 0; i--)
             Destroy(content.GetChild(i).gameObject);
 
+        if (InvestigationLog.Instance == null) return;
+
         var list = InvestigationLog.Instance.Records;
 
         for (int i = list.Count - 1; i >= 0; i--)
@@ -30,7 +32,7 @@ public class InvestigationListUI : MonoBehaviour
 
     private void OnItemClicked(string recordId)
     {
-        if (!InvestigationLog.Instance.TryGet(recordId, out var r))
+        if (InvestigationLog.Instance == null || !InvestigationLog.Instance.TryGet(recordId, out var r))
             return;
 
         InvestigationResultPresenter.Show(r);

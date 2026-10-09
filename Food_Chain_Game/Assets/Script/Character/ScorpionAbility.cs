@@ -3,10 +3,17 @@ using UnityEngine;
 
 public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility, IMissionCompleteHandler
 {
+    // 독 보유 여부는 서버와 본인만 안다(이 컴포넌트는 Sync Mode = Owner)
     [SyncVar] private bool hasPoison;
 
     protected GamePlayer local;
     public bool NeedsPoisonMission => enabled && !hasPoison;
+
+    private void Awake()
+    {
+        // 프리팹 설정이 바뀌더라도 전원 동기화로 되돌아가지 않도록 코드에서도 고정한다
+        syncMode = SyncMode.Owner;
+    }
 
     public override void OnStartServer()
     {
@@ -45,22 +52,23 @@ public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility,
     public void OnBeforeAttack(ref AttackContext ctx)
     {
         if (!enabled) return;
-        if (local == null) GetComponent<GamePlayer>();
+        if (local == null) local = GetComponent<GamePlayer>();
         if (local == null) return;
         if (ctx.target != local) return;
         if (ctx.attacker == null) return;
 
         Debug.Log("독 상태 :" + hasPoison);
-        if (hasPoison)
-        {
-            ctx.killAttacker = true;
-            ctx.reason = "ScorpionPoisonCounter";
 
-            hasPoison = false;
-            ServerSyncPoisonMissionSlot();
-        }
-        else
-            ctx.killTarget = true;
+        // 독이 없으면 기본 규칙대로 피식자 판정(전갈 사망, 공격자는 포식 성공)
+        if (!hasPoison) return;
+
+        // 독이 있으면 전갈은 살고 공격자만 죽는다
+        ctx.killTarget = false;
+        ctx.killAttacker = true;
+        ctx.reason = "ScorpionPoisonCounter";
+
+        hasPoison = false;
+        ServerSyncPoisonMissionSlot();
     }
 
     [Server]

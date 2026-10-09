@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -125,10 +125,11 @@ public class VoiceUI : MonoBehaviour
         {
             if (p == null || string.IsNullOrEmpty(p.PlayerId)) continue;
 
-            PlayerPrefs.SetInt(VoiceManager.ParticipantVolPrefPrefix + p.PlayerId, 70);
+            PlayerPrefs.SetInt(VoiceManager.ParticipantVolPrefPrefix + p.PlayerId, VoiceManager.DefaultParticipantVolume);
 
-            int vivox = Mathf.Clamp(70 - 50, -50, 50);
-            p.SetLocalVolume(vivox);
+            // 게임 중 생존자 채널의 음량은 InGameVoiceProximity가 저장값을 읽어 정한다
+            if (!VoiceManager.IsProximityChannel(ch))
+                p.SetLocalVolume(VoiceManager.ToVivoxVolume(VoiceManager.DefaultParticipantVolume));
 
             if (_rowsByPlayerId.TryGetValue(p.PlayerId, out var row) && row != null)
                 row.Bind(p);

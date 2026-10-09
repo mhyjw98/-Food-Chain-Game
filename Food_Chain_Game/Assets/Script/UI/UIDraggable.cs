@@ -12,6 +12,8 @@ public class UIDraggable : MonoBehaviour, IDragHandler, IBeginDragHandler
 
     public ScrollRect scrollRect;
     public RectTransform scrollArea;
+    [Tooltip("창 위(스크롤 영역 밖)에서 휠을 굴렸을 때 한 칸당 스크롤되는 비율")]
+    [SerializeField] private float wheelScrollStep = 0.15f;
 
     Vector2 _moveBegin;
     Vector2 _startingPoint;
@@ -26,12 +28,18 @@ public class UIDraggable : MonoBehaviour, IDragHandler, IBeginDragHandler
 
     void Update()
     {
-        if (Input.mouseScrollDelta.y != 0)
-        {
-            float scrollDelta = Input.mouseScrollDelta.y * 0.15f;
-            scrollRect.verticalNormalizedPosition += scrollDelta;
-            scrollRect.verticalNormalizedPosition = Mathf.Clamp01(scrollRect.verticalNormalizedPosition);
-        }
+        if (scrollRect == null || Input.mouseScrollDelta.y == 0) return;
+
+        // 마우스가 이 창 위에 있을 때만 스크롤한다(예전에는 화면 어디서 휠을 굴려도 채팅이 움직였다).
+        // 스크롤 영역 위에서는 ScrollRect가 직접 처리하므로 여기서 또 움직이지 않는다
+        Camera cam = (_canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay) ? _canvas.worldCamera : null;
+        Vector2 mouse = Input.mousePosition;
+
+        if (!RectTransformUtility.RectangleContainsScreenPoint(_rectTransform, mouse, cam)) return;
+        if (scrollArea != null && RectTransformUtility.RectangleContainsScreenPoint(scrollArea, mouse, cam)) return;
+
+        float scrollDelta = Input.mouseScrollDelta.y * wheelScrollStep;
+        scrollRect.verticalNormalizedPosition = Mathf.Clamp01(scrollRect.verticalNormalizedPosition + scrollDelta);
     }
 
     public void OnBeginDrag(PointerEventData eventData)

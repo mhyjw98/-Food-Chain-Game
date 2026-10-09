@@ -7,6 +7,21 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 
+// 서버가 연결을 끊기 직전에 클라이언트에게 사유를 알리는 메시지.
+// 받은 쪽은 타이틀로 돌아갔을 때 일반 문구("서버와의 연결이 끊어졌습니다") 대신 이 사유를 보여준다
+public enum RoomNoticeReason : byte
+{
+    None,
+    GameInProgress,
+    RoomFull,
+    HostClosedRoom
+}
+
+public struct RoomNoticeMessage : NetworkMessage
+{
+    public RoomNoticeReason reason;
+}
+
 public class RoomManager : NetworkRoomManager
 {
     private bool _isCleaningUp = false;
@@ -40,13 +55,33 @@ public class RoomManager : NetworkRoomManager
         }
     }
     public int maxPlayerCount = 1;
+
+    [Header("Game Start")]
+    [Tooltip("게임 시작에 필요한 최소 인원 (임시값)")]
+    [SerializeField] private int minPlayersToStart = 3;
+    [Tooltip("켜면 에디터/개발 빌드에서는 최소 인원 미만(1~2명)으로도 시작할 수 있다. 정식 빌드에서는 무시된다")]
+    [SerializeField] private bool allowBelowMinPlayersForTest = true;
+    private bool _startingGame;
+
+    // 로비 복귀 시 본인 클라이언트가 아직 씬 로딩 중이라 재배치 지시를 미뤄 둔 플레이어 (연결 → 목적지)
+    private readonly Dictionary<NetworkConnectionToClient, Vector3> _pendingRoomTeleports = new();
+
+    [Header("Disconnect Notice")]
+    [Tooltip("입장을 거부할 때 사유 메시지가 전달될 시간을 주고 나서 연결을 끊기까지의 지연(초)")]
+    [SerializeField] private float rejectDisconnectDelay = 0.5f;
+    [Tooltip("방장이 방을 닫을 때 안내 메시지가 전달될 시간을 주는 지연(초)")]
+    [SerializeField] private float hostCloseNoticeDelay = 0.2f;
+
+    // 서버: 입장을 거부해 곧 끊을 연결(그사이 플레이어 생성 요청이 와도 무시)
+    private readonly HashSet<NetworkConnectionToClient> _rejectedConnections = new();
+    // 클라: 서버가 알려준 끊김 사유
+    private RoomNoticeReason _pendingNotice = RoomNoticeReason.None;
+    private bool _leaving;
     private readonly HashSet<NetworkConnectionToClient> joinedConnections = new();
     public List<RoomPlayer> roomPlayers = new();
 
     private bool _userRequestedQuit = false;
-    bool _joiningGameplayVoice;
     Coroutine _voiceJoinCo;
-    Coroutine _voiceJoinGameplayCo;
     void OnEnable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -58,9 +93,93 @@ public class RoomManager : NetworkRoomManager
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
+    // Mirror의 기본 방 디버그 GUI(게임 중 "Return to Room" 버튼, 로비의 PLAYERS 박스)는 쓰지 않는다
+    public override void OnGUI() { }
+
+    public override void OnServerConnect(NetworkConnectionToClient conn)
+    {
+        // 게임 진행 중(또는 씬 전환 중)에는 새로 입장할 수 없다
+        if (!Utils.IsSceneActive(RoomScene))
+        {
+            ServerRejectConnection(conn, RoomNoticeReason.GameInProgress);
+            return;
+        }
+
+        // 정원 제한은 Node 서버의 조회 단계에만 있으므로 서버에서도 한 번 더 막는다
+        if (joinedConnections.Count >= maxPlayerCount)
+        {
+            ServerRejectConnection(conn, RoomNoticeReason.RoomFull);
+            return;
+        }
+
+        base.OnServerConnect(conn);
+    }
+
+    // 사유를 먼저 보내고, 전달될 시간을 준 뒤 연결을 끊는다(바로 끊으면 메시지가 도착하기 전에 끊긴다)
+    private void ServerRejectConnection(NetworkConnectionToClient conn, RoomNoticeReason reason)
+    {
+        Debug.Log($"[RoomManager] 연결 거부({reason}): {conn}");
+
+        _rejectedConnections.Add(conn);
+        conn.Send(new RoomNoticeMessage { reason = reason });
+        StartCoroutine(CoDisconnectAfterDelay(conn));
+    }
+
+    private IEnumerator CoDisconnectAfterDelay(NetworkConnectionToClient conn)
+    {
+        yield return new WaitForSecondsRealtime(rejectDisconnectDelay);
+
+        if (conn != null && NetworkServer.connections.ContainsKey(conn.connectionId))
+            conn.Disconnect();
+    }
+
+    private void OnRoomNoticeReceived(RoomNoticeMessage message)
+    {
+        _pendingNotice = message.reason;
+    }
+
+    // 끊김 사유를 한 번 꺼내 쓰고 비운다. 서버가 알려준 사유가 없으면 fallback을 그대로 쓴다
+    private string ConsumeDisconnectMessage(string fallback)
+    {
+        RoomNoticeReason reason = _pendingNotice;
+        _pendingNotice = RoomNoticeReason.None;
+
+        return reason switch
+        {
+            RoomNoticeReason.GameInProgress => "게임이 진행 중인 방에는 입장할 수 없습니다.",
+            RoomNoticeReason.RoomFull => "방 인원이 가득 찼습니다.",
+            RoomNoticeReason.HostClosedRoom => "방장이 방을 닫았습니다.",
+            _ => fallback
+        };
+    }
+
+    // 플레이어가 직접 방(게임)에서 나갈 때 호출. 방장이면 남은 사람들에게 방이 닫혔음을 먼저 알린다
+    public void LeaveRoom()
+    {
+        if (_leaving) return;
+        StartCoroutine(CoLeaveRoom());
+    }
+
+    private IEnumerator CoLeaveRoom()
+    {
+        _leaving = true;
+        _userRequestedQuit = true;
+
+        if (NetworkServer.active)
+        {
+            NetworkServer.SendToAll(new RoomNoticeMessage { reason = RoomNoticeReason.HostClosedRoom });
+            yield return new WaitForSecondsRealtime(hostCloseNoticeDelay);
+        }
+
+        _leaving = false;
+        CleanupAndLoadTitle(showError: false, errorMessage: null);
+        _userRequestedQuit = false;
+    }
+
     public override void OnStartServer()
     {
         base.OnStartServer();
+        _rejectedConnections.Clear();
         // 새 호스팅 세션이 시작되는 시점이므로, 이전 세션 종료 때 세워둔
         // 정리 가드를 다시 풀어줘야 다음 연결 끊김/에러도 정상적으로 처리된다.
         _isCleaningUp = false;
@@ -70,10 +189,16 @@ public class RoomManager : NetworkRoomManager
     {
         base.OnStartClient();
         _isCleaningUp = false;
+
+        _pendingNotice = RoomNoticeReason.None;
+        NetworkClient.RegisterHandler<RoomNoticeMessage>(OnRoomNoticeReceived, false);
     }
 
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
     {
+        // 입장을 거부해 곧 끊을 연결의 플레이어 생성 요청은 무시
+        if (_rejectedConnections.Contains(conn)) return;
+
         base.OnServerAddPlayer(conn);        
 
         var roomPlayer = conn.identity.GetComponent<RoomPlayer>();
@@ -102,6 +227,43 @@ public class RoomManager : NetworkRoomManager
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
     {
+        // 아래 정리 과정에서 예외가 나더라도 base 호출(해당 연결의 플레이어 오브젝트 파괴)은 반드시 실행한다.
+        // 건너뛰면 나간 플레이어의 캐릭터가 월드에 그대로 남는다
+        try
+        {
+            ServerCleanupDisconnectedPlayer(conn);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogException(e);
+        }
+        finally
+        {
+            base.OnServerDisconnect(conn);
+        }
+    }
+
+    private void ServerCleanupDisconnectedPlayer(NetworkConnectionToClient conn)
+    {
+        // 게임 진행 중이면 게임 쪽에 먼저 "나감"을 알린다.
+        // (이 메서드 끝의 base 호출에서 해당 연결의 플레이어 오브젝트가 파괴된다)
+        GamePlayer leavingGamePlayer = null;
+        if (conn != null && conn.identity != null)
+            leavingGamePlayer = conn.identity.GetComponent<GamePlayer>();
+
+        if (leavingGamePlayer != null && GameMamager.Instance != null)
+            GameMamager.Instance.ServerHandlePlayerLeft(leavingGamePlayer);
+
+        // 로비→게임 전환 대기 중에 끊긴 연결이 남아 있으면, 서버 로딩 완료 시 파괴된 RoomPlayer로
+        // 게임 캐릭터를 만들려다 예외가 나서 다른 대기 플레이어까지 생성이 막힌다
+        pendingPlayers.RemoveWhere(p => p.conn == conn);
+        _rejectedConnections.Remove(conn);
+        if (conn != null) _pendingRoomTeleports.Remove(conn);
+
+        // 실제로 입장 처리(+1)된 연결만 퇴장(-1)으로 집계한다.
+        // 게임 중 입장 시도처럼 바로 끊긴 연결까지 차감하면 Node 서버의 인원수가 실제보다 작아진다
+        bool wasJoined = conn != null && joinedConnections.Remove(conn);
+
         RoomPlayer roomPlayer = null;
         string nickname = null;
         bool wasHost = false;
@@ -137,15 +299,12 @@ public class RoomManager : NetworkRoomManager
             if (roomPlayers.Contains(roomPlayer))
                 roomPlayers.Remove(roomPlayer);
 
-            if (joinedConnections.Contains(roomPlayer.connectionToClient))
-                joinedConnections.Remove(roomPlayer.connectionToClient);
         }
 
-        if (!string.IsNullOrEmpty(nickname))
+        if (!string.IsNullOrEmpty(nickname) && leavingGamePlayer == null)
         {
-            var chatManager = FindObjectOfType<ChatManager>();
-            if (chatManager != null)            
-                chatManager.AddSystemMessage("System", $"{nickname}님이 퇴장하셨습니다.");                        
+            // 남아 있는 모든 플레이어에게 알린다(나가는 본인은 이미 연결이 끊겼으므로 제외)
+            RoomPlayer.ServerBroadcastSystemMessage($"{nickname}님이 퇴장하셨습니다.", roomPlayer);                        
         }
 
         if (wasHost)
@@ -155,21 +314,19 @@ public class RoomManager : NetworkRoomManager
 
         string code = RoomSessionData.CurrentRoomCode;
 
-        if (!string.IsNullOrEmpty(code))
+        if (wasJoined && !string.IsNullOrEmpty(code))
             roomHost.ComeAndGoing(code, -1);
 
         // 방에 아무도 남지 않았을 때만 방을 완전히 닫는다.
         // (한 명이라도 남아있으면 roomCode는 계속 유효해야 하고,
         //  그동안은 그 코드로만 입장이 가능한 구조를 유지해야 한다)
-        if (roomPlayers.Count == 0)
+        if (wasJoined && roomPlayers.Count == 0)
         {
             if (!string.IsNullOrEmpty(code))
                 roomHost.DeleteRoom(code);
 
             RoomSessionData.Reset();
         }
-
-        base.OnServerDisconnect(conn);
     }
 
     public override void OnClientDisconnect()
@@ -192,7 +349,7 @@ public class RoomManager : NetworkRoomManager
             yield break;
         }
 
-        CleanupAndLoadTitle(showError: true, errorMessage: "서버와의 연결이 끊어졌습니다.");
+        CleanupAndLoadTitle(showError: true, errorMessage: ConsumeDisconnectMessage("서버와의 연결이 끊어졌습니다."));
     }
 
     public void CleanupAndLoadTitle(bool showError, string errorMessage)
@@ -228,13 +385,14 @@ public class RoomManager : NetworkRoomManager
         GameObject gamePlayerObj = Instantiate(playerPrefab);
 
         GamePlayer gamePlayer = gamePlayerObj.GetComponent<GamePlayer>();
-        RoomPlayer roomPlayer = roomPlayerObj.GetComponent<RoomPlayer>();
+        RoomPlayer roomPlayer = roomPlayerObj != null ? roomPlayerObj.GetComponent<RoomPlayer>() : null;
 
         if (roomPlayer != null)
         {
             gamePlayer.characterName = roomPlayer.assignedCharacter;
             gamePlayer.nickname = roomPlayer.nickname;
             gamePlayer.gpColor = roomPlayer.rpColor;
+            gamePlayer.voiceId = roomPlayer.voiceId;
 
             if (CharacterZoneData.CharacterHomeZone.TryGetValue(roomPlayer.assignedCharacter, out ZoneType zone))
             {
@@ -287,12 +445,11 @@ public class RoomManager : NetworkRoomManager
     {
         Debug.Log("캐릭터 배정 로직 실행");
 
-        var pool = GetCharacterPool(maxPlayerCount);
+        var pool = GetCharacterPool(roomPlayers.Count);
         HashSet<string> assigned = new();
 
         foreach (var playerObj in roomPlayers)
         {
-            NetworkConnectionToClient conn = playerObj.GetComponent<NetworkIdentity>().connectionToClient;
 
             string assignedCharacter;
             if (assigned.Count < pool.Count)
@@ -315,18 +472,46 @@ public class RoomManager : NetworkRoomManager
             if (roomPlayer != null)
             {
                 roomPlayer.SetCharacter(assignedCharacter);
-                Debug.Log($"플레이어 {conn.connectionId} 캐릭터 배정: {assignedCharacter}");
+                Debug.Log($"플레이어 {roomPlayer.nickname} 캐릭터 배정: {assignedCharacter}");
             }
         }
     }   
     public void StartGame()
     {
-        if (joinedConnections.Count < maxPlayerCount)
+        TryStartGame(out _);
+    }
+
+    // 시작하지 못하면 false. 플레이어에게 보여줄 사유가 있으면 failReason에 담는다
+    public bool TryStartGame(out string failReason)
+    {
+        failReason = null;
+
+        if (!NetworkServer.active)
         {
-            Debug.LogWarning($"[RoomManager] 현재 인원 {joinedConnections.Count}/{maxPlayerCount} → 인원 부족으로 게임 시작 불가");
-            return;
+            failReason = "방장만 게임을 시작할 수 있습니다.";
+            return false;
         }
+
+        if (_startingGame || !Utils.IsSceneActive(RoomScene))
+            return false;
+
+        roomPlayers.RemoveAll(rp => rp == null);
+        int playerCount = roomPlayers.Count;
+
+        // 테스트 편의: 에디터/개발 빌드에서는 최소 인원 미만으로도 시작 허용(정식 빌드에서는 무시)
+        bool testBypass = allowBelowMinPlayersForTest && (Application.isEditor || Debug.isDebugBuild);
+        int requiredCount = testBypass ? 1 : minPlayersToStart;
+
+        if (playerCount < requiredCount)
+        {
+            failReason = $"게임을 시작하려면 최소 {minPlayersToStart}명이 필요합니다. (현재 {playerCount}명)";
+            Debug.LogWarning($"[RoomManager] {failReason}");
+            return false;
+        }
+
+        _startingGame = true;
         StartCoroutine(StartGameDelayed());
+        return true;
     }
     private IEnumerator StartGameDelayed()
     {
@@ -334,13 +519,14 @@ public class RoomManager : NetworkRoomManager
         yield return new WaitForSeconds(0.1f);
 
         // 동물(직업) 배정은 로비 색상/닉네임과 달리 매 게임 시작마다 새로 무작위 배정한다.
+        roomPlayers.RemoveAll(rp => rp == null);
         ServerAssignCharacters();
 
-        ServerChangeScene("GamePlay");
+        ServerChangeScene(GameplayScene);
     }
     public void ReassignHostAfterDisconnect()
     {
-        var remainPlayers = FindObjectsOfType<RoomPlayer>()
+        var remainPlayers = FindObjectsByType<RoomPlayer>(FindObjectsSortMode.None)
             .Where(rp => rp != null && rp.isActiveAndEnabled)
             .ToList();
 
@@ -371,13 +557,15 @@ public class RoomManager : NetworkRoomManager
             rp.isHost = (rp == newHost);
         }
 
-        Debug.Log($"[RoomManager] 호스트 재지정 완료: {newHost.userId} (connId={newHost.connectionToClient?.connectionId})");
+        Debug.Log($"[RoomManager] 호스트 재지정 완료: {newHost.nickname} (connId={newHost.connectionToClient?.connectionId})");
     }
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (scene.name == "Title")
         {
+            if (_voiceJoinCo != null) StopCoroutine(_voiceJoinCo);
+            _voiceJoinCo = null;
             VoiceManager.Instance?.LeaveAllChannels();
             VoiceManager.Instance?.RefreshDevicesForUI();
             return;
@@ -391,8 +579,9 @@ public class RoomManager : NetworkRoomManager
         }
         if (scene.name == "GamePlay")
         {
-            if (_voiceJoinGameplayCo != null) StopCoroutine(_voiceJoinGameplayCo);
-            _voiceJoinGameplayCo = StartCoroutine(CoJoinGameplayVoiceWhenReady());
+            // 로비 채널 입장을 기다리던 중이면 취소한다(게임 채널 입장과 엇갈리지 않게)
+            if (_voiceJoinCo != null) StopCoroutine(_voiceJoinCo);
+            _voiceJoinCo = null;
             return;
         }
     }
@@ -406,7 +595,11 @@ public class RoomManager : NetworkRoomManager
     {
         base.OnRoomServerSceneChanged(sceneName);
 
+        _startingGame = false;
+
         Debug.Log($"[RoomManager] OnRoomServerSceneChanged({sceneName}), roomPlayers.Count={roomPlayers.Count}, SpawnManager.Instance={(SpawnManager.Instance != null)}");
+
+        _pendingRoomTeleports.Clear();
 
         if (sceneName == "GamePlay")
         {
@@ -428,32 +621,70 @@ public class RoomManager : NetworkRoomManager
             rp.RpcSetRoomVisualsActive(true);
 
             if (SpawnManager.Instance != null)
-                rp.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
+                ServerRelocateRoomPlayer(rp, SpawnManager.Instance.GetAvailableSpawnPosition());
         }
 
         if (SpawnManager.Instance == null)
             Debug.LogWarning("[RoomManager] OnRoomServerSceneChanged: SpawnManager.Instance가 null이라 RoomPlayer 재배치를 건너뜁니다.");
     }
 
+    // RoomPlayer의 위치는 본인 클라이언트가 정한다(NetworkTransform: Client→Server).
+    // 서버가 transform만 바꾸면 방장 외에는 반영되지 않고 클라이언트가 보내는 기존 위치로 덮이므로 Teleport로 지시한다.
+    // ClientRpc는 준비(ready)된 클라이언트에게만 전달되므로, 본인이 아직 씬 로딩 중이면 준비될 때까지 미룬다(OnServerReady)
+    private void ServerRelocateRoomPlayer(RoomPlayer rp, Vector3 destination)
+    {
+        if (rp == null) return;
+
+        rp.transform.position = destination;
+
+        var conn = rp.connectionToClient;
+        if (conn != null && !conn.isReady)
+        {
+            _pendingRoomTeleports[conn] = destination;
+            return;
+        }
+
+        ServerSendRoomTeleport(rp, destination);
+    }
+
+    private void ServerSendRoomTeleport(RoomPlayer rp, Vector3 destination)
+    {
+        var networkTransform = rp.GetComponent<NetworkTransformBase>();
+        if (networkTransform == null)
+        {
+            Debug.LogWarning("[RoomManager] RoomPlayer에 NetworkTransform이 없어 재배치를 전달하지 못했습니다.");
+            return;
+        }
+
+        networkTransform.RpcTeleport(destination);
+    }
+
+    public override void OnServerReady(NetworkConnectionToClient conn)
+    {
+        base.OnServerReady(conn);
+
+        if (conn == null || !_pendingRoomTeleports.TryGetValue(conn, out Vector3 destination))
+            return;
+
+        _pendingRoomTeleports.Remove(conn);
+
+        if (!Utils.IsSceneActive(RoomScene) || conn.identity == null)
+            return;
+
+        var rp = conn.identity.GetComponent<RoomPlayer>();
+        if (rp == null) return;
+
+        rp.transform.position = destination;
+        ServerSendRoomTeleport(rp, destination);
+    }
+
+    // 로비 음성 채널 입장: 방 코드와 연결이 준비된 뒤에 들어간다.
+    // 게임 채널로의 전환은 GamePlayer가 맡는다(OnStartLocalPlayer / 사망 시)
     IEnumerator CoJoinLobbyVoiceWhenReady()
     {
         while (!NetworkClient.isConnected) yield return null;
         while (NetworkClient.localPlayer == null) yield return null;
         while (string.IsNullOrEmpty(RoomSessionData.CurrentRoomCode)) yield return null;
-
-        string roomCode = RoomSessionData.CurrentRoomCode;
-
-        var rp = NetworkClient.localPlayer.GetComponent<RoomPlayer>();
-
-        float t = 0f;
-        while (rp != null && string.IsNullOrWhiteSpace(rp.nickname) && t < 3f)
-        {
-            t += Time.unscaledDeltaTime;
-            yield return null;
-        }
-
-        string nickname = (rp != null && !string.IsNullOrWhiteSpace(rp.nickname)) ? rp.nickname : "Player";
-        string displayName = VoiceManager.BuildVivoxDisplayName(nickname, rp != null ? rp.netId : 0);
 
         if (VoiceManager.Instance == null)
         {
@@ -461,46 +692,7 @@ public class RoomManager : NetworkRoomManager
             go.AddComponent<VoiceManager>();
         }
 
-        //VoiceManager.Instance.JoinLobby(roomCode, displayName);
-        VoiceManager.Instance.EnterGameplay(roomCode, displayName, isAlive: true);
-    }
-
-    IEnumerator CoJoinGameplayVoiceWhenReady()
-    {
-        if (_joiningGameplayVoice) yield break;
-        _joiningGameplayVoice = true;
-
-        try
-        {
-            while (!NetworkClient.isConnected) yield return null;
-            while (NetworkClient.localPlayer == null) yield return null;
-            while (string.IsNullOrEmpty(RoomSessionData.CurrentRoomCode)) yield return null;
-
-            string roomCode = RoomSessionData.CurrentRoomCode;
-
-            var gp = NetworkClient.localPlayer.GetComponent<GamePlayer>();
-
-            float t = 0f;
-            while (gp != null && string.IsNullOrWhiteSpace(gp.nickname) && t < 3f)
-            {
-                t += Time.unscaledDeltaTime;
-                yield return null;
-            }
-
-            string nickname = (gp != null && !string.IsNullOrWhiteSpace(gp.nickname)) ? gp.nickname : "Player";
-            string displayName = VoiceManager.BuildVivoxDisplayName(nickname, gp != null ? gp.netId : 0);
-
-            if (VoiceManager.Instance == null)
-            {
-                Debug.LogError("[RoomManager] VoiceManager.Instance is null. Make sure VoiceManager exists in Start scene and is DontDestroyOnLoad.");
-                yield break;
-            }
-
-            VoiceManager.Instance.EnterGameplay(roomCode, displayName, isAlive: true);
-        }
-        finally
-        {
-            _joiningGameplayVoice = false;
-        }       
+        VoiceManager.Instance.JoinLobby(RoomSessionData.CurrentRoomCode);
+        _voiceJoinCo = null;
     }
 }

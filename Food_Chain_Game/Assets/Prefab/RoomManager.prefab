@@ -82,7 +82,7 @@ MonoBehaviour:
   evaluationMethod: 0
   evaluationInterval: 3
   timeInterpolationGui: 0
-  showRoomGUI: 1
+  showRoomGUI: 0
   minPlayers: 1
   roomPlayerPrefab: {fileID: 7446986677836147847, guid: 66e24ac294126604882d831752c92a82, type: 3}
   RoomScene: Assets/Scenes/GameRoom.unity
@@ -93,6 +93,10 @@ MonoBehaviour:
   chatManagerPrefab: {fileID: 6961162021532860453, guid: 23324fb326056bc43af4fe941bf26f87, type: 3}
   gpPrefab: {fileID: 6610563625137353674, guid: 6050b14a710e9f94db7bb6ff2c59509b, type: 3}
   maxPlayerCount: 7
+  minPlayersToStart: 3
+  allowBelowMinPlayersForTest: 1
+  rejectDisconnectDelay: 0.5
+  hostCloseNoticeDelay: 0.2
   roomPlayers: []
 --- !u!114 &7403400570815380683
 MonoBehaviour:

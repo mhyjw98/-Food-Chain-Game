@@ -131,63 +131,67 @@ public class AudioManager : MonoBehaviour
 
     public void EffectBgm(bool isPlay)
     {
+        // 카메라는 씬마다 새로 만들어지므로 필요할 때 다시 찾는다
+        if (bgmEffect == null && Camera.main != null)
+            bgmEffect = Camera.main.GetComponent<AudioHighPassFilter>();
+
         if (bgmEffect != null)
             bgmEffect.enabled = isPlay;
     }
     public void PlayEffectSfx(EffectSfx sfx)
     {
-        if (effectSfxClips == null || effectSfxClips.Length == 0)
-            return;
-
-        for (int i = 0; i < effectChannels; i++)
-        {
-            int loopIndex = (i + effectChannelIndex) % effectChannels;
-
-            if (effectSfxPlayers[loopIndex].isPlaying)
-                continue;
-
-            int ranIndex = 0;
-
-            effectChannelIndex = loopIndex;
-            effectSfxPlayers[loopIndex].clip = effectSfxClips[(int)sfx + ranIndex];
-            effectSfxPlayers[loopIndex].Play();
-            break;
-        }
-    }    
+        PlaySfx(effectSfxPlayers, effectSfxClips, (int)sfx, ref effectChannelIndex);
+    }
     public void PlayUISfx(UISfx sfx)
     {
-        for (int i = 0; i < uiChannels; i++)
-        {
-            int loopIndex = (i + uiChannelIndex) % uiChannels;
+        PlaySfx(uiSfxPlayers, uiSfxClips, (int)sfx, ref uiChannelIndex);
+    }
 
-            if (uiSfxPlayers[loopIndex].isPlaying)
+    // 비어 있는 채널을 찾아 재생한다. 클립이 등록되지 않았거나 채널이 없으면 아무것도 하지 않는다
+    private static void PlaySfx(AudioSource[] players, AudioClip[] clips, int clipIndex, ref int channelIndex)
+    {
+        if (players == null || players.Length == 0) return;
+        if (clips == null || clipIndex < 0 || clipIndex >= clips.Length || clips[clipIndex] == null) return;
+
+        for (int i = 0; i < players.Length; i++)
+        {
+            int loopIndex = (i + channelIndex) % players.Length;
+
+            if (players[loopIndex] == null || players[loopIndex].isPlaying)
                 continue;
 
-            int ranIndex = 0;
-
-            uiChannelIndex = loopIndex;
-            uiSfxPlayers[loopIndex].clip = uiSfxClips[(int)sfx + ranIndex];
-            uiSfxPlayers[loopIndex].Play();
+            channelIndex = loopIndex;
+            players[loopIndex].clip = clips[clipIndex];
+            players[loopIndex].Play();
             break;
         }
     }
 
     public void BGMVolumeSetting(float volume)
     {
-        bgmPlayer.volume = volume;
+        bgmVolume = volume;
+        if (bgmPlayer != null)
+            bgmPlayer.volume = volume;
     }
     public void EffectVolumeSetting(float volume)
     {
-        for (int index = 0; index < effectChannels; index++)
-        {
-            effectSfxPlayers[index].volume = volume;
-        }
+        effectSfxVolume = volume;
+        SetVolume(effectSfxPlayers, volume);
     }
     public void UIVolumeSetting(float volume)
     {
-        for (int index = 0; index < uiChannels; index++)
+        uiSfxVolume = volume;
+        SetVolume(uiSfxPlayers, volume);
+    }
+
+    private static void SetVolume(AudioSource[] players, float volume)
+    {
+        if (players == null) return;
+
+        for (int index = 0; index < players.Length; index++)
         {
-            uiSfxPlayers[index].volume = volume;
+            if (players[index] != null)
+                players[index].volume = volume;
         }
     }
 }

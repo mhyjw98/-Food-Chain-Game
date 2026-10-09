@@ -1,32 +1,51 @@
-﻿using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Services.Vivox;
 using UnityEngine;
 
+// 게임 중 "누구의 목소리가 들리는지"를 듣는 쪽(내 클라이언트)에서 참가자별 음량으로 조절한다.
+//  - 생존자: 내 시야보다 조금 넓은 범위 안에 있고 벽에 가리지 않은 생존자만 들린다
+//  - 유령: 유령끼리는 전부 들리고(유령 채널), 가까이 있는 생존자의 목소리도 들린다
+// 내 플레이어에서만 동작한다(GamePlayer.OnStartLocalPlayer에서 켠다)
 public class InGameVoiceProximity : MonoBehaviour
 {
     [SerializeField] private GamePlayer localPlayer;
     [SerializeField] private float tickInterval = 0.10f;
 
+    [Header("생존자")]
+    [Tooltip("시야 반경에 더해 주는 거리. 시야보다 이만큼 더 먼 곳까지 목소리가 들린다")]
+    [SerializeField] private float hearRangeBeyondVision = 1.5f;
+    [Tooltip("들리는 범위의 가장자리에서 소리가 서서히 작아지는 구간의 폭")]
     [SerializeField] private float edgeFadeWidth = 1.0f;
+    [Tooltip("목소리를 막는 벽 레이어(시야를 막는 레이어와 같게 둔다)")]
     [SerializeField] private LayerMask obstacleMask;
+    [Tooltip("시야 정보를 읽을 수 없을 때 쓰는 시야 반경")]
+    [SerializeField] private float fallbackVisionRadius = 8f;
 
+    [Header("유령")]
+    [Tooltip("유령이 생존자의 목소리를 들을 수 있는 거리")]
     [SerializeField] private float ghostHearDistance = 3.5f;
     [SerializeField] private float ghostEdgeFadeWidth = 0.8f;
 
+    [Header("음량 변화 속도(dB/초)")]
     [SerializeField] private float fadeInSpeed = 200f;
     [SerializeField] private float fadeOutSpeed = 300f;
 
-    private readonly Dictionary<(string channel, string playerId), float> _volCache = new();
+    // 참가자별 현재 감쇠량(0 = 그대로, MinVolume = 무음)
+    private readonly Dictionary<string, float> _attenuation = new();
+    private readonly Dictionary<string, GamePlayer> _playersByVoiceId = new();
+    private readonly HashSet<string> _seen = new();
+    private readonly List<string> _removeBuffer = new();
 
     private Coroutine _loop;
 
-    private void Reset()
+    private void Awake()
     {
-        localPlayer = GetComponent<GamePlayer>();
+        if (localPlayer == null) localPlayer = GetComponentInParent<GamePlayer>();
+
+        // 다른 플레이어의 오브젝트에서는 돌지 않는다
+        enabled = false;
     }
 
     private void OnEnable()
@@ -41,12 +60,12 @@ public class InGameVoiceProximity : MonoBehaviour
             StopCoroutine(_loop);
             _loop = null;
         }
-        _volCache.Clear();
+        _attenuation.Clear();
     }
 
     private IEnumerator Loop()
     {
-        var wait = new WaitForSeconds(tickInterval);
+        var wait = new WaitForSecondsRealtime(tickInterval);
 
         while (true)
         {
@@ -66,225 +85,124 @@ public class InGameVoiceProximity : MonoBehaviour
     private void Tick()
     {
         if (localPlayer == null || !localPlayer.isLocalPlayer) return;
-        if (VoiceManager.Instance == null || !VoiceManager.Instance.IsLoggedIn) return;
-        if (VivoxService.Instance == null) return;
 
-        var ctx = VoiceManager.Instance.CurrentContext;
-        if (ctx != VoiceManager.VoiceContext.GameplayAlive &&
-            ctx != VoiceManager.VoiceContext.GameplayDead)
+        var voice = VoiceManager.Instance;
+        if (voice == null || !voice.IsLoggedIn || VivoxService.Instance == null) return;
+
+        var context = voice.CurrentContext;
+        if (context != VoiceManager.VoiceContext.GameplayAlive &&
+            context != VoiceManager.VoiceContext.GameplayDead)
             return;
 
-        string roomCode = RoomSessionData.CurrentRoomCode;
-        if (string.IsNullOrEmpty(roomCode)) return;
-
-        string aliveCh = $"alive_{roomCode}";
-        string deadCh = $"dead_{roomCode}";
-
-        if (ctx == VoiceManager.VoiceContext.GameplayAlive) ApplyAliveHearing(aliveCh);      
-        else ApplyGhostHearing(deadCh, aliveCh);             
-    }
-
-    private void ApplyAliveHearing(string aliveChannel)
-    {
-        if (!VivoxService.Instance.ActiveChannels.TryGetValue(aliveChannel, out var participants))
-            return;
-
-        bool isNight = GameMamager.Instance != null && GameMamager.Instance.IsNightPhase;
-        float myVision = GetVisionForAnimal(localPlayer, isNight);
-
-        var seen = new HashSet<(string ch, string pid)>();
-
-        foreach (var p in participants)
+        // 생존자 채널만 여기서 조절한다. 유령 채널은 VoiceManager가 개별 음량 그대로 둔다
+        string aliveChannel = null;
+        foreach (var name in VivoxService.Instance.ActiveChannels.Keys)
         {
-            if (p == null || string.IsNullOrEmpty(p.PlayerId) || p.IsSelf) continue;
-
-            var key = (aliveChannel, p.PlayerId);
-            seen.Add(key);
-
-            if (!VoiceManager.TryParseVivoxDisplayName(p.DisplayName, out _, out uint netId))
+            if (VoiceManager.IsProximityChannel(name))
             {
-                ApplyParticipantVolume(aliveChannel, p, target: -50, dt: tickInterval);
-                continue;
-            }
-
-            var targetPlayer = FindGamePlayerByNetId(netId);
-            if (targetPlayer == null)
-            {
-                ApplyParticipantVolume(aliveChannel, p, target: -50, dt: tickInterval);
-                continue;
-            }
-
-            bool visible = IsVisibleByMe(targetPlayer, myVision);
-            if (!visible)
-            {
-                ApplyParticipantVolume(aliveChannel, p, target: -50, dt: tickInterval);
-                continue;
-            }
-
-            float dist = Vector2.Distance(localPlayer.transform.position, targetPlayer.transform.position);
-            float targetVol = ComputeEdgeFadeVolume(dist, myVision, edgeFadeWidth); // 0 ~ -50
-
-            ApplyParticipantVolume(aliveChannel, p, targetVol, tickInterval);
-        }
-
-        CleanupCache(seen);
-    }
-
-    private bool IsVisibleByMe(GamePlayer target, float vision)
-    {
-        if (target == null) return false;
-
-        Vector2 a = localPlayer.transform.position;
-        Vector2 b = target.transform.position;
-
-        float dist = Vector2.Distance(a, b);
-        if (dist > vision) return false;
-
-        if (obstacleMask.value == 0) return true;
-
-        var hit = Physics2D.Linecast(a, b, obstacleMask);
-        return hit.collider == null;
-    }
-    private void ApplyGhostHearing(string deadChannel, string aliveChannel)
-    {
-        var seen = new HashSet<(string ch, string pid)>();
-
-        if (VivoxService.Instance.ActiveChannels.TryGetValue(deadChannel, out var deadParticipants))
-        {
-            foreach (var p in deadParticipants)
-            {
-                if (p == null || string.IsNullOrEmpty(p.PlayerId) || p.IsSelf) continue;
-
-                var key = (deadChannel, p.PlayerId);
-                seen.Add(key);
-
-                ApplyParticipantVolume(deadChannel, p, target: 0, dt: tickInterval);
+                aliveChannel = name;
+                break;
             }
         }
+        if (aliveChannel == null) return;
+        if (!VivoxService.Instance.ActiveChannels.TryGetValue(aliveChannel, out var participants)) return;
 
-        if (VivoxService.Instance.ActiveChannels.TryGetValue(aliveChannel, out var aliveParticipants))
+        RebuildPlayerMap();
+
+        bool iAmGhost = !localPlayer.isAlive || context == VoiceManager.VoiceContext.GameplayDead;
+        Vector2 myPosition = localPlayer.transform.position;
+        float hearRange = iAmGhost ? ghostHearDistance : GetVisionRadius() + hearRangeBeyondVision;
+        float fadeWidth = iAmGhost ? ghostEdgeFadeWidth : edgeFadeWidth;
+
+        _seen.Clear();
+
+        foreach (var participant in participants)
         {
-            foreach (var p in aliveParticipants)
+            if (participant == null || participant.IsSelf || string.IsNullOrEmpty(participant.PlayerId)) continue;
+
+            _seen.Add(participant.PlayerId);
+
+            float target = VoiceManager.MinVolume;
+
+            // 누구인지 알 수 없는 참가자, 죽은 참가자(유령은 생존자 채널에 말하지 않는다)는 들리지 않게 한다
+            if (_playersByVoiceId.TryGetValue(participant.PlayerId, out var speaker) && speaker != null && speaker.isAlive)
             {
-                if (p == null || string.IsNullOrEmpty(p.PlayerId) || p.IsSelf) continue;
+                Vector2 speakerPosition = speaker.transform.position;
+                float distance = Vector2.Distance(myPosition, speakerPosition);
 
-                var key = (aliveChannel, p.PlayerId);
-                seen.Add(key);
-
-                if (!VoiceManager.TryParseVivoxDisplayName(p.DisplayName, out _, out uint netId))
-                {
-                    ApplyParticipantVolume(aliveChannel, p, target: -50, dt: tickInterval);
-                    continue;
-                }
-
-                var targetPlayer = FindGamePlayerByNetId(netId);
-                if (targetPlayer == null)
-                {
-                    ApplyParticipantVolume(aliveChannel, p, target: -50, dt: tickInterval);
-                    continue;
-                }
-
-                float dist = Vector2.Distance(localPlayer.transform.position, targetPlayer.transform.position);
-                float targetVol = ComputeEdgeFadeVolume(dist, ghostHearDistance, ghostEdgeFadeWidth);
-
-                ApplyParticipantVolume(aliveChannel, p, targetVol, tickInterval);
+                // 유령은 벽을 통과하므로 벽에 가려도 들린다
+                if (distance < hearRange && (iAmGhost || !IsBlockedByWall(myPosition, speakerPosition)))
+                    target = ComputeEdgeFade(distance, hearRange, fadeWidth);
             }
+
+            ApplyParticipantVolume(participant, target);
         }
 
-        CleanupCache(seen);
+        // 채널에서 나간 참가자의 기록 정리
+        _removeBuffer.Clear();
+        foreach (var id in _attenuation.Keys)
+            if (!_seen.Contains(id)) _removeBuffer.Add(id);
+        foreach (var id in _removeBuffer)
+            _attenuation.Remove(id);
     }
-    private float ComputeEdgeFadeVolume(float dist, float range, float edgeWidth)
-    {
-        if (dist >= range) return -50f;
 
+    private void RebuildPlayerMap()
+    {
+        _playersByVoiceId.Clear();
+
+        var players = GamePlayer.AllPlayers;
+        for (int i = 0; i < players.Count; i++)
+        {
+            var player = players[i];
+            if (player == null || string.IsNullOrEmpty(player.voiceId)) continue;
+
+            _playersByVoiceId[player.voiceId] = player;
+        }
+    }
+
+    // 지금 실제로 적용돼 있는 내 시야 반경(낮/밤, 능력에 따른 변화 포함)
+    private float GetVisionRadius()
+    {
+        var vision = VisionUIController.Instance;
+        if (vision != null && vision.fov != null)
+            return vision.fov.viewRadius;
+
+        return fallbackVisionRadius;
+    }
+
+    private bool IsBlockedByWall(Vector2 from, Vector2 to)
+    {
+        if (obstacleMask.value == 0) return false;
+
+        return Physics2D.Linecast(from, to, obstacleMask).collider != null;
+    }
+
+    // 범위 안쪽은 0(그대로), 가장자리 구간에서 MinVolume(무음)까지 서서히 줄어든다
+    private static float ComputeEdgeFade(float distance, float range, float edgeWidth)
+    {
+        if (distance >= range) return VoiceManager.MinVolume;
         if (edgeWidth <= 0.001f) return 0f;
 
-        float startFade = Mathf.Max(0f, range - edgeWidth);
-        if (dist <= startFade) return 0f;
+        float fadeStart = Mathf.Max(0f, range - edgeWidth);
+        if (distance <= fadeStart) return 0f;
 
-        float t = Mathf.InverseLerp(startFade, range, dist); // 0..1
-        return Mathf.Lerp(0f, -50f, t);
+        float t = Mathf.InverseLerp(fadeStart, range, distance);
+        return Mathf.Lerp(0f, VoiceManager.MinVolume, t);
     }
 
-    private void ApplyParticipantVolume(string channelName, VivoxParticipant p, float target, float dt)
+    private void ApplyParticipantVolume(VivoxParticipant participant, float target)
     {
-        var cacheKey = (channelName, p.PlayerId);
+        string id = participant.PlayerId;
 
-        if (!_volCache.TryGetValue(cacheKey, out float cur))
-            cur = -50f;
+        if (!_attenuation.TryGetValue(id, out float current))
+            current = VoiceManager.MinVolume;
 
-        float speed = (target > cur) ? fadeInSpeed : fadeOutSpeed;
-        float next = Mathf.MoveTowards(cur, target, speed * dt);
+        float speed = target > current ? fadeInSpeed : fadeOutSpeed;
+        float next = Mathf.MoveTowards(current, target, speed * tickInterval);
+        _attenuation[id] = next;
 
-        _volCache[cacheKey] = next;
-
-        // Vivox 로컬 볼륨 범위: 보통 -50 ~ +10 정도로 운용
-        p.SetLocalVolume(Mathf.RoundToInt(Mathf.Clamp(next, -50f, 10f)));
+        // 내가 그 사람에게 정해 둔 개별 음량에 거리 감쇠를 더한다
+        float volume = VoiceManager.GetParticipantBaseVolume(id) + next;
+        participant.SetLocalVolume(Mathf.RoundToInt(Mathf.Clamp(volume, VoiceManager.MinVolume, VoiceManager.MaxBoostVolume)));
     }
-
-    private void CleanupCache(HashSet<(string ch, string pid)> seen)
-    {
-        var keys = _volCache.Keys.ToList();
-        foreach (var k in keys)
-            if (!seen.Contains(k))
-                _volCache.Remove(k);
-    }
-
-    private float GetVisionForAnimal(GamePlayer player, bool isNight)
-    {
-        if (!isNight) return 11f;
-        if (player.isPredator) return 6f;
-        if (player.animalType == AnimalType.Squirrel) return 11f;
-        return 8f;
-    }
-
-    private GamePlayer FindGamePlayerByNetId(uint netId)
-    {
-        if (NetworkClient.spawned.TryGetValue(netId, out var identity))
-            return identity != null ? identity.GetComponent<GamePlayer>() : null;
-
-        return null;
-    }
-    //private float ComputeTargetVolume(float dist, float vision)
-    //{
-    //    if (dist >= vision) return -50f;
-
-    //    if (edgeFadeWidth <= 0.001f) return 0f;
-
-    //    float startFade = Mathf.Max(0f, vision - edgeFadeWidth);
-    //    if (dist <= startFade) return 0f;
-
-    //    float t = Mathf.InverseLerp(startFade, vision, dist); // 0..1
-    //    return Mathf.Lerp(0f, -50f, t);
-    //}
-
-    //private void ApplyParticipantVolume(VivoxParticipant p, float target, float dt)
-    //{
-    //    string playerId = p.PlayerId;
-
-    //    if (!_volByPlayerId.TryGetValue(playerId, out float cur))
-    //        cur = -50f;
-
-    //    float speed = (target > cur) ? fadeInSpeed : fadeOutSpeed;
-    //    float next = Mathf.MoveTowards(cur, target, speed * dt);
-
-    //    _volByPlayerId[playerId] = next;
-
-    //    p.SetLocalVolume(Mathf.RoundToInt(Mathf.Clamp(next, -50f, 10f)));
-    //}
-
-    //private float GetVisionForAnimal(GamePlayer player, bool isNight)
-    //{
-    //    if (!isNight) return 11f;
-    //    if (player.isPredator) return 6f;
-    //    if (player.animalType == AnimalType.Squirrel) return 11f;
-    //    else return 8f;
-    //}
-
-    //private GamePlayer FindGamePlayerByNetId(uint netId)
-    //{
-    //    if (NetworkClient.spawned.TryGetValue(netId, out var identity))
-    //        return identity != null ? identity.GetComponent<GamePlayer>() : null;
-    //    return null;
-    //}
 }

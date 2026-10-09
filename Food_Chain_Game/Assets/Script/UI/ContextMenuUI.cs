@@ -1,10 +1,8 @@
 ﻿using Mirror;
-using Mirror.Examples.Chat;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SocialPlatforms;
 using UnityEngine.UI;
 
 public class ContextMenuUI : MonoBehaviour
@@ -31,8 +29,14 @@ public class ContextMenuUI : MonoBehaviour
 
         CurrentOpen = this;
         targetPlayer = player;
-        GamePlayer localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
-        var chatManager = FindObjectOfType<ChatManager>();
+        GamePlayer localPlayer = NetworkClient.localPlayer != null ? NetworkClient.localPlayer.GetComponent<GamePlayer>() : null;
+        if (player == null || localPlayer == null || GameMamager.Instance == null)
+        {
+            Close();
+            return;
+        }
+
+        var chatManager = FindFirstObjectByType<ChatManager>();
 
         whisperBtn.interactable = (player.netId != localPlayer.netId);
         scanBtn.interactable = (localPlayer.canScan && player.netId != localPlayer.netId && GameMamager.Instance.IsExplorationPhase && localPlayer.maxScanCount > localPlayer.scanCount);
@@ -40,23 +44,24 @@ public class ContextMenuUI : MonoBehaviour
         predictBtn.interactable = localPlayer.canPredict && GameMamager.Instance.IsExplorationPhase;
 
         // 버튼 동작 설정
+        // 메뉴가 열린 사이에 대상이 나갔을 수 있으므로 누를 때 다시 확인한다
         whisperBtn.onClick.AddListener(() => {
-            chatManager.SelectWhisperTarget(targetPlayer);
+            if (chatManager != null && targetPlayer != null) chatManager.SelectWhisperTarget(targetPlayer);
             Close();
         });
 
         scanBtn.onClick.AddListener(() => {
-            localPlayer.CmdScan(targetPlayer.netId);
+            if (localPlayer != null && targetPlayer != null) localPlayer.CmdScan(targetPlayer.netId);
             Close();
         });
 
         predictBtn.onClick.AddListener(() => {
-            localPlayer.CmdSetPredict(targetPlayer.netId);
+            if (localPlayer != null && targetPlayer != null) localPlayer.CmdSetPredict(targetPlayer.netId);
             Close();
         });
 
         memoBtn.onClick.AddListener(() => {
-            PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(targetPlayer);
+            PlayerSlot slot = (PlayerSlotUI.Instance != null && targetPlayer != null) ? PlayerSlotUI.Instance.GetSlotByPlayer(targetPlayer) : null;
             if (slot != null) slot.BeginEditMemo();
             Close();
         });

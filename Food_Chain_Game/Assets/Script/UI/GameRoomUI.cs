@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UIElements;
 
 public class GameRoomUI : MonoBehaviour
 {
@@ -17,7 +16,16 @@ public class GameRoomUI : MonoBehaviour
     public GameObject startGameButton;
     public GameObject exitRoomButton;    
     public GameObject codeGroup;
-    public GameObject colorUI;    
+    public GameObject colorUI;
+
+    [Header("Connecting Overlay")]
+    [Tooltip("접속이 끝나기 전까지 로비를 가리는 \"연결 중\" 화면")]
+    [SerializeField] private GameObject connectingOverlay;
+    [SerializeField] private TextMeshProUGUI connectingText;
+    [SerializeField] private string connectingMessage = "연결 중";
+    [Tooltip("문구 뒤의 점(...)이 하나씩 늘어나는 간격(초)")]
+    [SerializeField] private float connectingDotInterval = 0.4f;
+    [SerializeField] private int connectingMaxDots = 3;
 
     private void Awake()
     {
@@ -27,6 +35,57 @@ public class GameRoomUI : MonoBehaviour
     {
         roomCodeText.text = RoomSessionData.CurrentRoomCode;
         noticeText.text = "";
+
+        StartCoroutine(CoRefreshHostUI());
+        StartCoroutine(CoShowConnectingOverlay());
+    }
+
+    // 코드로 입장하면 접속이 끝나기 전에도 로비 씬이 먼저 열린다. 내 플레이어가 생성될 때까지 "연결 중" 화면으로 가린다.
+    // 접속에 실패하면 RoomManager가 타이틀 씬을 다시 불러오므로 이 화면도 함께 사라진다
+    private IEnumerator CoShowConnectingOverlay()
+    {
+        if (connectingOverlay == null) yield break;
+
+        // 게임이 끝나고 로비로 돌아온 경우에는 이미 접속된 상태이므로 띄우지 않는다
+        if (NetworkClient.isConnected)
+        {
+            connectingOverlay.SetActive(false);
+            yield break;
+        }
+
+        connectingOverlay.SetActive(true);
+
+        float interval = Mathf.Max(0.05f, connectingDotInterval);
+        float elapsed = 0f;
+        int dots = -1;
+
+        while (!NetworkClient.isConnected || NetworkClient.localPlayer == null)
+        {
+            int nextDots = (int)(elapsed / interval) % (Mathf.Max(0, connectingMaxDots) + 1);
+            if (nextDots != dots && connectingText != null)
+            {
+                dots = nextDots;
+                connectingText.text = connectingMessage + new string('.', dots);
+            }
+
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        connectingOverlay.SetActive(false);
+    }
+
+    // 로비 씬이 열릴 때마다(최초 입장, 게임 후 복귀 모두) 방장 전용 UI를 스스로 갱신한다.
+    // 기존에는 최초 입장 때 한 번만 켜져서, 게임 후 돌아오면 시작 버튼이 나타나지 않았다
+    private IEnumerator CoRefreshHostUI()
+    {
+        while (!NetworkClient.active || NetworkClient.localPlayer == null)
+            yield return null;
+
+        // 이 구조에서 방장은 항상 서버를 겸하는 호스트다
+        bool isRoomHost = NetworkServer.active;
+        startGameButton.SetActive(isRoomHost);
+        codeGroup.SetActive(isRoomHost);
     }
    
     public void CheckHostStatus(RoomPlayer player)
@@ -43,7 +102,47 @@ public class GameRoomUI : MonoBehaviour
 
     public void OnStartGameClicked()
     {
-        ((RoomManager)RoomManager.singleton).StartGame();       
+        var roomManager = RoomManager.singleton as RoomManager;
+        if (roomManager == null) return;
+
+        if (!roomManager.TryStartGame(out string failReason) && !string.IsNullOrEmpty(failReason))
+            ShowNotice(failReason);
+    }
+
+    // 로비의 "방 나가기" 버튼용. 먼저 확인창을 띄우고(방장 여부 무관), 확인하면 방을 나간다.
+    // 방장이 나가면 남은 사람들에게 "방장이 방을 닫았습니다"가 표시된다
+    public void OnExitRoomClicked()
+    {
+        if (ReturnToTitleConfirmUI.TryShow(LeaveRoom)) return;
+
+        LeaveRoom();
+    }
+
+    private void LeaveRoom()
+    {
+        var roomManager = RoomManager.singleton as RoomManager;
+        if (roomManager != null)
+            roomManager.LeaveRoom();
+    }
+
+    private Coroutine _noticeCo;
+    [SerializeField] private float noticeSeconds = 2f;
+    [SerializeField] private string copyCompletedMessage = "Copy completed.";
+
+    private void ShowNotice(string message)
+    {
+        if (_noticeCo != null) StopCoroutine(_noticeCo);
+        _noticeCo = StartCoroutine(CoShowNotice(message));
+    }
+
+    private IEnumerator CoShowNotice(string message)
+    {
+        noticeText.text = message;
+
+        yield return new WaitForSeconds(noticeSeconds);
+
+        noticeText.text = "";
+        _noticeCo = null;
     }
 
     public void ShowStartGameButton(bool isHost)
@@ -74,17 +173,9 @@ public class GameRoomUI : MonoBehaviour
         if (!string.IsNullOrEmpty(roomCodeText.text))
         {
             GUIUtility.systemCopyBuffer = roomCodeText.text;
-            StartCoroutine(NoticeCopyCode());
+            // 시작 실패 안내와 같은 문구 칸을 쓰므로 같은 경로로 표시한다(따로 돌리면 서로의 문구를 일찍 지운다)
+            ShowNotice(copyCompletedMessage);
         }
-    }
-
-    IEnumerator NoticeCopyCode()
-    {
-        noticeText.text = "Copy completed.";
-
-        yield return new WaitForSeconds(2);
-
-        noticeText.text = "";
     }
 
     

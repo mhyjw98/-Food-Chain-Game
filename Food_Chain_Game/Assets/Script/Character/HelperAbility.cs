@@ -31,10 +31,6 @@ public class HelperAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
     [Server]
     public void OnBeforeAttack(ref AttackContext ctx)
     {
-        if (!enabled) return;
-        if (ctx.attacker == null) return;
-        if (ctx.target != local) return;
-
-        ctx.killTarget = true;
+        // 피식자는 GamePlayer.CmdAttack의 기본 규칙으로 사망 처리된다. 전용 예외 없음
     }
 }

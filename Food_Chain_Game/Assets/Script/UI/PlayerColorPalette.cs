@@ -65,6 +65,30 @@ public class PlayerColorPalette : MonoBehaviour
         InitColorBtn();
     }
 
+    // 게임이 끝나고 로비로 돌아오면 버튼은 새로 만들어지지만 RoomPlayer(와 그 색)는 그대로다.
+    // 색이 바뀔 때만 버튼을 갱신하면 복귀 직후에는 사용 중인 색도 눌리므로, 씬이 열릴 때 한 번 맞춘다
+    private void Start()
+    {
+        SyncButtonsWithPlayers();
+    }
+
+    public static void SyncButtonsWithPlayers()
+    {
+        if (colorBtns == null || colorBtns.Length == 0) return;
+
+        for (int i = 0; i < colorBtns.Length; i++)
+            SetButtonInteractable(i, true);
+
+        foreach (var p in FindObjectsByType<RoomPlayer>(FindObjectsSortMode.None))
+            SetButtonInteractable(p.colorIndex, false);
+    }
+
+    // 타이틀로 돌아오면 이전 방의 색 사용 기록은 의미가 없다(다음 방에서 고를 수 있는 색이 줄어드는 것을 막는다)
+    public static void ResetUsedColors()
+    {
+        _usedIndices.Clear();
+    }
+
     private void InitColorBtn()
     {
         if (colorBtns == null)        
@@ -114,23 +138,33 @@ public class PlayerColorPalette : MonoBehaviour
         return -1;
     }
 
+    // colorBtns는 로비 씬의 버튼을 가리키는 static 배열이라, 게임 씬에서는 파괴된 버튼을 가리킨다.
+    // 색상 SyncVar 훅은 게임 중(플레이어 퇴장 등)에도 불리므로 버튼 접근은 전부 이 메서드를 거친다
+    private static void SetButtonInteractable(int index, bool interactable)
+    {
+        if (colorBtns == null || index < 0 || index >= colorBtns.Length) return;
+        if (colorBtns[index] == null) return;
+
+        colorBtns[index].interactable = interactable;
+    }
+
     public static void InitColorIndex(int index)
     {
         _usedIndices.Add(index);
-        colorBtns[index].interactable = false;
+        SetButtonInteractable(index, false);
     }
 
     public static void UpdateColorIndex(int oldIndex, int newIndex)
     {
-        if (oldIndex >= 0 && oldIndex < colorBtns.Length)
+        if (oldIndex >= 0 && oldIndex < Count)
         {
             _usedIndices.Remove(oldIndex);
-            colorBtns[oldIndex].interactable = true;
+            SetButtonInteractable(oldIndex, true);
         }
-        if (newIndex >= 0 && newIndex < colorBtns.Length)
+        if (newIndex >= 0 && newIndex < Count)
         {
             _usedIndices.Add(newIndex);
-            colorBtns[newIndex].interactable = false;
+            SetButtonInteractable(newIndex, false);
         }           
     }
 
@@ -144,23 +178,19 @@ public class PlayerColorPalette : MonoBehaviour
     }
     public static void RefreshButtons(int oldIndex, int newIndex)
     {
+        if (colorBtns == null) return;
+
         if(newIndex == -1)
         {
-            if (oldIndex < 0 && oldIndex >= colorBtns.Length)
-                Debug.LogWarning($"기존 index값 : {oldIndex}");
-            colorBtns[oldIndex].interactable = true;            
+            SetButtonInteractable(oldIndex, true);
         }
         else
         {
             for (int i = 0; i < colorBtns.Length; i++)
-                colorBtns[i].interactable = true;
+                SetButtonInteractable(i, true);
 
-            foreach (var p in FindObjectsOfType<RoomPlayer>())
-            {
-                int idx = p.colorIndex;
-                if (idx < 0 || idx >= colorBtns.Length) continue;
-                colorBtns[idx].interactable = false;
-            }
+            foreach (var p in FindObjectsByType<RoomPlayer>(FindObjectsSortMode.None))
+                SetButtonInteractable(p.colorIndex, false);
         }        
     }
     public static ColorEntry GetRandomExcluding()

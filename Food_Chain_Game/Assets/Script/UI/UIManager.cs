@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 public enum UIPriority
@@ -41,10 +40,12 @@ public class UIManager : MonoBehaviour
     {
         get
         {
-            if (_activePriorities.Count == 0)
-                return 0;
+            // 이동 가능 여부 확인으로 매 프레임 불리므로 LINQ 없이 구한다(키는 오름차순이라 마지막이 최댓값)
+            int max = 0;
+            foreach (var pair in _activePriorities)
+                max = pair.Key;
 
-            return _activePriorities.Keys.Max();
+            return max;
         }
     }
 

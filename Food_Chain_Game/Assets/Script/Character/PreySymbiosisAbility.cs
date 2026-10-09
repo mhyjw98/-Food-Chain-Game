@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class PreySymbiosisAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
 {
+    // 파트너가 누구인지는 서버와 본인만 안다(이 컴포넌트는 Sync Mode = Owner)
     [SyncVar(hook = nameof(OnPartnerChanged))] public uint partnerNetId;
 
     [Header("Enable Types")]
@@ -34,6 +35,12 @@ public class PreySymbiosisAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbi
 
     private bool _boostApplied;
     private float _lastToggleTime;
+
+    private void Awake()
+    {
+        // 프리팹 설정이 바뀌더라도 전원 동기화로 되돌아가지 않도록 코드에서도 고정한다
+        syncMode = SyncMode.Owner;
+    }
 
     public override void OnStartClient()
     {
@@ -70,8 +77,8 @@ public class PreySymbiosisAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbi
         if (ctx.target == null) return;
         if (ctx.target != local) return;
 
-        ctx.killTarget = true;
-        ServerNotifyUnderAttack(ctx.attacker, ctx.target);       
+        // 사망 여부는 GamePlayer.CmdAttack의 기본 규칙이 정하고, 여기서는 파트너에게 피격 알림만 보낸다
+        ServerNotifyUnderAttack(ctx.attacker, ctx.target);
     }
     [Server]
     public void ServerClearPartnerBothSides()

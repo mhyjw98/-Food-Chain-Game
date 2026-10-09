@@ -23,7 +23,7 @@ public class FollowCamera : NetworkBehaviour
     {
         if (!isLocalPlayer) return;
 
-        vCam = FindObjectOfType<CinemachineVirtualCamera>();
+        vCam = FindFirstObjectByType<CinemachineVirtualCamera>();
         if (vCam != null)
         {
             vCam.Follow = transform;

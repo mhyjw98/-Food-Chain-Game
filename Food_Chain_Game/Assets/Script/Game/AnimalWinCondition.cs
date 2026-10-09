@@ -36,10 +36,11 @@ public class AnimalWinCondition : MonoBehaviour
             {
                 if (p.animalType == AnimalType.Wolf)
                 {
-                    return !p.isAlive; // 사자가 죽으면 승리
+                    return !p.isAlive; // 늑대가 죽으면 승리
                 }
             }
-            return false;
+            // 목록에 늑대가 없다 = 게임에서 나감 → 사망으로 취급
+            return true;
         }
     }
     public class OstrichWinCondition : IWinCondition

@@ -33,7 +33,10 @@ Mirror 기반 멀티플레이 소셜 서바이벌 게임 (Goose Goose Duck / Amo
 ## 문서 위치
 - 기획: Docs/[.md]
 - 진행상황: Docs/[progress]
-- 코드 리뷰 기록: Docs/review-notes.md
+- 코드 리뷰 기록: Docs/review-progress.md(세션 1~5), Docs/review-progress-2.md(세션 6~) (계획: Docs/review-plan.md, review-plan-2.md / 규칙: Docs/review-rules.md)
+- **Unity MCP 연결 후 진행할 작업 목록: Docs/mcp-pending-tasks.md** — MCP가 연결된 세션을 시작하면 이 문서의 "시작 절차"부터 수행 (0번 컴파일/Weaver 확인이 최우선)
+- Node.js 방 코드 서버 점검 목록: Docs/node-server-checklist.md — 사용자가 서버 코드를 주면 이 문서의 "서버 코드를 받으면 진행할 순서"대로 리뷰·보완
+- 리뷰 후 테스트 목록: Docs/review-tests.md(세션 1~5), 이후분은 Docs/review-tests-2.md — 리뷰 중 코드를 수정하면 테스트 항목을 반드시 여기에 추가 (규칙은 review-rules.md 6번). 테스트는 리뷰가 전부 끝난 뒤 한 번에 진행하므로, 수정 직후 테스트를 요청하며 멈추지 않는다
 
 
 ## 아직 미정인 것

@@ -29,15 +29,6 @@ public class CrocodileAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
     [Server]
     public void OnBeforeAttack(ref AttackContext ctx)
     {
-        if (!enabled) return;
-        if (local == null) GetComponent<GamePlayer>();
-        if (local == null) return;
-        if (ctx.attacker == null) return;
-        if (ctx.target != local) return;
-
-        bool canAttack = PredatorPriority.CanAttack(ctx.attacker.predatorType, ctx.target.predatorType);
-        
-        ctx.killAttacker = !canAttack;
-        ctx.killTarget = canAttack;
+        // 공격 성공 여부는 GamePlayer.CmdAttack의 기본 규칙(서열)으로 정해진다. 악어 전용 예외 없음
     }
 }

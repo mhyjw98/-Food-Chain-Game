@@ -34,15 +34,24 @@ public class TitleUI : MonoBehaviour
     public static int SelectedPlayerCount = 1;
     public int maxPlayer = 0;
 
+    [Header("Nickname / Room")]
+    [SerializeField] private int maxNicknameLength = 8;
+    [SerializeField] private int maxSelectablePlayerCount = 13;
+
+    // 방 생성/입장 버튼 연타로 씬이 두 번 로드되는 것을 막는다
+    private bool _enteringRoom;
+
     public GameObject activeUi;
 
     private void Awake()
     {
-        roomHost = FindObjectOfType<RoomHost>();
-        roomJoin = FindObjectOfType<RoomJoin>();
+        roomHost = FindFirstObjectByType<RoomHost>();
+        roomJoin = FindFirstObjectByType<RoomJoin>();
     }
     void Start()
     {
+        PlayerColorPalette.ResetUsedColors();
+
         NicknameCheck();
         UISetting();
         ErrorCheck();
@@ -53,6 +62,9 @@ public class TitleUI : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (SettingManager.isKeySetting == true) return;
+
+            // 설정 창이 열려 있거나 방금 이 ESC로 닫혔으면 설정 창만 처리한다(종료 팝업까지 뜨지 않게)
+            if (SettingManager.IsOpen || SettingManager.ClosedThisFrame) return;
 
             if (activeUi == null)
                 OnQuitBtnClicked();
@@ -89,11 +101,18 @@ public class TitleUI : MonoBehaviour
 
         playerCountDropdown.ClearOptions();
         List<string> options = new();
-        for (int i = 1; i <= 13; i++)
+        for (int i = 1; i <= maxSelectablePlayerCount; i++)
         {
             options.Add(i.ToString());
         }
         playerCountDropdown.AddOptions(options);
+
+        // SelectedPlayerCount는 static이라 타이틀로 돌아와도 남는다. 드롭다운 표시와 maxPlayer를 거기에 맞춘다
+        // (맞추지 않으면 드롭다운은 1, 실제 정원은 이전 값, 방 코드 서버에 등록되는 정원은 0이 된다)
+        SelectedPlayerCount = Mathf.Clamp(SelectedPlayerCount, 1, maxSelectablePlayerCount);
+        maxPlayer = SelectedPlayerCount;
+        playerCountDropdown.SetValueWithoutNotify(SelectedPlayerCount - 1);
+        playerCountDropdown.RefreshShownValue();
     }
     public void ShowError(string msg)
     {
@@ -131,9 +150,9 @@ public class TitleUI : MonoBehaviour
         string nickname = nicknameInput.text.Trim();
         if (!string.IsNullOrEmpty(nickname))
         {
-            if(nickname.Length > 8)
+            if(nickname.Length > maxNicknameLength)
             {
-                noticeText.text = "닉네임은 8글자 이하로 지어주세요.";
+                noticeText.text = $"닉네임은 {maxNicknameLength}글자 이하로 지어주세요.";
                 return;
             }
                 
@@ -173,8 +192,27 @@ public class TitleUI : MonoBehaviour
     }
     public void StartHost()
     {
+        if (_enteringRoom) return;
+
+        // 닉네임 팝업은 ESC로 닫을 수 있으므로 방에 들어가기 직전에 다시 확인한다
+        if (!NickNamemanager.HasNickname())
+        {
+            FirstShowPopup();
+            return;
+        }
+
+        var roomManager = RoomManager.singleton as RoomManager;
+        if (roomManager == null || CodeManager.Instance == null || NetworkCoordinator.Instance == null)
+        {
+            Debug.LogError("[TitleUI] RoomManager/CodeManager/NetworkCoordinator가 준비되지 않아 방을 만들 수 없습니다.");
+            return;
+        }
+
+        _enteringRoom = true;
+
         Debug.Log("호스트 시작");
-        ((RoomManager)RoomManager.singleton).maxPlayerCount = SelectedPlayerCount;       
+        maxPlayer = SelectedPlayerCount;
+        roomManager.maxPlayerCount = SelectedPlayerCount;
 
         string hostIp = ConfigManager.Config.IP;
         string roomCode = CodeManager.Instance.RegisterRoom(hostIp);
@@ -182,7 +220,8 @@ public class TitleUI : MonoBehaviour
         Debug.Log($"[방 생성 완료] 내 IP: {hostIp}, 방 코드: {roomCode}");
         RoomSessionData.CurrentRoomCode = roomCode;
 
-        roomHost.RegisterRoom(roomCode, hostIp, maxPlayer);
+        if (roomHost != null)
+            roomHost.RegisterRoom(roomCode, hostIp, maxPlayer);
         RoomSessionData.ColorIndex = Random.Range(0, PlayerColorPalette.Count);
 
         NetworkCoordinator.Instance.RequestStartHost();
@@ -209,6 +248,14 @@ public class TitleUI : MonoBehaviour
 
     public void JoinByCode()
     {
+        if (_enteringRoom) return;
+
+        if (!NickNamemanager.HasNickname())
+        {
+            FirstShowPopup();
+            return;
+        }
+
         string code = codeInputField.text;
         if (string.IsNullOrEmpty(code))
         {
@@ -216,15 +263,24 @@ public class TitleUI : MonoBehaviour
             return;
         }
 
+        if (roomJoin == null || NetworkCoordinator.Instance == null) return;
+
+        _enteringRoom = true;
+
         roomJoin.CheckRoomBeforeJoin(code, (success, errorMessage) =>
         {
+            // 응답을 기다리는 사이에 타이틀 씬이 바뀌었으면 아무것도 하지 않는다
+            if (this == null) return;
+
             if (success)
             {
-                NetworkCoordinator.Instance.RequestStartClient();
+                // 씬을 넘기기 전에 색을 먼저 정한다(RoomPlayer가 생성되면서 이 값을 읽는다)
                 RoomSessionData.ColorIndex = PlayerColorPalette.GetRandomExcludingIndex();
+                NetworkCoordinator.Instance.RequestStartClient();
             }
             else
             {
+                _enteringRoom = false;
                 ShowError(errorMessage);
             }
         });

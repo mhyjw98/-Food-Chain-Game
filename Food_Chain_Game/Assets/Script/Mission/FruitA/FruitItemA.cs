@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using static BagBase;
@@ -92,7 +91,7 @@ public class FruitItemA : MonoBehaviour, IEndDragHandler
     }
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (_mission == null) return;
+        if (_mission == null || _cleared) return;
         if (itemType != BagItemType.Fruit) return;
 
         Vector2 screenPos = eventData.position;
@@ -100,6 +99,8 @@ public class FruitItemA : MonoBehaviour, IEndDragHandler
 
         if (inBag)
         {
+            // Update의 가방 판정(TryCatchItem)이 같은 프레임에 한 번 더 집계하지 않도록 먼저 표시
+            _cleared = true;
             _mission.OnFruitCollected(this);
             Destroy(gameObject);
         }

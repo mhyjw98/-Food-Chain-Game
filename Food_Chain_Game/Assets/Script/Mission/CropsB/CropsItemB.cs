@@ -92,6 +92,10 @@ public class CropsItemB : MonoBehaviour, IPointerDownHandler
         {
             _state = newState;
             UpdateVisual();
+
+            // 한 번 시든 작물은 되살릴 수 없으므로, 시간 초과까지 기다리게 하지 않고 바로 실패 처리
+            if (_state == PlantState.Wilted)
+                _mission.OnHarvestFailure(this);
         }
     }
 

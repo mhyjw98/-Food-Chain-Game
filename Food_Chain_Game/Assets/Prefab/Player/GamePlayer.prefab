@@ -148,20 +148,23 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_enableWordWrapping: 1
+  m_TextWrappingMode: 1
   m_wordWrappingRatios: 0.4
   m_overflowMode: 0
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 1
+  m_ActiveFontFeatures: 6e72656b
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
+  m_EmojiFallbackSupport: 1
   m_parseCtrlCharacters: 1
   m_isOrthographic: 1
   m_isCullingEnabled: 0
@@ -250,6 +253,7 @@ CapsuleCollider2D:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3457052031965140169}
   m_Enabled: 1
+  serializedVersion: 3
   m_Density: 1
   m_Material: {fileID: 0}
   m_IncludeLayers:
@@ -273,7 +277,8 @@ CapsuleCollider2D:
     m_Bits: 4294967295
   m_IsTrigger: 1
   m_UsedByEffector: 0
-  m_UsedByComposite: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Size: {x: 0.5, y: 1}
   m_Direction: 0
@@ -382,20 +387,23 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_enableWordWrapping: 1
+  m_TextWrappingMode: 1
   m_wordWrappingRatios: 0.4
   m_overflowMode: 0
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 1
+  m_ActiveFontFeatures: 6e72656b
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
+  m_EmojiFallbackSupport: 1
   m_parseCtrlCharacters: 1
   m_isOrthographic: 1
   m_isCullingEnabled: 0
@@ -625,6 +633,7 @@ GameObject:
   - component: {fileID: 3342177474501967239}
   - component: {fileID: 3317919744794039843}
   - component: {fileID: 6270434650400483754}
+  - component: {fileID: 5810979613096247485}
   m_Layer: 7
   m_Name: GamePlayer
   m_TagString: Untagged
@@ -656,6 +665,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &8953892327403946368
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -671,6 +681,11 @@ SpriteRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 0
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -692,9 +707,11 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 498806473
   m_SortingLayer: 2
   m_SortingOrder: 0
+  m_MaskInteraction: 1
   m_Sprite: {fileID: -9095717837082945937, guid: 207ee8102dd4143d288186ef0be518ee, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -704,7 +721,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 1
   m_SpriteSortPoint: 0
 --- !u!114 &6380328038000516272
 MonoBehaviour:
@@ -721,39 +737,23 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  characterName: "\uC950"
   nickname: "\uBB49\uAFB8"
-  homeZone: 0
   gpColor: {r: 1, g: 1, b: 1, a: 1}
   currentZone: 0
   isReturn: 0
-  hungryStreak: 0
-  hasEate: 0
-  hasAttacked: 0
   isAlive: 1
-  animalType: 0
-  predatorType: 0
-  predictedWinner: 13
-  isPredator: 0
-  isFly: 0
-  canScan: 0
-  canPredict: 0
-  isDisguise: 0
-  disguisedAs: 13
-  predictedAs: 13
-  predictedCorrectly: 0
   isWin: 0
-  memo: 
-  scanCount: 0
-  maxScanCount: 0
-  lastKillerType: 0
-  lastDeathReason: 0
-  lastKillerNetId: 0
+  voiceId: 
   playerMove: {fileID: 8632354647651007248}
   visionUI: {fileID: 0}
   corpsePrefab: {fileID: 8309283827534913789, guid: 0e0bfb105f019314fa099f05975600f6, type: 3}
   bodyRenderer: {fileID: 8953892327403946368}
   bodyCollider: {fileID: -5351260452600990768}
+  investigationDuration: 5
+  corpseScanDuration: 3
+  corpseScanRange: 2
+  attackRange: 3
+  maxChatLength: 200
   localVision: {fileID: 564378881966565351}
   progressMission: {fileID: 0}
   scanner: {fileID: 504357005886714879}
@@ -772,7 +772,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 2602754739
+  _assetId: 0
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
@@ -817,6 +817,7 @@ CapsuleCollider2D:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6610563625137353674}
   m_Enabled: 1
+  serializedVersion: 3
   m_Density: 1
   m_Material: {fileID: 0}
   m_IncludeLayers:
@@ -840,7 +841,8 @@ CapsuleCollider2D:
     m_Bits: 4294967295
   m_IsTrigger: 0
   m_UsedByEffector: 0
-  m_UsedByComposite: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
   m_Size: {x: 1, y: 2}
   m_Direction: 0
@@ -872,7 +874,7 @@ MonoBehaviour:
   updateInterval: 0.1
 --- !u!50 &5581831758469122627
 Rigidbody2D:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -883,8 +885,8 @@ Rigidbody2D:
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
   m_Mass: 1
-  m_LinearDrag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_GravityScale: 0
   m_Material: {fileID: 0}
   m_IncludeLayers:
@@ -987,7 +989,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   syncDirection: 0
-  syncMode: 0
+  syncMode: 1
   syncInterval: 0
   partnerNetId: 0
   ostrichType: 9
@@ -1012,7 +1014,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   syncDirection: 0
-  syncMode: 0
+  syncMode: 1
   syncInterval: 0
 --- !u!114 &3342177474501967239
 MonoBehaviour:
@@ -1059,6 +1061,29 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+--- !u!114 &5810979613096247485
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6610563625137353674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c70e5faf8e38c8545b98a5fd209abf4a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerPrivateState
+  syncDirection: 0
+  syncMode: 1
+  syncInterval: 0
+  hungryStreak: 0
+  hasEate: 0
+  hasAttacked: 0
+  scanCount: 0
+  predictedWinner: 13
+  disguisedAs: 13
+  predictedAs: 13
+  predictedCorrectly: 0
 --- !u!1 &7883089064445467819
 GameObject:
   m_ObjectHideFlags: 0
@@ -1125,14 +1150,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 073797afb82c5a1438f328866b10b3f0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_ComponentVersion: 1
+  m_ComponentVersion: 3
   m_LightType: 3
   m_BlendStyleIndex: 0
   m_FalloffIntensity: 0.6
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 0
   m_LightVolumeIntensity: 1
-  m_LightVolumeIntensityEnabled: 0
+  m_LightVolumeEnabled: 0
   m_ApplyToSortingLayers: 00000000
   m_LightCookieSprite: {fileID: 0}
   m_DeprecatedPointLightCookieSprite: {fileID: 0}
@@ -1142,8 +1167,10 @@ MonoBehaviour:
   m_NormalMapDistance: 3
   m_NormalMapQuality: 2
   m_UseNormalMap: 0
-  m_ShadowIntensityEnabled: 1
+  m_ShadowsEnabled: 1
   m_ShadowIntensity: 0.75
+  m_ShadowSoftness: 0
+  m_ShadowSoftnessFalloffIntensity: 0.5
   m_ShadowVolumeIntensityEnabled: 0
   m_ShadowVolumeIntensity: 0.75
   m_LocalBounds:
@@ -1207,10 +1234,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb9acc25a6b63a142b404019b30d68ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  localPlayer: {fileID: 6380328038000516272}
   tickInterval: 0.1
-  fullVolumeRatio: 0.95
-  fadeInSpeed: 50
-  fadeOutSpeed: 30
+  hearRangeBeyondVision: 1.5
+  edgeFadeWidth: 1
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 8
+  fallbackVisionRadius: 8
+  ghostHearDistance: 3.5
+  ghostEdgeFadeWidth: 0.8
+  fadeInSpeed: 150
+  fadeOutSpeed: 100
 --- !u!1 &8289314771070051134
 GameObject:
   m_ObjectHideFlags: 0

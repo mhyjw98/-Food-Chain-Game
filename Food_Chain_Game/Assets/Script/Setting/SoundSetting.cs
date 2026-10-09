@@ -45,9 +45,6 @@ public class SoundSetting : MonoBehaviour
     [Range(0, 100)] public int defaultEffect = 70;
     [Range(0, 100)] public int defaultUi = 70;
 
-    public bool HasUnsavedChanges { get; private set; }
-    public event Action<bool> OnDirtyChanged;
-
     private const string PREF_MASTER_VOLUME = "MasterVolume";
     private const string PREF_BGM_VOLUME = "BgmVolume";
     private const string PREF_EFFECT_VOLUME = "EffectVolume";
@@ -79,27 +76,10 @@ public class SoundSetting : MonoBehaviour
     private Channel masterChannel;
     private List<Channel> subChannels = new();
 
-    private struct Snapshot
-    {
-        public int master;
-        public int bgm;
-        public int effect;
-        public int ui;
-
-        public bool muteMaster;
-        public bool muteBgm;
-        public bool muteEffect;
-        public bool muteUi;
-    }
-
-    private Snapshot savedSnapshot;
-
     private void Awake()
     {
         BuildChannels();
         LoadFromPrefs();
-        CaptureSnapshot();
-        MarkDirty(false);
         HookEvents();
         ApplyAllVolumes();
     }
@@ -135,7 +115,7 @@ public class SoundSetting : MonoBehaviour
             mutePrefKey = PREF_MUTE_BGM,
             defaultVolume = defaultBgm,
 
-            applyVolume = v => AudioManager.Instance.BGMVolumeSetting(v)
+            applyVolume = v => { if (AudioManager.Instance != null) AudioManager.Instance.BGMVolumeSetting(v); }
         };
 
         var effect = new Channel
@@ -151,7 +131,7 @@ public class SoundSetting : MonoBehaviour
             mutePrefKey = PREF_MUTE_EFFECT,
             defaultVolume = defaultEffect,
 
-            applyVolume = v => AudioManager.Instance.EffectVolumeSetting(v)
+            applyVolume = v => { if (AudioManager.Instance != null) AudioManager.Instance.EffectVolumeSetting(v); }
         };
 
         var ui = new Channel
@@ -167,7 +147,7 @@ public class SoundSetting : MonoBehaviour
             mutePrefKey = PREF_MUTE_UI,
             defaultVolume = defaultUi,
 
-            applyVolume = v => AudioManager.Instance.UIVolumeSetting(v)
+            applyVolume = v => { if (AudioManager.Instance != null) AudioManager.Instance.UIVolumeSetting(v); }
         };
 
         subChannels.Clear();
@@ -238,7 +218,6 @@ public class SoundSetting : MonoBehaviour
         }
     }
 
-
     private void OnMasterSliderChanged()
     {
         int v = Mathf.RoundToInt(masterChannel.slider.value);
@@ -254,7 +233,6 @@ public class SoundSetting : MonoBehaviour
         }
 
         ApplyAllVolumes();
-        MarkDirty(true);
     }
 
     public void OnMasterInputChanged()
@@ -276,7 +254,6 @@ public class SoundSetting : MonoBehaviour
         }
 
         ApplyAllVolumes();
-        MarkDirty(true);
     }
 
     public void OnMasterMuteToggled()
@@ -290,7 +267,6 @@ public class SoundSetting : MonoBehaviour
         }
 
         ApplyAllVolumes();
-        MarkDirty(true);
     }
 
     private void OnSubSliderChanged(Channel ch)
@@ -304,7 +280,6 @@ public class SoundSetting : MonoBehaviour
         ch.valueField.text = Mathf.RoundToInt(ch.slider.value).ToString();
 
         ApplyAllVolumes();
-        MarkDirty(true);
     }
 
     private void OnSubInputChanged(Channel ch)
@@ -317,7 +292,6 @@ public class SoundSetting : MonoBehaviour
         ch.valueField.text = v.ToString();
 
         ApplyAllVolumes();
-        MarkDirty(true);
     }
 
     private void OnSubMuteToggled(Channel ch)
@@ -327,7 +301,6 @@ public class SoundSetting : MonoBehaviour
 
         UpdateChannelVisual(ch, !masterMuted && !muted);
         ApplyAllVolumes();
-        MarkDirty(true);
     }
 
     private void ApplyAllVolumes()
@@ -338,13 +311,17 @@ public class SoundSetting : MonoBehaviour
         // 마스터 볼륨
         masterChannel.applyVolume(masterMuted ? 0f : masterVol);
 
-        // 서브 채널 볼륨
+        // 서브 채널 볼륨.
+        // 전체 음량은 AudioListener가 모든 소리에 이미 곱한다. 개별 음량(전체 음량 이하로만 올릴 수 있음)이
+        // 그대로 실제 크기가 되도록, 재생기에는 전체 음량으로 나눈 값을 넘긴다.
+        // (그대로 넘기면 전체 70 / 배경음 70일 때 실제 크기가 49%로 두 번 줄어든다)
         foreach (var ch in subChannels)
         {
             float v = ch.slider.value / 100f;
             bool muted = masterMuted || ch.muteToggle.isOn;
 
-            ch.applyVolume(muted ? 0f : v);
+            float sourceVolume = masterVol > 0f ? Mathf.Clamp01(v / masterVol) : 0f;
+            ch.applyVolume(muted ? 0f : sourceVolume);
         }
     }
 
@@ -366,58 +343,6 @@ public class SoundSetting : MonoBehaviour
     }
 
     /// <summary>
-    /// 현재 UI 상태를 저장
-    /// </summary>
-    public void CaptureSnapshot()
-    {
-        savedSnapshot = new Snapshot
-        {
-            master = Mathf.RoundToInt(masterChannel.slider.value),
-            bgm = Mathf.RoundToInt(bgmSlider.value),
-            effect = Mathf.RoundToInt(effectSlider.value),
-            ui = Mathf.RoundToInt(uiSlider.value),
-
-            muteMaster = masterChannel.muteToggle.isOn,
-            muteBgm = bgmToggle.isOn,
-            muteEffect = effectToggle.isOn,
-            muteUi = uiToggle.isOn
-        };
-
-        MarkDirty(false);
-    }
-
-    /// <summary>
-    /// 스냅샷 기준으로 변경 여부 검사
-    /// </summary>
-    public bool CheckDirty()
-    {
-        if (savedSnapshot.master != Mathf.RoundToInt(masterChannel.slider.value)) return true;
-        if (savedSnapshot.bgm != Mathf.RoundToInt(bgmSlider.value)) return true;
-        if (savedSnapshot.effect != Mathf.RoundToInt(effectSlider.value)) return true;
-        if (savedSnapshot.ui != Mathf.RoundToInt(uiSlider.value)) return true;
-
-        if (savedSnapshot.muteMaster != masterChannel.muteToggle.isOn) return true;
-        if (savedSnapshot.muteBgm != bgmToggle.isOn) return true;
-        if (savedSnapshot.muteEffect != effectToggle.isOn) return true;
-        if (savedSnapshot.muteUi != uiToggle.isOn) return true;
-
-        return false;
-    }
-
-    private void MarkDirty(bool dirty)
-    {
-        if (dirty)
-        {
-            dirty = CheckDirty();
-        }
-
-        if (HasUnsavedChanges == dirty) return;
-
-        HasUnsavedChanges = dirty;
-        OnDirtyChanged?.Invoke(HasUnsavedChanges);
-    }
-
-    /// <summary>
     /// 현재 UI 값을 PlayerPrefs에 저장
     /// </summary>
     public void SaveSoundSetting()
@@ -435,40 +360,6 @@ public class SoundSetting : MonoBehaviour
         PlayerPrefs.Save();
 
         ApplyAllVolumes();
-        CaptureSnapshot();
-    }
-
-    /// <summary>
-    /// 변경하기 전 마지막 상태로 되돌리기
-    /// </summary>
-    public void RevertToSnapshot()
-    {
-        masterChannel.slider.value = savedSnapshot.master;
-        masterChannel.valueField.text = savedSnapshot.master.ToString();
-        masterChannel.muteToggle.isOn = savedSnapshot.muteMaster;
-
-        bgmSlider.value = savedSnapshot.bgm;
-        bgmValueField.text = savedSnapshot.bgm.ToString();
-        bgmToggle.isOn = savedSnapshot.muteBgm;
-
-        effectSlider.value = savedSnapshot.effect;
-        effectValueField.text = savedSnapshot.effect.ToString();
-        effectToggle.isOn = savedSnapshot.muteEffect;
-
-        uiSlider.value = savedSnapshot.ui;
-        uiValueField.text = savedSnapshot.ui.ToString();
-        uiToggle.isOn = savedSnapshot.muteUi;
-
-        // 비주얼 & 볼륨 갱신
-        UpdateChannelVisual(masterChannel, !savedSnapshot.muteMaster);
-        foreach (var ch in subChannels)
-        {
-            bool enabled = !savedSnapshot.muteMaster && !ch.muteToggle.isOn;
-            UpdateChannelVisual(ch, enabled);
-        }
-
-        ApplyAllVolumes();
-        MarkDirty(false);
     }
 
     public void ResetSoundSetting()
@@ -490,7 +381,6 @@ public class SoundSetting : MonoBehaviour
         }
 
         ApplyAllVolumes();
-        MarkDirty(true);
     }
 }
 

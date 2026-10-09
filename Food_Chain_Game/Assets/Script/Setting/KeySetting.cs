@@ -14,39 +14,60 @@ public class KeySetting : MonoBehaviour
     public GameObject[] keySettingBtn;
     public TextMeshProUGUI[] keyText;
 
-    public bool HasUnsavedChanges { get; private set; }
-    public event Action<bool> OnDirtyChanged;
-
-    private Dictionary<KeyAction, KeyCode> savedSnapshot = new();
-
     int codeKey = -1;
+
+    [Header("Key Label")]
+    [SerializeField] private float arrowKeyFontSize = 46f;
+    [SerializeField] private float normalKeyFontSize = 25f;
+
+    private Button[] _keyButtons;
 
     private void Awake()
     {
+        _keyButtons = new Button[keySettingBtn != null ? keySettingBtn.Length : 0];
+        for (int i = 0; i < _keyButtons.Length; i++)
+            _keyButtons[i] = keySettingBtn[i] != null ? keySettingBtn[i].GetComponent<Button>() : null;
+
         InitKeySetting();
-        CaptureSnapshot();
-        MarkDirty(false);
+    }
+
+    // 키 입력을 기다리는 중에 설정 창이 꺼지거나 씬이 바뀌면 대기 상태가 남지 않게 정리한다.
+    // isKeySetting은 static이라 그대로 두면 이후 ESC가 계속 무시된다
+    private void OnDisable()
+    {
+        if (codeKey != -1)
+        {
+            SetKeyButtonInteractable(codeKey, true);
+            codeKey = -1;
+        }
+        SettingManager.isKeySetting = false;
     }
 
     private void OnGUI()
     {
+        if (codeKey == -1) return;
+
         Event keyEvent = Event.current;
 
-        if (codeKey != -1)
+        if (keyEvent.type == EventType.KeyDown)
         {
-            SettingManager.isKeySetting = true;           
-            keySettingBtn[codeKey].GetComponent<Button>().interactable = false;
-            if (keyEvent.isKey)
+            // 글자 입력 이벤트는 keyCode가 None으로 한 번 더 온다
+            if (keyEvent.keyCode == KeyCode.None) return;
+
+            // ESC는 메뉴 키라서 지정할 수 없다: 입력 대기만 취소
+            if (keyEvent.keyCode == KeyCode.Escape)
             {
-                KeyCode newKey = keyEvent.keyCode;
-                HandleKeyChange(newKey);
+                CancelKeyChange();
+                keyEvent.Use();
+                return;
             }
-            else if (keyEvent.type == EventType.MouseDown)
-            {
-                keySettingBtn[codeKey].GetComponent<Button>().interactable = true;
-                codeKey = -1;
-                EndKeySetting();
-            }
+
+            HandleKeyChange(keyEvent.keyCode);
+            keyEvent.Use();
+        }
+        else if (keyEvent.type == EventType.MouseDown)
+        {
+            CancelKeyChange();
         }
     }
     private void HandleKeyChange(KeyCode newKey)
@@ -62,6 +83,7 @@ public class KeySetting : MonoBehaviour
             }
         }
 
+        // 다른 동작이 쓰던 키면 서로 맞바꾼다
         if (existingAction != KeyAction.KEYCOUNT)
         {
             keys[existingAction] = keys[(KeyAction)codeKey];
@@ -70,21 +92,52 @@ public class KeySetting : MonoBehaviour
 
         keys[(KeyAction)codeKey] = newKey;
         UpdateKeyTextFor((KeyAction)codeKey);
-        MarkDirty(true);
 
-        StartCoroutine(EndKeySetting());
-        keySettingBtn[codeKey].GetComponent<Button>().interactable = true;
-        codeKey = -1;
+        FinishKeyChange();
     }
+
+    private void CancelKeyChange()
+    {
+        FinishKeyChange();
+    }
+
+    private void FinishKeyChange()
+    {
+        SetKeyButtonInteractable(codeKey, true);
+        codeKey = -1;
+
+        // 같은 프레임의 ESC/키 입력이 설정 창에 전달되지 않도록 한 프레임 뒤에 해제한다
+        if (isActiveAndEnabled)
+            StartCoroutine(EndKeySetting());
+        else
+            SettingManager.isKeySetting = false;
+    }
+
+    private void SetKeyButtonInteractable(int index, bool interactable)
+    {
+        if (_keyButtons == null || index < 0 || index >= _keyButtons.Length) return;
+        if (_keyButtons[index] != null)
+            _keyButtons[index].interactable = interactable;
+    }
+
     IEnumerator EndKeySetting()
     {
         yield return null;
 
-        SettingManager.isKeySetting = false;
+        if (codeKey == -1)
+            SettingManager.isKeySetting = false;
     }
     public void ChangeKey(int num)
     {
+        if (num < 0 || num >= (int)KeyAction.KEYCOUNT) return;
+
+        // 다른 키를 기다리던 중이면 그쪽 버튼을 되돌린다
+        if (codeKey != -1)
+            SetKeyButtonInteractable(codeKey, true);
+
         codeKey = num;
+        SettingManager.isKeySetting = true;
+        SetKeyButtonInteractable(codeKey, false);
     }
 
     void InitKeySetting()
@@ -93,10 +146,12 @@ public class KeySetting : MonoBehaviour
         {
             if (keyAction == KeyAction.KEYCOUNT) continue;
 
+            // 저장값이 없거나 읽을 수 없으면(손상/이전 버전) 기본 키를 쓴다
             string keyString = PlayerPrefs.GetString(keyAction.ToString(), null);
-            if (!string.IsNullOrEmpty(keyString))
+            if (!string.IsNullOrEmpty(keyString)
+                && Enum.TryParse(keyString, out KeyCode loadedKey)
+                && loadedKey != KeyCode.None && loadedKey != KeyCode.Escape)
             {
-                KeyCode loadedKey = (KeyCode)Enum.Parse(typeof(KeyCode), keyString);
                 keys[keyAction] = loadedKey;
             }
             else
@@ -123,17 +178,18 @@ public class KeySetting : MonoBehaviour
 
         string keyString = key.ToUserFriendlyString();
         var label = keyText[index];
+        if (label == null) return;
 
         label.text = keyString;
 
         if (key == KeyCode.UpArrow || key == KeyCode.DownArrow ||
             key == KeyCode.LeftArrow || key == KeyCode.RightArrow)
         {
-            label.fontSize = 46;
+            label.fontSize = arrowKeyFontSize;
         }
         else
         {
-            label.fontSize = 25;
+            label.fontSize = normalKeyFontSize;
         }
     }
     public void ResetKeySetting()
@@ -145,7 +201,6 @@ public class KeySetting : MonoBehaviour
             keys[keyAction] = defaultKeys[(int)keyAction];            
         }
         UpdateAllKeyTexts();
-        MarkDirty(true);
     }
 
     public void SaveKeySetting()
@@ -156,49 +211,8 @@ public class KeySetting : MonoBehaviour
         }
 
         PlayerPrefs.Save();
-        CaptureSnapshot();
     }
 
-    public void CaptureSnapshot()
-    {
-        savedSnapshot.Clear();
-        foreach (var kv in keys)
-            savedSnapshot[kv.Key] = kv.Value;
-
-        MarkDirty(false);
-    }
-    private void MarkDirty(bool dirty)
-    {
-        if (dirty)
-            dirty = CheckDirty();
-
-        if (HasUnsavedChanges == dirty) return;
-
-        HasUnsavedChanges = dirty;
-        OnDirtyChanged?.Invoke(HasUnsavedChanges);
-    }
-    public bool CheckDirty()
-    {
-        foreach (var kv in keys)
-        {
-            if (!savedSnapshot.TryGetValue(kv.Key, out var savedValue))
-                return true;
-            if (savedValue != kv.Value)
-                return true;
-        }
-        return false;
-    }
-
-    public void RevertToSnapshot()
-    {
-        foreach (var kv in savedSnapshot)
-        {
-            keys[kv.Key] = kv.Value;
-        }
-
-        UpdateAllKeyTexts();
-        MarkDirty(false);
-    }
 }
 public static class KeyCodeExtensions
 {
@@ -221,7 +235,7 @@ public static class KeyCodeExtensions
             case KeyCode.BackQuote: return "`";
             case KeyCode.LeftControl: return "Left Ctrl";
             case KeyCode.RightControl: return "Right Ctrl";
-            case KeyCode.Backslash: return "|";
+            case KeyCode.Backslash: return "\\";
             case KeyCode.UpArrow: return "↑";
             case KeyCode.DownArrow: return "↓";
             case KeyCode.LeftArrow: return "←";

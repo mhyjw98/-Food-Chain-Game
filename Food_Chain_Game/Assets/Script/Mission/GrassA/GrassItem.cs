@@ -1,7 +1,6 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -52,7 +51,7 @@ public class GrassItem : MonoBehaviour, IEndDragHandler
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (_mission == null) return;
+        if (_mission == null || _cleared) return;
 
         Vector2 screenPos = eventData.position;
 
@@ -60,6 +59,8 @@ public class GrassItem : MonoBehaviour, IEndDragHandler
 
         if (inBag)
         {
+            // Update의 가방 판정(TryCatchItem)이 같은 프레임에 한 번 더 처리하지 않도록 먼저 표시
+            _cleared = true;
             _mission.OnGrassPutInBag(this);
 
             Destroy(gameObject);

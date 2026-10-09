@@ -30,12 +30,19 @@ public class MissionUIManager : MonoBehaviour
         }
     }
 
-    public void StartMission(MissionType type, System.Action onComplete, System.Action onClosed, GamePlayer player)
+    public bool HasMission(MissionType type)
     {
-        if (!_missions.TryGetValue(type, out var prefab))
+        return _missions != null && _missions.ContainsKey(type);
+    }
+
+    // onFinished(completed)는 클리어/닫기/실패 중 하나로 UI가 끝날 때 정확히 한 번 호출된다.
+    // UI를 열지 못하면 false를 반환하고 onFinished는 호출하지 않는다
+    public bool StartMission(MissionType type, System.Action<bool> onFinished, GamePlayer player)
+    {
+        if (player == null || _missions == null || !_missions.TryGetValue(type, out var prefab))
         {
             Debug.LogError($"[MissionUIManager] 미션 프리팹 없음: {type}");
-            return;
+            return false;
         }
         if (_activeInstance != null)
         {
@@ -43,26 +50,29 @@ public class MissionUIManager : MonoBehaviour
             _activeInstance = null;
         }
 
-        _activeInstance = Instantiate(prefab, uiRoot);
+        var instance = Instantiate(prefab, uiRoot);
+        _activeInstance = instance;
         _activeInstance.gameObject.SetActive(true);
         player.progressMission = _activeInstance;
 
-        _activeInstance.OnMissionCompleted = _ =>
-        {
-            player.progressMission = null;
-            onComplete?.Invoke();
-            onClosed?.Invoke();
-            DestroyActive();
-        };
-
-        _activeInstance.OnMissionFailed = _ =>
-        {
-            player.progressMission = null;
-            onClosed?.Invoke();
-            DestroyActive();
-        };
+        _activeInstance.OnMissionCompleted = _ => Finish(instance, player, onFinished, true);
+        _activeInstance.OnMissionFailed = _ => Finish(instance, player, onFinished, false);
 
         _activeInstance.Begin();
+        return true;
+    }
+
+    // 미션 하나당 한 번만 처리한다. Destroy는 프레임 끝에 실행되므로, 그 사이에 같은 미션이 완료/실패를
+    // 또 알리면 onFinished가 두 번 불려 서버에 완료와 취소가 함께 전달될 수 있다
+    private void Finish(BaseMission instance, GamePlayer player, System.Action<bool> onFinished, bool completed)
+    {
+        if (instance == null || _activeInstance != instance) return;
+
+        if (player != null)
+            player.progressMission = null;
+
+        onFinished?.Invoke(completed);
+        DestroyActive();
     }
     private void DestroyActive()
     {

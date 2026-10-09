@@ -29,13 +29,6 @@ public class WolfAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
     [Server]
     public void OnBeforeAttack(ref AttackContext ctx)
     {
-        if (!enabled) return;
-        if (local == null) local = GetComponent<GamePlayer>();
-        if (local == null) return;
-        if (ctx.attacker == null) return;
-        if (ctx.target == null) return;
-        if (ctx.attacker != local) return;
-
-        ctx.killTarget = true;        
+        // 공격 성공 여부는 GamePlayer.CmdAttack의 기본 규칙(서열)으로 정해진다. 늑대 전용 예외 없음
     }
 }

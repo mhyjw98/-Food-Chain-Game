@@ -1,7 +1,6 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class Scanner : MonoBehaviour
@@ -39,7 +38,7 @@ public class Scanner : MonoBehaviour
 
     private void Update()
     {
-        if(!myPlayer.isLocalPlayer) return;       
+        if (myPlayer == null || !myPlayer.isLocalPlayer) return;       
 
         timer += Time.deltaTime;
         if (timer >= updateInterval)
@@ -73,7 +72,7 @@ public class Scanner : MonoBehaviour
 
             if (hit.TryGetComponent(out GamePlayer gp))
             {
-                if (myPlayer.isPredator && gp != myPlayer && gp.isAlive)
+                if (myPlayer.isAlive && myPlayer.isPredator && gp != myPlayer && gp.isAlive)
                 {
                     playersInRange.Add(gp);
 
@@ -114,7 +113,7 @@ public class Scanner : MonoBehaviour
             }
             if (hit.TryGetComponent(out Corpse targetCorpse))
             {
-                if (myPlayer.IsHelper())
+                if (myPlayer.isAlive && myPlayer.IsHelper())
                 {
                     corpsesInRange.Add(targetCorpse);
 
@@ -135,7 +134,7 @@ public class Scanner : MonoBehaviour
             }
             if (hit.TryGetComponent(out InvestigationObject inv))
             {
-                if (myPlayer.IsHelper())
+                if (myPlayer.isAlive && myPlayer.IsHelper())
                 {
                     if (dist < bestDist)
                     {
@@ -160,7 +159,7 @@ public class Scanner : MonoBehaviour
     private bool CanInteractMission(MissionObject obj)
     {
         if (obj == null) return false;
-        if (!myPlayer.isAlive && myPlayer.animalType != AnimalType.Badger) return false;
+        if (!myPlayer.CanDoMissions) return false;
 
         return myPlayer.CanStartMissionType(obj.MissionType);
     }

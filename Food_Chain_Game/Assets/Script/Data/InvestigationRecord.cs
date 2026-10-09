@@ -21,7 +21,8 @@ public class InvestigationRecord
     public AnimalType targetAnimalType;
 
     // Corpse
-    public AnimalType corpseAnimalType;   
+    public AnimalType corpseAnimalType;
+    public DeathReason deathReason;   
     public int Day;
     public bool WasNight;
     public float ElapsedSec;

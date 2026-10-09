@@ -321,7 +321,7 @@ public class FishNetB : MonoBehaviour, IPointerDownHandler, IDragHandler, IPoint
         if (_mission == null) return false;
 
         FishSchoolB school = _mission.GetComponentInChildren<FishSchoolB>();
-        if (school == null) school = FindObjectOfType<FishSchoolB>();
+        if (school == null) school = FindFirstObjectByType<FishSchoolB>();
 
         if (school == null) return false;
 

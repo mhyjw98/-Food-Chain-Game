@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using static BagBase;
@@ -90,7 +90,7 @@ public class WoodItemB : MonoBehaviour, IEndDragHandler
     }
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (_mission == null) return;
+        if (_mission == null || _cleared) return;
         if (itemType != BagItemType.Wood) return;
 
         Vector2 screenPos = eventData.position;
@@ -98,6 +98,8 @@ public class WoodItemB : MonoBehaviour, IEndDragHandler
 
         if (inBag)
         {
+            // Update의 가방 판정(TryCatchItem)이 같은 프레임에 한 번 더 집계하지 않도록 먼저 표시
+            _cleared = true;
             _mission.OnWoodCollected(this);
             Destroy(gameObject);
         }

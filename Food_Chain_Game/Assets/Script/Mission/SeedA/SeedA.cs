@@ -38,7 +38,7 @@ public class SeedA : BaseMission
     private readonly List<SeedItem> _spawnedCoverObjects = new();
     private int _collectedCount;
 
-    private float timeLimit = 20f;
+    [SerializeField] private float timeLimit = 20f;
     private float remainTime;
     private bool isComplete;
 
@@ -46,7 +46,7 @@ public class SeedA : BaseMission
     {
         if (isComplete) return;
 
-        remainTime -= Time.deltaTime;
+        remainTime = Mathf.Max(0f, remainTime - Time.deltaTime);
         timerText.text = remainTime.ToString("0.0");
 
         if (remainTime <= 0f)
@@ -95,6 +95,8 @@ public class SeedA : BaseMission
     private void SpawnAll()
     {
         int initCount = seedCount + stoneCount + trashCount;
+
+        if (spawnPoints == null || spawnPoints.Length == 0) return;
 
         int spawnPointLength = spawnPoints.Length;
         int spawnCount = 0;
@@ -169,10 +171,18 @@ public class SeedA : BaseMission
 
         int count = Mathf.Min(hiddenSeedCount, _spawnedSeeds.Count, _spawnedCoverObjects.Count);
 
+        // 같은 씨앗/덮개가 두 번 뽑히지 않도록 후보에서 하나씩 꺼낸다 (Random.Range의 정수 상한은 제외값)
+        var seedCandidates = new List<SeedItem>(_spawnedSeeds);
+        var coverCandidates = new List<SeedItem>(_spawnedCoverObjects);
+
         for (int i = 0; i < count; i++)
         {
-            var seed = _spawnedSeeds[Random.Range(0, _spawnedSeeds.Count - 1)];
-            var cover = _spawnedCoverObjects[Random.Range(0, _spawnedCoverObjects.Count - 1)];
+            int seedPick = Random.Range(0, seedCandidates.Count);
+            int coverPick = Random.Range(0, coverCandidates.Count);
+            var seed = seedCandidates[seedPick];
+            var cover = coverCandidates[coverPick];
+            seedCandidates.RemoveAt(seedPick);
+            coverCandidates.RemoveAt(coverPick);
 
             if (seed == null || cover == null)
                 continue;
@@ -196,6 +206,8 @@ public class SeedA : BaseMission
     }    
     public void OnSeedCollected(SeedItem seed)
     {
+        if (isComplete) return;
+
         _collectedCount++;
         UpdateUI();
 
@@ -218,6 +230,9 @@ public class SeedA : BaseMission
     }
     IEnumerator FailCoroutine()
     {
+        if (isComplete) yield break;
+        isComplete = true;
+
         statusText.text = "실 패";
         statusText.color = Color.red;
         statusText.rectTransform.SetAsLastSibling();

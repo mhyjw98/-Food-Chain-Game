@@ -1,8 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using Unity.VisualScripting;
-using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 
 public class WoodA : BaseMission
@@ -80,7 +78,7 @@ public class WoodA : BaseMission
         if (_spawnedItems == null || _spawnedItems.Count == 0)
             return;
 
-        Camera cam = canvas.worldCamera;
+        Camera cam = canvas != null ? canvas.worldCamera : null;
 
         Vector2 screenPos = Input.mousePosition;
 

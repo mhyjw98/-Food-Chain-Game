@@ -1,21 +1,30 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
+// 프리팹/씬에 정수로 저장되므로 값을 명시한다. 새 항목은 반드시 끝 번호 뒤에 추가하고 기존 값은 바꾸지 말 것
 public enum MissionType
 {
-    Grass_A, Grass_B, Grass_C,
-    Seed_A, Seed_B,
-    Fruit_A, Fruit_B,
-    Wood_A, Wood_B,
-    Crops_A, Crops_B,    
-    Insect_A, Insect_B,
-    Fish_A, Fish_B,
-    Meat_A, Meat_B,
-    Scorpion_Poison,
-    BadgerA, BadgerB, BadgerC, BadgerD, BadgerE
+    Grass_A = 0, Grass_B = 1, Grass_C = 2,
+    Seed_A = 3, Seed_B = 4,
+    Fruit_A = 5, Fruit_B = 6,
+    Wood_A = 7, Wood_B = 8,
+    Crops_A = 9, Crops_B = 10,
+    Insect_A = 11, Insect_B = 12,
+    Fish_A = 13, Fish_B = 14,
+    Meat_A = 15, Meat_B = 16,
+    Scorpion_Poison = 17,
+    BadgerA = 18, BadgerB = 19, BadgerC = 20, BadgerD = 21, BadgerE = 22
+}
+public enum MissionDenyReason : byte
+{
+    None,
+    NotAssigned,
+    AlreadyCompleted,
+    CannotDoMissions,
+    OutOfRange,
+    InUse
 }
 public enum MissionStatus
 {
@@ -47,14 +56,23 @@ public abstract class BaseMission : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+    // 완료/실패는 인스턴스당 한 번만 처리(같은 프레임에 두 번 호출돼도 콜백이 중복 실행되지 않게)
+    private bool _hasEnded;
+
     protected void Complete()
     {
+        if (_hasEnded) return;
+        _hasEnded = true;
+
         OnMissionCompleted?.Invoke(this);
         End();
     }
 
     public virtual void Fail()
     {
+        if (_hasEnded) return;
+        _hasEnded = true;
+
         OnMissionFailed?.Invoke(this);
         End();
     }

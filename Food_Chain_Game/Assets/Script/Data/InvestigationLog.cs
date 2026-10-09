@@ -14,6 +14,12 @@ public class InvestigationLog : MonoBehaviour
         Instance = this;
     }
 
+    // 씬이 바뀐 뒤 파괴된 오브젝트를 가리키는 참조가 남지 않게 한다
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
     public IReadOnlyList<InvestigationRecord> Records => _records;
 
     public void Add(InvestigationRecord record)

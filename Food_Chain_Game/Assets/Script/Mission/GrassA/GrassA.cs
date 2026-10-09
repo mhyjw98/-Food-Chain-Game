@@ -38,14 +38,14 @@ public class GrassA : BaseMission
 
     private List<GrassItem> _spawnedItems = new List<GrassItem>();
 
-    private float timeLimit = 20f;
+    [SerializeField] private float timeLimit = 20f;
     private float remainTime;
     private bool isComplete;
     private void Update()
     {
         if (isComplete) return;
 
-        remainTime -= Time.deltaTime;
+        remainTime = Mathf.Max(0f, remainTime - Time.deltaTime);
         timerText.text = remainTime.ToString("0.0");
 
         if (remainTime <= 0f)
@@ -151,6 +151,7 @@ public class GrassA : BaseMission
     public void OnGrassPutInBag(GrassItem item)
     {
         if (item == null) return;
+        if (isComplete) return;
 
         bool isCorrect = (item.TypeId == _targetId);
 
@@ -180,6 +181,9 @@ public class GrassA : BaseMission
 
     IEnumerator FailCoroutine()
     {
+        if (isComplete) yield break;
+        isComplete = true;
+
         statusText.text = "실 패";
         statusText.color = Color.red;
         statusText.rectTransform.SetAsLastSibling();

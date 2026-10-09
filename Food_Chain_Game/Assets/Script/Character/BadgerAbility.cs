@@ -5,8 +5,9 @@ using UnityEngine;
 
 public class BadgerAbility : NetworkBehaviour, IAnimalAbility, IMissionCompleteHandler
 {
-    [SyncVar] private uint revengeTargetNetId;
-    [SyncVar] private bool revengeActive;
+    // 서버 전용(SyncVar 아님). 동기화하면 오소리가 죽는 순간 살해자가 모든 클라이언트에 노출된다
+    private uint revengeTargetNetId;
+    private bool revengeActive;
 
     private GamePlayer local;
 

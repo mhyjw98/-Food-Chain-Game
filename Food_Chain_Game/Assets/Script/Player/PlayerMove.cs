@@ -1,8 +1,7 @@
-using Mirror;
+﻿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class PlayerMove : NetworkBehaviour
@@ -88,7 +87,7 @@ public class PlayerMove : NetworkBehaviour
                 var corpse = localPlayer.scanner.CurrentTargetCorpse;
                 if (corpse != null)
                 {
-                    localPlayer.CmdScanCorpse(corpse.netId);
+                    localPlayer.TryScanCorpse(corpse);
                 }
             }
             else if (type == Scanner.ScanTargetType.Mission)

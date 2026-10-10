@@ -1,10 +1,8 @@
-using Mirror;
-using Mirror.Examples.Chat;
+ï»¿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SocialPlatforms;
 using UnityEngine.UI;
 
 public class ContextMenuUI : MonoBehaviour
@@ -31,32 +29,39 @@ public class ContextMenuUI : MonoBehaviour
 
         CurrentOpen = this;
         targetPlayer = player;
-        GamePlayer localPlayer = NetworkClient.localPlayer.GetComponent<GamePlayer>();
-        var chatManager = FindObjectOfType<ChatManager>();
+        GamePlayer localPlayer = NetworkClient.localPlayer != null ? NetworkClient.localPlayer.GetComponent<GamePlayer>() : null;
+        if (player == null || localPlayer == null || GameMamager.Instance == null)
+        {
+            Close();
+            return;
+        }
+
+        var chatManager = FindFirstObjectByType<ChatManager>();
 
         whisperBtn.interactable = (player.netId != localPlayer.netId);
         scanBtn.interactable = (localPlayer.canScan && player.netId != localPlayer.netId && GameMamager.Instance.IsExplorationPhase && localPlayer.maxScanCount > localPlayer.scanCount);
-        Debug.Log($"½ºÄµ °¡´ÉÇÑÁö : {localPlayer.canScan}, º»ÀÎÀÎÁö : {player.netId != localPlayer.netId}, Å½»ö½Ã°£ÀÎÁö : {GameMamager.Instance.IsExplorationPhase}, ½ºÄµÈ½¼ö°¡ ³²¾Ò´ÂÁö : {localPlayer.maxScanCount > localPlayer.scanCount}");
-        predictBtn.interactable = localPlayer.canPredict;
+        Debug.Log($"ìŠ¤ìº” ê°€ëŠ¥í•œì§€ : {localPlayer.canScan}, ë³¸ì¸ì¸ì§€ : {player.netId != localPlayer.netId}, íƒìƒ‰ì‹œê°„ì¸ì§€ : {GameMamager.Instance.IsExplorationPhase}, ìŠ¤ìº”íšŸìˆ˜ê°€ ë‚¨ì•˜ëŠ”ì§€ : {localPlayer.maxScanCount > localPlayer.scanCount}");
+        predictBtn.interactable = localPlayer.canPredict && GameMamager.Instance.IsExplorationPhase;
 
-        // ¹öÆ° µ¿ÀÛ ¼³Á¤
+        // ë²„íŠ¼ ë™ìž‘ ì„¤ì •
+        // ë©”ë‰´ê°€ ì—´ë¦° ì‚¬ì´ì— ëŒ€ìƒì´ ë‚˜ê°”ì„ ìˆ˜ ìžˆìœ¼ë¯€ë¡œ ëˆ„ë¥¼ ë•Œ ë‹¤ì‹œ í™•ì¸í•œë‹¤
         whisperBtn.onClick.AddListener(() => {
-            chatManager.SelectWhisperTarget(targetPlayer);
+            if (chatManager != null && targetPlayer != null) chatManager.SelectWhisperTarget(targetPlayer);
             Close();
         });
 
         scanBtn.onClick.AddListener(() => {
-            localPlayer.CmdScan(targetPlayer.netId);
+            if (localPlayer != null && targetPlayer != null) localPlayer.CmdScan(targetPlayer.netId);
             Close();
         });
 
         predictBtn.onClick.AddListener(() => {
-            localPlayer.CmdPredict(targetPlayer.netId);
+            if (localPlayer != null && targetPlayer != null) localPlayer.CmdSetPredict(targetPlayer.netId);
             Close();
         });
 
         memoBtn.onClick.AddListener(() => {
-            PlayerSlot slot = PlayerSlotUI.Instance.GetSlotByPlayer(targetPlayer);
+            PlayerSlot slot = (PlayerSlotUI.Instance != null && targetPlayer != null) ? PlayerSlotUI.Instance.GetSlotByPlayer(targetPlayer) : null;
             if (slot != null) slot.BeginEditMemo();
             Close();
         });

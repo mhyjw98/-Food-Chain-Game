@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,18 +6,19 @@ public static class CharacterZoneData
 {
     public static readonly Dictionary<string, ZoneType> CharacterHomeZone = new Dictionary<string, ZoneType>()
     {
-        { "Lion", ZoneType.Field },
-        { "Mouse", ZoneType.Forest },
+        // CharacterData.CharacterConfig의 HomeTerritory와 같은 값으로 유지할 것
+        { "Wolf", ZoneType.Field },
         { "Crocodile", ZoneType.River },
-        { "Rabbit", ZoneType.Forest },
-        { "Deer", ZoneType.Field },
-        { "Otter", ZoneType.River },
-        { "Snake", ZoneType.Forest },
-        { "Mallard", ZoneType.Sky },
-        { "Eagle", ZoneType.Sky },
-        { "Plover", ZoneType.River },
-        { "Chameleon", ZoneType.Forest },
-        { "Crow", ZoneType.Sky },
+        { "Hawk", ZoneType.Sky },
         { "Hyena", ZoneType.Field },
+        { "Scorpion", ZoneType.Forest },
+        { "Skunk", ZoneType.Forest },
+        { "Zebra", ZoneType.Field },
+        { "Badger", ZoneType.River },
+        { "Squirrel", ZoneType.Forest },
+        { "Ostrich", ZoneType.Sky },
+        { "Crow", ZoneType.Sky },
+        { "Plover", ZoneType.River },
+        { "Fox", ZoneType.Forest },
     };
 }

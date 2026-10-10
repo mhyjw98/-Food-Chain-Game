@@ -1,3 +1,4 @@
+Ôªøusing Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,87 +7,88 @@ using static CharacterData;
 
 public class AnimalWinCondition : MonoBehaviour
 {
-    public class LionWinCondition : IWinCondition
+    public class WolfWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
     public class CrocodileWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class EagleWinCondition : IWinCondition
+    public class HawkWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
     public class HyenaWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             foreach (var p in allPlayers)
             {
-                if (p.animalType == AnimalType.Lion)
+                if (p.animalType == AnimalType.Wolf)
                 {
-                    return !p.isAlive; // ªÁ¿⁄∞° ¡◊¿∏∏È Ω¬∏Æ
+                    return !p.isAlive; // ÎäëÎåÄÍ∞Ä Ï£ΩÏúºÎ©¥ ÏäπÎ¶¨
                 }
             }
-            return false;
+            // Î™©Î°ùÏóê ÎäëÎåÄÍ∞Ä ÏóÜÎã§ = Í≤åÏûÑÏóêÏÑú ÎÇòÍ∞ê ‚Üí ÏÇ¨ÎßùÏúºÎ°ú Ï∑®Í∏â
+            return true;
         }
     }
-    public class MallardWinCondition : IWinCondition
+    public class OstrichWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class RabbitWinCondition : IWinCondition
+    public class SquirrelWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class DeerWinCondition : IWinCondition
+    public class ZebraWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class OtterWinCondition : IWinCondition
+    public class BadgerWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }
     }
-    public class SnakeWinCondition : IWinCondition
+    public class ScorpionWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
-            // 8∏Ì ¿ÃªÛ ªÁ∏¡
+            // 8Î™Ö Ïù¥ÏÉÅ ÏÇ¨Îßù
             int deadCount = allPlayers.Count(p => !p.isAlive);
             return deadCount >= 8;
         }
     }
-    public class MouseWinCondition : IWinCondition
+    public class CrowWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             foreach (var p in allPlayers)
             {
-                if (p.animalType == AnimalType.Lion)
+                if (p.animalType == AnimalType.Wolf)
                 {
-                    return p.isAlive; // ªÁ¿⁄¿« Ω¬∏Æ
+                    return p.isAlive; // ÎäëÎåÄÏùò ÏäπÎ¶¨
                 }
             }
             return false;
@@ -94,21 +96,29 @@ public class AnimalWinCondition : MonoBehaviour
     }
     public class PloverWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             foreach (var p in allPlayers)
             {
                 if (p.animalType == AnimalType.Crocodile)
                 {
-                    return p.isAlive; // æ«æÓ¿« Ω¬∏Æ
+                    return p.isAlive; // ÏïÖÏñ¥Ïùò ÏäπÎ¶¨
                 }
             }
             return false;
         }
     }
-    public class ChameleonWinCondition : IWinCondition
+    public class SkunkWinCondition : IWinCondition
     {
-        public bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers)
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
+        {
+            return player.isAlive;
+        }
+    }
+
+    public class FoxWinCondition : IWinCondition
+    {
+        public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
             return player.isAlive;
         }

@@ -1,4 +1,4 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -41,7 +41,7 @@ public class SpawnManager : MonoBehaviour
 
         if (availableIndices.Count == 0)
         {
-            Debug.LogWarning("¸ğµç ½ºÆù À§Ä¡°¡ »ç¿ë ÁßÀÔ´Ï´Ù.");
+            Debug.LogWarning("ëª¨ë“  ìŠ¤í° ìœ„ì¹˜ê°€ ì‚¬ìš© ì¤‘ì…ë‹ˆë‹¤.");
             return spawnPoints[0].position;
         }
 
@@ -50,11 +50,11 @@ public class SpawnManager : MonoBehaviour
         return spawnPoints[index].position;
     }
 
-    public Vector3 GetRandomPositionInZone(ZoneType zone)
+    public Vector3 GetRandomPositionInZone()
     {       
         float x = Random.Range(-4, 4);
         float y = Random.Range(-3.5f, 3.5f);
-        return zonePositions[zone] + new Vector3(x, y, 0f);
+        return zonePositions[ZoneType.Field] + new Vector3(x, y, 0f);
     }
 
     public void ResetUsedSpawns()

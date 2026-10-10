@@ -1,8 +1,9 @@
+using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public interface IWinCondition
 {
-    bool Evaluate(GamePlayer player, List<GamePlayer> allPlayers);
+    bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers);
 }

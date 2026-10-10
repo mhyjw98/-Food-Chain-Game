@@ -202,9 +202,9 @@ public class TitleUI : MonoBehaviour
         }
 
         var roomManager = RoomManager.singleton as RoomManager;
-        if (roomManager == null || CodeManager.Instance == null || NetworkCoordinator.Instance == null)
+        if (roomManager == null || roomHost == null || NetworkCoordinator.Instance == null)
         {
-            Debug.LogError("[TitleUI] RoomManager/CodeManager/NetworkCoordinator가 준비되지 않아 방을 만들 수 없습니다.");
+            Debug.LogError("[TitleUI] RoomManager/RoomHost/NetworkCoordinator가 준비되지 않아 방을 만들 수 없습니다.");
             return;
         }
 
@@ -214,17 +214,26 @@ public class TitleUI : MonoBehaviour
         maxPlayer = SelectedPlayerCount;
         roomManager.maxPlayerCount = SelectedPlayerCount;
 
-        string hostIp = ConfigManager.Config.IP;
-        string roomCode = CodeManager.Instance.RegisterRoom(hostIp);
+        // Node 서버에 방이 등록된 것을 확인한 뒤에 호스트를 시작한다.
+        // 등록에 실패한 채로 방을 열면 코드는 표시되지만 그 코드로는 아무도 들어올 수 없다
+        roomHost.RegisterNewRoom(maxPlayer, (success, errorMessage) =>
+        {
+            // 응답을 기다리는 사이에 타이틀 씬이 바뀌었으면 아무것도 하지 않는다
+            if (this == null) return;
 
-        Debug.Log($"[방 생성 완료] 내 IP: {hostIp}, 방 코드: {roomCode}");
-        RoomSessionData.CurrentRoomCode = roomCode;
+            if (!success)
+            {
+                _enteringRoom = false;
+                ShowError(errorMessage);
+                return;
+            }
 
-        if (roomHost != null)
-            roomHost.RegisterRoom(roomCode, hostIp, maxPlayer);
-        RoomSessionData.ColorIndex = Random.Range(0, PlayerColorPalette.Count);
+            Debug.Log($"[방 생성 완료] 방 코드: {RoomSessionData.CurrentRoomCode}");
+            RoomSessionData.ColorIndex = Random.Range(0, PlayerColorPalette.Count);
 
-        NetworkCoordinator.Instance.RequestStartHost();
+            if (NetworkCoordinator.Instance != null)
+                NetworkCoordinator.Instance.RequestStartHost();
+        });
     }
 
     public void StartClient()

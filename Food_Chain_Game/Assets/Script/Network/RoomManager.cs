@@ -183,6 +183,26 @@ public class RoomManager : NetworkRoomManager
         // 새 호스팅 세션이 시작되는 시점이므로, 이전 세션 종료 때 세워둔
         // 정리 가드를 다시 풀어줘야 다음 연결 끊김/에러도 정상적으로 처리된다.
         _isCleaningUp = false;
+
+        // 방이 살아 있음을 Node 서버에 주기적으로 알린다(끊기면 서버가 죽은 방으로 보고 지운다)
+        if (roomHost != null)
+            roomHost.StartHeartbeat();
+    }
+
+    public override void OnStopServer()
+    {
+        // 서버가 내려가면 방 코드는 더 이상 쓸 수 없다. 접속 종료 처리(마지막 퇴장 보고)가
+        // 전부 돌지 않고 서버가 꺼지는 경우에도 Node 서버에 방이 남지 않도록 여기서 직접 지운다
+        if (roomHost != null)
+        {
+            roomHost.StopHeartbeat();
+
+            string code = RoomSessionData.CurrentRoomCode;
+            if (!string.IsNullOrEmpty(code))
+                roomHost.DeleteRoom(code);
+        }
+
+        base.OnStopServer();
     }
 
     public override void OnStartClient()

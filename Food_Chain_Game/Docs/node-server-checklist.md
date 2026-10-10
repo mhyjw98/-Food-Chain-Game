@@ -1,6 +1,6 @@
-# Node.js 방 코드 서버 점검 목록 (미점검)
+# Node.js 방 코드 서버 점검 목록 (2026-10-10 점검 완료, 수정 대기)
 
-방 코드 → 호스트 주소를 중개하는 Node.js 서버는 이 저장소에 없어 2026-10-09 리뷰에서 확인하지 못했다.
+방 코드 → 호스트 주소를 중개하는 Node.js 서버(`C:\Users\USER\room-code-server\server.js`, 저장소 밖)를 2026-10-10에 점검했다. 결과는 `review-progress-2.md`의 "Node 서버 리뷰"(N-1~N-5) 참고.
 이 문서는 **서버 코드를 받았을 때 바로 리뷰와 보완을 시작하기 위한** 자료다. 근거는 `review-progress-2.md`의 "멀티플레이 구조 점검" 참고.
 
 ## 서버 코드를 받으면 진행할 순서
@@ -26,10 +26,14 @@
 
 | 호출 | Unity 쪽 위치 | 요청 | 클라이언트가 기대하는 응답 |
 |---|---|---|---|
-| `POST /register` | `RoomHost.RegisterRoom` ← `TitleUI.StartHost` | JSON `{ code, ip, maxPlayer }` | 200 = 성공 (그 외는 로그만 남김) |
-| `POST /comeandgoing` | `RoomHost.ComeAndGoing` ← `RoomManager` 입장/퇴장 | JSON `{ code, delta }` (입장 +1 / 퇴장 −1) | 200 = 성공 |
-| `GET /lookup/{code}` | `RoomJoin.GetIpFromCode` ← `TitleUI.JoinByCode` | — | 200 + **본문 전체를 IP 문자열로 사용** / 404 = 코드 없음 / 403 = 정원 초과 |
-| `GET /delete/{code}` | `RoomHost.DeleteRoom` ← 방이 비었을 때 | — | 성공 여부만 확인 |
+| `POST /register` | `RoomHost.RegisterNewRoom` ← `TitleUI.StartHost` | JSON `{ code, maxPlayer }` | 200 + `{ token }` / 409 = 코드 중복(새 코드로 재시도) |
+| `POST /comeandgoing` | `RoomHost.ComeAndGoing` ← `RoomManager` 입장/퇴장 | JSON `{ code, delta }` (입장 +1 / 퇴장 −1) + 토큰 | 200 = 성공 |
+| `POST /heartbeat` | `RoomHost.StartHeartbeat` ← `RoomManager.OnStartServer` | JSON `{ code }` + 토큰 | 200 = 성공 / 404 = 방 없음 |
+| `GET /lookup/{code}` | `RoomJoin.GetIpFromCode` ← `TitleUI.JoinByCode` | — | 200 + **본문 전체를 IP 문자열로 사용** / 404 = 코드 없음·만료 / 403 = 정원 초과 |
+| `DELETE /delete/{code}` | `RoomHost.DeleteRoom` ← 방이 비었을 때, 서버 종료 시 | 토큰 | 200 / 404(이미 삭제됨)도 성공 처리 |
+
+- 위 표는 2026-10-10 수정 후 기준. 토큰은 `X-Room-Token` 헤더. 서버 코드는 저장소 루트 `Server/`에 있고 API 설명은 `Server/README.md`.
+- 아래 점검 항목 중 N-1~N-5로 수정된 것과 남은 것은 `review-progress-2.md`의 "Node 서버 리뷰 > 조치 상태 / 남은 것" 참고.
 
 - 방 코드는 클라이언트(`CodeManager.GenerateCode`, 영문 대문자+숫자 10자)가 만들어 보낸다. 중복 검사는 그 클라이언트의 로컬 메모리에서만 한다.
 - 호출 시점: 등록은 방 생성 버튼 직후(호스트 시작 전), +1은 `OnServerAddPlayer`(호스트 본인 포함), −1은 입장 처리됐던 연결이 끊길 때, 삭제는 방에 아무도 없게 됐을 때.

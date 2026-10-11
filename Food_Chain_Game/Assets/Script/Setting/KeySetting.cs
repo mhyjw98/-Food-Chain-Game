@@ -6,11 +6,11 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 새 동작은 KEYCOUNT 바로 앞에 추가한다(번호가 버튼의 ChangeKey 인자·저장 순서와 묶여 있다)
-public enum KeyAction { UP, DOWN, LEFT, RIGHT, INTERACT, VOICE_TALK, VOICE_MUTE, KEYCOUNT }
+public enum KeyAction { UP, DOWN, LEFT, RIGHT, INTERACT, VOICE_TALK, VOICE_MUTE, MAP, KEYCOUNT }
 public class KeySetting : MonoBehaviour
 {
     public static Dictionary<KeyAction, KeyCode> keys = new Dictionary<KeyAction, KeyCode>();
-    static readonly KeyCode[] defaultKeys = new KeyCode[] { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.V, KeyCode.M };
+    static readonly KeyCode[] defaultKeys = new KeyCode[] { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.V, KeyCode.M, KeyCode.Tab };
 
     // 설정 창이 아직 만들어지지 않은 씬에서도 저장된 키를 읽을 수 있게 한다(음성 키는 타이틀에서도 쓰인다)
     public static KeyCode GetKey(KeyAction action)

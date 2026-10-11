@@ -261,9 +261,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8f7462e743ce924bb5ae8313d357c6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pushToTalkKey: 118
-  muteToggleKey: 109
   pushToTalkReleaseDelay: 0.2
+  reconnectCheckInterval: 5
+  reconnectInitialDelay: 2
+  reconnectMaxDelay: 30
+  quitLogoutTimeout: 1.5
 --- !u!4 &244564162
 Transform:
   m_ObjectHideFlags: 0

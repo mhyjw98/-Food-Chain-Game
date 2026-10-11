@@ -37,6 +37,7 @@ public class VoiceManager : MonoBehaviour
     private bool _serviceEventsHooked;
 
     public const string ParticipantVolPrefPrefix = "Vivox_ParticipantVol_";
+    public const string ParticipantMutePrefPrefix = "Vivox_ParticipantMute_";
     public const int DefaultParticipantVolume = 70;
     // Vivox 참가자 음량 범위(dB). MinVolume은 사실상 무음
     public const int MinVolume = -50;
@@ -44,17 +45,30 @@ public class VoiceManager : MonoBehaviour
     public const int MaxVoiceIdLength = 64;
 
     private const string PREF_MIC_MODE = "Voice_MicMode";
+    private const string PREF_MIC_MUTED = "Voice_MicMuted";
     private const string LobbyPrefix = "lobby_";
     private const string AlivePrefix = "alive_";
     private const string DeadPrefix = "dead_";
 
     [Header("Mic")]
-    [Tooltip("눌러서 말하기 방식일 때 누르고 있는 동안만 마이크가 켜지는 키")]
-    [SerializeField] private KeyCode pushToTalkKey = KeyCode.V;
-    [Tooltip("마이크 음소거를 켜고 끄는 키")]
-    [SerializeField] private KeyCode muteToggleKey = KeyCode.M;
     [Tooltip("눌러서 말하기 키를 뗀 뒤 마이크가 꺼질 때까지의 시간(초). 말끝이 잘리지 않게 한다")]
     [SerializeField] private float pushToTalkReleaseDelay = 0.2f;
+
+    [Header("Speaking")]
+    [Tooltip("누가 말하고 있는지 다시 확인하는 간격(초)")]
+    [SerializeField] private float speakingRefreshInterval = 0.1f;
+
+    [Header("Reconnect")]
+    [Tooltip("음성 연결이 요청한 상태와 같은지 확인하는 간격(초)")]
+    [SerializeField] private float reconnectCheckInterval = 5f;
+    [Tooltip("다시 연결하는 데 실패했을 때 다음 시도까지 기다리는 시간(초). 실패할 때마다 두 배로 늘어난다")]
+    [SerializeField] private float reconnectInitialDelay = 2f;
+    [Tooltip("다시 연결하는 간격의 상한(초)")]
+    [SerializeField] private float reconnectMaxDelay = 30f;
+
+    [Header("Quit")]
+    [Tooltip("게임을 끌 때 음성 로그아웃을 기다려 주는 최대 시간(초)")]
+    [SerializeField] private float quitLogoutTimeout = 1.5f;
 
     public bool IsReady { get; private set; }
     public bool IsLoggedIn { get; private set; }
@@ -71,10 +85,13 @@ public class VoiceManager : MonoBehaviour
 
     public MicMode Mode { get; private set; } = MicMode.Open;
     public bool IsMicMuted { get; private set; }
-    public KeyCode PushToTalkKey => pushToTalkKey;
-    public KeyCode MuteToggleKey => muteToggleKey;
+    // 음성 키는 설정 창의 키 설정에서 바꾼다
+    public KeyCode PushToTalkKey => KeySetting.GetKey(KeyAction.VOICE_TALK);
+    public KeyCode MuteToggleKey => KeySetting.GetKey(KeyAction.VOICE_MUTE);
     // 지금 내 목소리가 나가고 있는 상태인지(마이크가 열려 있는지)
-    public bool IsMicOpen => !IsMicMuted && (Mode == MicMode.Open || _pttActive);
+    public bool IsMicOpen => !IsMicMuted && !_micTestActive && !_transmitBlocked && (Mode == MicMode.Open || _pttActive);
+    // 가장 마지막으로 요청된 음성 상태(전환이 아직 끝나지 않았을 수 있다)
+    public VoiceContext DesiredContext => _desiredContext;
 
     readonly SemaphoreSlim _initLock = new(1, 1);
     CancellationTokenSource _cts;
@@ -87,8 +104,24 @@ public class VoiceManager : MonoBehaviour
     private int _desiredVersion;
     private bool _applying;
 
+    // 다시 연결: 요청한 상태와 실제 상태가 다르면(끊김, 입장 실패) 간격을 늘려 가며 계속 시도한다
+    private float _nextReconnectCheckTime;
+    private float _reconnectDelay;
+    private int _reconnectAttempts;
+
+    // 지금 말하고 있는 플레이어의 음성 ID(내가 들어가 있는 채널 기준)
+    private readonly HashSet<string> _speakingVoiceIds = new();
+    private float _nextSpeakingRefresh;
+
+    private bool _quitting;
+    private bool _quitLogoutDone;
+    private Task _logoutTask;
+
     private bool _pttActive;
     private float _pttReleaseTime;
+    private bool _micTestActive;
+    // 사망이 확정된 순간부터 유령 채널로 옮겨질 때까지 송신을 막는다(그사이 생존자 채널로 말이 새지 않게)
+    private bool _transmitBlocked;
     private bool? _appliedInputMuted;
 
     // 같은 PC에서 여러 개를 실행했을 때 인스턴스마다 다른 계정으로 로그인하기 위한 번호표
@@ -107,6 +140,9 @@ public class VoiceManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         Mode = PlayerPrefs.GetInt(PREF_MIC_MODE, 0) == 1 ? MicMode.PushToTalk : MicMode.Open;
+        IsMicMuted = PlayerPrefs.GetInt(PREF_MIC_MUTED, 0) == 1;
+
+        Application.wantsToQuit += OnWantsToQuit;
 
         _cts = new CancellationTokenSource();
         _ = BootInitAndLoginAsync();
@@ -117,6 +153,7 @@ public class VoiceManager : MonoBehaviour
         if (Instance != this) return;
 
         Instance = null;
+        Application.wantsToQuit -= OnWantsToQuit;
         UnhookServiceEvents();
         _cts?.Cancel();
         _cts?.Dispose();
@@ -125,16 +162,19 @@ public class VoiceManager : MonoBehaviour
 
     void Update()
     {
+        UpdateReconnect();
+        UpdateSpeaking();
+
         if (!IsLoggedIn) return;
 
         bool typing = IsTypingText();
 
-        if (!typing && Input.GetKeyDown(muteToggleKey))
+        if (!typing && Input.GetKeyDown(MuteToggleKey))
             ToggleMicMuted();
 
         if (Mode != MicMode.PushToTalk) return;
 
-        if (!typing && Input.GetKey(pushToTalkKey))
+        if (!typing && Input.GetKey(PushToTalkKey))
             _pttReleaseTime = Time.unscaledTime + pushToTalkReleaseDelay;
 
         bool active = Time.unscaledTime < _pttReleaseTime;
@@ -167,6 +207,10 @@ public class VoiceManager : MonoBehaviour
         if (IsMicMuted == muted) return;
 
         IsMicMuted = muted;
+
+        PlayerPrefs.SetInt(PREF_MIC_MUTED, muted ? 1 : 0);
+        PlayerPrefs.Save();
+
         ApplyMicState();
     }
 
@@ -188,6 +232,15 @@ public class VoiceManager : MonoBehaviour
 
     public void ToggleMicMode()
         => SetMicMode(Mode == MicMode.Open ? MicMode.PushToTalk : MicMode.Open);
+
+    // 설정 창의 마이크 테스트 중에는 내 목소리(와 스피커로 되돌아 나오는 소리)가 다른 플레이어에게 나가지 않게 한다
+    public void SetMicTestActive(bool active)
+    {
+        if (_micTestActive == active) return;
+
+        _micTestActive = active;
+        ApplyMicState();
+    }
 
     private void ApplyMicState()
     {
@@ -274,12 +327,165 @@ public class VoiceManager : MonoBehaviour
         return !string.IsNullOrEmpty(channelName) && channelName.StartsWith(AlivePrefix);
     }
 
+    // 개별 음량을 저장하고 바로 적용한다. 게임 중 생존자 채널은 InGameVoiceProximity가 저장값을 읽어 거리 감쇠와 함께 적용한다
+    public void SetParticipantVolume(string voiceId, int volume01)
+    {
+        if (string.IsNullOrEmpty(voiceId)) return;
+
+        volume01 = Mathf.Clamp(volume01, 0, 100);
+        PlayerPrefs.SetInt(ParticipantVolPrefPrefix + voiceId, volume01);
+
+        ForEachParticipant(voiceId, participant =>
+        {
+            if (!IsProximityChannel(participant.ChannelName))
+                participant.SetLocalVolume(ToVivoxVolume(volume01));
+        });
+    }
+
+    public static GamePlayer FindGamePlayer(string voiceId)
+    {
+        if (string.IsNullOrEmpty(voiceId)) return null;
+
+        var players = GamePlayer.AllPlayers;
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i] != null && players[i].voiceId == voiceId) return players[i];
+        }
+        return null;
+    }
+
+    // 지금 말하고 있는지(표시해도 되는지는 따지지 않는다)
+    public bool IsSpeaking(string voiceId)
+    {
+        return !string.IsNullOrEmpty(voiceId) && _speakingVoiceIds.Contains(voiceId);
+    }
+
+    // "말하는 중" 표시(목록의 초록 테두리, 머리 위 아이콘)를 보여 줘도 되는지.
+    //  - 로비·결과 화면: 조건 없음
+    //  - 게임 중: 내 시야 안에 있는 플레이어만(멀리 있는 사람이 말하는 것까지 보이면 위치·대화 상대가 드러난다).
+    //    유령의 말은 유령에게만 보인다
+    public bool IsSpeakingVisible(string voiceId)
+    {
+        if (!IsSpeaking(voiceId)) return false;
+
+        if (CurrentContext != VoiceContext.GameplayAlive && CurrentContext != VoiceContext.GameplayDead)
+            return true;
+
+        var speaker = FindGamePlayer(voiceId);
+        if (speaker == null) return false;
+        if (speaker.isLocalPlayer) return true;
+
+        var local = GamePlayer.LocalPlayer;
+        if (local == null) return false;
+
+        if (!speaker.isAlive) return !local.isAlive;
+
+        return speaker.IsInLocalVision;
+    }
+
+    private void UpdateSpeaking()
+    {
+        if (Time.unscaledTime < _nextSpeakingRefresh) return;
+        _nextSpeakingRefresh = Time.unscaledTime + speakingRefreshInterval;
+
+        _speakingVoiceIds.Clear();
+        if (!IsLoggedIn) return;
+
+        try
+        {
+            if (VivoxService.Instance == null) return;
+
+            foreach (var channel in VivoxService.Instance.ActiveChannels)
+            {
+                foreach (var participant in channel.Value)
+                {
+                    if (participant == null || !participant.SpeechDetected) continue;
+
+                    if (participant.IsSelf)
+                    {
+                        // 마이크가 닫혀 있으면(음소거, 눌러서 말하기 대기) 말하는 것으로 치지 않는다
+                        if (IsMicOpen && !string.IsNullOrEmpty(LocalVoiceId))
+                            _speakingVoiceIds.Add(LocalVoiceId);
+                    }
+                    else if (!string.IsNullOrEmpty(participant.PlayerId))
+                    {
+                        _speakingVoiceIds.Add(participant.PlayerId);
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // 채널을 옮기는 중에는 목록이 바뀔 수 있다. 다음 확인 때 다시 읽는다
+        }
+    }
+
+    // 내가 이 참가자를 음소거해 두었는지(저장값). 채널이 바뀌어도 같은 사람에게 계속 적용된다
+    public static bool IsParticipantMutedByMe(string voiceId)
+    {
+        return !string.IsNullOrEmpty(voiceId) && PlayerPrefs.GetInt(ParticipantMutePrefPrefix + voiceId, 0) == 1;
+    }
+
+    // 개별 음소거를 저장하고, 지금 들어가 있는 모든 채널의 그 참가자에게 바로 적용한다
+    public void SetParticipantMuted(string voiceId, bool muted)
+    {
+        if (string.IsNullOrEmpty(voiceId)) return;
+
+        PlayerPrefs.SetInt(ParticipantMutePrefPrefix + voiceId, muted ? 1 : 0);
+        PlayerPrefs.Save();
+
+        ForEachParticipant(voiceId, ApplyParticipantMute);
+    }
+
+    // 사망이 확정된 플레이어의 목소리를 생존자 채널에서 즉시 끈다(그 플레이어의 채널 이동이 끝나기를 기다리지 않는다)
+    public void SilenceInAliveChannelNow(string voiceId)
+    {
+        if (string.IsNullOrEmpty(voiceId)) return;
+
+        ForEachParticipant(voiceId, participant =>
+        {
+            if (IsProximityChannel(participant.ChannelName))
+                participant.SetLocalVolume(MinVolume);
+        });
+    }
+
+    private void ForEachParticipant(string voiceId, Action<VivoxParticipant> action)
+    {
+        if (!IsLoggedIn || VivoxService.Instance == null) return;
+
+        try
+        {
+            foreach (var channel in VivoxService.Instance.ActiveChannels)
+            {
+                foreach (var participant in channel.Value)
+                {
+                    if (participant == null || participant.IsSelf || participant.PlayerId != voiceId) continue;
+                    action(participant);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[VoiceManager] 참가자 설정 적용 실패: {e.Message}");
+        }
+    }
+
+    private static void ApplyParticipantMute(VivoxParticipant participant)
+    {
+        if (IsParticipantMutedByMe(participant.PlayerId)) participant.MutePlayerLocally();
+        else participant.UnmutePlayerLocally();
+    }
+
     private void OnParticipantAdded(VivoxParticipant participant)
     {
         if (participant == null || participant.IsSelf || string.IsNullOrEmpty(participant.PlayerId)) return;
 
         try
         {
+            // 음소거는 채널 종류와 상관없이 저장값을 그대로 적용한다
+            if (IsParticipantMutedByMe(participant.PlayerId))
+                participant.MutePlayerLocally();
+
             // 생존자 채널은 무음에서 시작해 들려도 되는 사람만 InGameVoiceProximity가 키운다
             if (IsProximityChannel(participant.ChannelName))
                 participant.SetLocalVolume(MinVolume);
@@ -412,7 +618,7 @@ public class VoiceManager : MonoBehaviour
         catch (OperationCanceledException) { throw; }
         catch (Exception e)
         {
-            Debug.LogError($"[VoiceManager] 음성 로그인 실패: {e}");
+            LogVoiceFailure("음성 로그인 실패", e);
         }
         finally
         {
@@ -428,6 +634,16 @@ public class VoiceManager : MonoBehaviour
         CurrentChannel = null;
         ActiveTransmitChannel = null;
         CurrentContext = VoiceContext.None;
+
+        // 방에 있는 중에 끊긴 것이면 바로 다시 연결을 시도한다(UpdateReconnect)
+        _nextReconnectCheckTime = 0f;
+    }
+
+    // 다시 연결을 시도하는 동안에는 같은 실패가 반복되므로, 첫 실패만 에러로 남기고 이후는 경고 한 줄로 줄인다
+    private void LogVoiceFailure(string what, Exception e)
+    {
+        if (_reconnectAttempts <= 1) Debug.LogError($"[VoiceManager] {what}: {e}");
+        else Debug.LogWarning($"[VoiceManager] {what}(다시 연결 시도 {_reconnectAttempts}회째): {e.Message}");
     }
 
     #endregion
@@ -436,6 +652,9 @@ public class VoiceManager : MonoBehaviour
 
     // 로비 음성: 거리와 상관없이 방의 모든 플레이어가 서로 들린다
     public void JoinLobby(string roomCode) => RequestContext(roomCode, VoiceContext.Lobby);
+
+    // 결과 화면: 생존/사망 구분 없이 방의 모든 플레이어가 서로 들린다(로비 채널로 모인다)
+    public void EnterResult(string roomCode) => RequestContext(roomCode, VoiceContext.Lobby);
 
     // 게임 음성: 생존자는 생존자 채널, 유령은 유령 채널에 말한다
     public void EnterGameplay(string roomCode, bool isAlive)
@@ -449,6 +668,13 @@ public class VoiceManager : MonoBehaviour
         {
             Debug.LogWarning($"[VoiceManager] 방 코드가 없어 음성 채널 전환({context})을 건너뜁니다.");
             return;
+        }
+
+        // 살아 있다가 죽은 경우: 유령 채널로 옮겨질 때까지 내 목소리가 생존자 채널로 나가지 않게 바로 막는다
+        if (context == VoiceContext.GameplayDead && _desiredContext == VoiceContext.GameplayAlive && !_transmitBlocked)
+        {
+            _transmitBlocked = true;
+            ApplyMicState();
         }
 
         _desiredRoomCode = roomCode;
@@ -476,7 +702,7 @@ public class VoiceManager : MonoBehaviour
         catch (OperationCanceledException) { }
         catch (Exception e)
         {
-            Debug.LogError($"[VoiceManager] 음성 채널 전환 실패: {e}");
+            LogVoiceFailure("음성 채널 전환 실패", e);
         }
         finally
         {
@@ -484,19 +710,57 @@ public class VoiceManager : MonoBehaviour
         }
     }
 
-    private async Task ApplyContextAsync(string roomCode, VoiceContext context, CancellationToken ct)
+    // 요청한 음성 상태(로비/게임 채널)와 실제 상태가 다르면 다시 맞춘다.
+    // 음성 서버와의 연결이 끊기거나 채널 입장에 실패해도, 방에 있는 동안에는 계속 다시 시도한다
+    private void UpdateReconnect()
     {
-        if (context == VoiceContext.None)
+        if (_quitting || _applying || _desiredContext == VoiceContext.None) return;
+        if (Time.unscaledTime < _nextReconnectCheckTime) return;
+
+        if (IsDesiredStateActive())
         {
-            await LeaveChannelsExceptAsync(null);
-            SetCurrent(VoiceContext.None, null);
+            _reconnectDelay = 0f;
+            _reconnectAttempts = 0;
+            _nextReconnectCheckTime = Time.unscaledTime + reconnectCheckInterval;
             return;
         }
 
-        await EnsureLoggedInAsync(ct);
-        if (!IsLoggedIn || VivoxService.Instance == null) return;
+        _reconnectAttempts++;
+        _reconnectDelay = _reconnectDelay <= 0f
+            ? reconnectInitialDelay
+            : Mathf.Min(_reconnectDelay * 2f, reconnectMaxDelay);
+        _nextReconnectCheckTime = Time.unscaledTime + _reconnectDelay;
 
-        // 말하는 채널을 맨 앞에 둔다
+        Debug.LogWarning($"[VoiceManager] 음성 채널에 연결돼 있지 않아 다시 연결합니다. (시도 {_reconnectAttempts}회째, 실패하면 {_reconnectDelay:0}초 뒤 재시도)");
+        _ = ApplyDesiredContextLoopAsync();
+    }
+
+    private bool IsDesiredStateActive()
+    {
+        if (!IsLoggedIn || CurrentContext != _desiredContext) return false;
+
+        try
+        {
+            if (VivoxService.Instance == null || !VivoxService.Instance.IsLoggedIn) return false;
+
+            var wanted = GetWantedChannels(_desiredRoomCode, _desiredContext);
+            if (wanted.Count == 0 || CurrentChannel != wanted[0]) return false;
+
+            foreach (var channelName in wanted)
+            {
+                if (!VivoxService.Instance.ActiveChannels.ContainsKey(channelName)) return false;
+            }
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    // 말하는 채널을 맨 앞에 둔다
+    private static List<string> GetWantedChannels(string roomCode, VoiceContext context)
+    {
         var wanted = new List<string>();
         switch (context)
         {
@@ -511,7 +775,23 @@ public class VoiceManager : MonoBehaviour
                 wanted.Add(AlivePrefix + roomCode);
                 break;
         }
+        return wanted;
+    }
 
+    private async Task ApplyContextAsync(string roomCode, VoiceContext context, CancellationToken ct)
+    {
+        if (context == VoiceContext.None)
+        {
+            await LeaveChannelsExceptAsync(null);
+            SetCurrent(VoiceContext.None, null);
+            _transmitBlocked = false;
+            return;
+        }
+
+        await EnsureLoggedInAsync(ct);
+        if (!IsLoggedIn || VivoxService.Instance == null) return;
+
+        var wanted = GetWantedChannels(roomCode, context);
         string transmitChannel = wanted[0];
 
         await LeaveChannelsExceptAsync(wanted);
@@ -525,6 +805,9 @@ public class VoiceManager : MonoBehaviour
 
         SetCurrent(context, transmitChannel);
         ApplyInitialParticipantVolumes();
+
+        // 말하는 채널이 정해졌으므로(유령은 유령 채널로만 나간다) 사망 직후의 송신 차단을 푼다
+        _transmitBlocked = false;
 
         _appliedInputMuted = null;
         ApplyMicState();
@@ -546,13 +829,15 @@ public class VoiceManager : MonoBehaviour
 
         foreach (var channel in VivoxService.Instance.ActiveChannels)
         {
-            // 생존자 채널은 InGameVoiceProximity가 계속 조절하므로 건드리지 않는다
-            if (IsProximityChannel(channel.Key)) continue;
-
             foreach (var participant in channel.Value)
             {
                 if (participant == null || participant.IsSelf || string.IsNullOrEmpty(participant.PlayerId)) continue;
-                participant.SetLocalVolume(GetParticipantBaseVolume(participant.PlayerId));
+
+                ApplyParticipantMute(participant);
+
+                // 생존자 채널의 음량은 InGameVoiceProximity가 계속 조절하므로 건드리지 않는다
+                if (!IsProximityChannel(channel.Key))
+                    participant.SetLocalVolume(GetParticipantBaseVolume(participant.PlayerId));
             }
         }
     }
@@ -610,7 +895,16 @@ public class VoiceManager : MonoBehaviour
     public void LeaveAndLogout()
         => _ = LeaveAndLogoutAsync();
 
-    public async Task LeaveAndLogoutAsync()
+    // 여러 곳(종료 버튼, 창 닫기)에서 겹쳐 불려도 로그아웃은 한 번만 진행한다
+    public Task LeaveAndLogoutAsync()
+    {
+        if (_logoutTask == null || _logoutTask.IsCompleted)
+            _logoutTask = LeaveAndLogoutCoreAsync();
+
+        return _logoutTask;
+    }
+
+    private async Task LeaveAndLogoutCoreAsync()
     {
         try
         {
@@ -631,6 +925,45 @@ public class VoiceManager : MonoBehaviour
         {
             Debug.LogError($"[VoiceManager] 로그아웃 실패: {e}");
         }
+    }
+
+    // 창을 닫아 게임을 끌 때: 음성 로그아웃이 끝날 때까지 종료를 잠깐 미룬다.
+    // (그냥 꺼지면 음성 서버가 알아챌 때까지 다른 플레이어의 목록에 한동안 남는다)
+    private bool OnWantsToQuit()
+    {
+        if (_quitLogoutDone || !IsLoggedIn) return true;
+
+        if (!_quitting)
+        {
+            _quitting = true;
+            _ = LogoutThenQuitAsync();
+        }
+        return false;
+    }
+
+    private async Task LogoutThenQuitAsync()
+    {
+        try
+        {
+            int timeoutMs = Mathf.Max(0, Mathf.RoundToInt(quitLogoutTimeout * 1000f));
+            await Task.WhenAny(LeaveAndLogoutAsync(), Task.Delay(timeoutMs));
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[VoiceManager] 종료 중 음성 로그아웃 실패: {e.Message}");
+        }
+
+        _quitLogoutDone = true;
+        Application.Quit();
+    }
+
+    // 종료를 미룰 수 없는 경우(에디터의 플레이 종료 등)에도 로그아웃 요청은 보낸다
+    void OnApplicationQuit()
+    {
+        _quitting = true;
+
+        if (!_quitLogoutDone && IsLoggedIn)
+            LeaveAndLogout();
     }
 
     #endregion

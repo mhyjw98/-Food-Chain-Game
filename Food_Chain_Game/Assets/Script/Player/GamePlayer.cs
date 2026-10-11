@@ -134,6 +134,7 @@ public class GamePlayer : NetworkBehaviour
         base.OnStartLocalPlayer();
 
         LocalPlayer = this;
+        _knownDeadNetIds.Clear();
         visionUI = FindFirstObjectByType<VisionUIController>();
         visionUI.localPlayer = this;
 
@@ -232,11 +233,43 @@ public class GamePlayer : NetworkBehaviour
         StartCoroutine(ShowCharacterUI());
     }
 
+    // 내가 죽음을 알고 있는 플레이어(내가 죽였거나, 시체를 조사해 알아낸 경우). 음성 목록의 사망 표시에 쓴다
+    private static readonly HashSet<uint> _knownDeadNetIds = new();
+    private PlayerUIVisibility _uiVisibility;
+
+    // 유령은 죽은 사람을 전부 알고, 생존자는 자신이 죽였거나 시체를 조사한 사람만 안다
+    public static bool IsKnownDeadToLocal(GamePlayer player)
+    {
+        if (player == null || player.isAlive || LocalPlayer == null) return false;
+        if (player == LocalPlayer || !LocalPlayer.isAlive) return true;
+
+        return _knownDeadNetIds.Contains(player.netId);
+    }
+
+    // 지금 내 시야 안에 있는지(머리 위 닉네임이 보이는 상태와 같다)
+    public bool IsInLocalVision
+    {
+        get
+        {
+            if (_uiVisibility == null) _uiVisibility = GetComponentInChildren<PlayerUIVisibility>(true);
+            return _uiVisibility == null || _uiVisibility.IsVisible;
+        }
+    }
+
+    [TargetRpc]
+    private void TargetLearnDeath(uint deadNetId)
+    {
+        _knownDeadNetIds.Add(deadNetId);
+    }
+
     [TargetRpc]
     public void TargetShowGameResult(bool isWinner)
     {
         if (GamePlayUI.Instance != null)
             GamePlayUI.Instance.ShowResult(isWinner);
+
+        // 음성: 결과 화면부터는 생존자·유령 구분 없이 전원이 서로 들린다
+        VoiceManager.Instance?.EnterResult(RoomSessionData.CurrentRoomCode);
     }
     public override void OnStopClient()
     {
@@ -470,6 +503,8 @@ public class GamePlayer : NetworkBehaviour
             yield break;
         }
 
+        // 시체를 조사한 사람은 그 플레이어가 죽었다는 것을 안다(음성 목록의 사망 표시)
+        TargetLearnDeath(corpse.deadPlayerNetId);
         TargetCorpseScanResult(corpse.netId, corpse.deadAnimalType, corpse.KillerType, corpse.deathReason, corpse.deathDay, corpse.deathWasNight, corpse.ElapsedSec);
     }
 
@@ -522,8 +557,20 @@ public class GamePlayer : NetworkBehaviour
         {
             FailProgressMission();
 
-            // 음성: 유령 채널로 옮긴다(유령끼리 대화, 생존자 채널은 듣기만)
-            VoiceManager.Instance?.EnterGameplay(RoomSessionData.CurrentRoomCode, isAlive: false);
+            // 탐색/시체 조사 중이었다면 창을 바로 닫는다(결과나 실패 안내를 남기지 않는다)
+            if (GamePlayUI.Instance != null)
+                GamePlayUI.Instance.CloseInvestigationOnDeath();
+
+            // 음성: 유령 채널로 옮긴다(유령끼리 대화, 생존자 채널은 듣기만).
+            // 게임이 끝나 전원 대화로 넘어간 뒤의 사망 처리라면 그대로 둔다
+            var voice = VoiceManager.Instance;
+            if (voice != null && voice.DesiredContext == VoiceManager.VoiceContext.GameplayAlive)
+                voice.EnterGameplay(RoomSessionData.CurrentRoomCode, isAlive: false);
+        }
+        else if (VoiceManager.Instance != null)
+        {
+            // 음성: 사망이 확정된 순간 이 플레이어의 목소리를 내 쪽에서도 바로 끈다
+            VoiceManager.Instance.SilenceInAliveChannelNow(voiceId);
         }
 
         if (isLocalPlayer)
@@ -576,7 +623,7 @@ public class GamePlayer : NetworkBehaviour
             if (visionUI != null && visionUI.fov != null)
             {
                 visionUI.fov.viewRadius = 11;
-                visionUI.fov.occluderMask = 0;
+                visionUI.fov.ignoreOccluders = true;
             }                                
         }
     }
@@ -743,6 +790,10 @@ public class GamePlayer : NetworkBehaviour
 
         ServerReleaseActiveMission();
 
+        // 진행 중이던 탐색/시체 조사는 죽는 즉시 중단한다(결과도 실패 안내도 보내지 않는다. 창은 본인 클라이언트가 닫는다)
+        ServerStopInvestigation();
+        ServerStopCorpseScan();
+
         lastDeathReason = info.Reason;
         lastKillerNetId = info.KillerNetId;
         lastKillerType = info.KillerType;
@@ -761,6 +812,16 @@ public class GamePlayer : NetworkBehaviour
         }       
 
         isAlive = false;
+
+        // 죽인 쪽은 이 플레이어가 죽었다는 것을 안다(음성 목록의 사망 표시)
+        if (info.KillerNetId != 0
+            && NetworkServer.spawned.TryGetValue(info.KillerNetId, out var killerIdentity)
+            && killerIdentity != null
+            && killerIdentity.TryGetComponent(out GamePlayer killer)
+            && killer.connectionToClient != null)
+        {
+            killer.TargetLearnDeath(netId);
+        }
 
         // 서버 처리는 SyncVar 훅(OnAliveChanged)이 아니라 여기서 직접 한다.
         // 훅은 호스트 모드에서만 서버 쪽에서 불리므로 훅에 두면 전용 서버에서 동작하지 않는다

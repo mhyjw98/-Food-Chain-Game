@@ -469,6 +469,14 @@ public class GamePlayUI : MonoBehaviour
         investigationUI.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Modal);
     }
+    // 로컬 플레이어가 죽었을 때 호출됨(GamePlayer.OnAliveChanged).
+    // 탐색 창(대상 선택/진행 중/결과 표시)과 시체 조사 진행 바를 즉시 닫고 잠금을 푼다
+    public void CloseInvestigationOnDeath()
+    {
+        DeActiveInvestigationSelectUI();
+        OnCorpseScanCanceled();
+    }
+
     private void OnSelectInvestigationTarget(GamePlayer target)
     {
         if (target == null) return;

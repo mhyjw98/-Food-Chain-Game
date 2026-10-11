@@ -10,8 +10,6 @@ public class VisionUIController : MonoBehaviour
     public FOVMaskController2D fov;
     public FOVMaskController2D sharedFov;
 
-    [SerializeField] private Transform local;
-    [SerializeField] private LayerMask occluderMask;
     [SerializeField] private float interval = 0.05f;
 
     public Light2D globalLight;
@@ -21,7 +19,6 @@ public class VisionUIController : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        if (!local) local = transform;
     }
     public void SetSharedFov(FOVMaskController2D newShared)
     {
@@ -35,63 +32,16 @@ public class VisionUIController : MonoBehaviour
         if (_t < interval) return;
         _t = 0f;
 
-        var polyMain = fov.WorldPolygon;
-        if (polyMain == null || polyMain.Count < 3) return;
-
-        IReadOnlyList<Vector2> polyShared = null;
-        if (sharedFov != null)
-        {
-            var p = sharedFov.WorldPolygon;
-            if (p != null && p.Count >= 3) polyShared = p;
-        }
-
-        Vector2 eye = local.position;
-
         for (int i = 0; i < VisionAnchor.All.Count; i++)
         {
             var a = VisionAnchor.All[i];
             if (!a || !a.head || !a.uiVisibility) continue;
 
+            // 캐릭터가 보이는 영역(시야 마스크)과 같은 도형으로 판정한다. 반경과 벽 가림이 모두 들어 있다
             Vector2 head = a.head.position;
-            bool visible =
-                IsHeadVisible(eye, head, polyMain) ||
-                (polyShared != null && IsHeadVisible(eye, head, polyShared));
+            bool visible = fov.ContainsPoint(head) || (sharedFov != null && sharedFov.ContainsPoint(head));
 
             a.uiVisibility.SetVisible(visible);
         }
-    }
-
-    private bool IsHeadVisible(Vector2 eye, Vector2 head, IReadOnlyList<Vector2> poly)
-    {
-        int viewRadius = 11;
-        if (localPlayer != null && GameMamager.Instance != null)
-        {
-            if (localPlayer.isAlive && GameMamager.Instance.IsNightPhase)
-                viewRadius = 6;
-        }
-        if ((head - eye).sqrMagnitude > viewRadius * viewRadius)
-            return false;
-
-        var hit = Physics2D.Linecast(eye, head, occluderMask);
-        if (hit.collider != null) return false;
-
-        return PointInPolygon(head, poly);
-    }
-
-    private static bool PointInPolygon(Vector2 p, IReadOnlyList<Vector2> poly)
-    {
-        bool inside = false;
-        int n = poly.Count;
-        for (int i = 0, j = n - 1; i < n; j = i++)
-        {
-            Vector2 a = poly[i];
-            Vector2 b = poly[j];
-
-            bool intersect = ((a.y > p.y) != (b.y > p.y)) &&
-                             (p.x < (b.x - a.x) * (p.y - a.y) / ((b.y - a.y) + 1e-6f) + a.x);
-
-            if (intersect) inside = !inside;
-        }
-        return inside;
     }
 }

@@ -27,6 +27,9 @@ public class LocalVisionLight : NetworkBehaviour
     {
         if (visionLight) visionLight.gameObject.SetActive(true);
         if (!fovMask) fovMask = FindFirstObjectByType<FOVMaskController2D>();
+
+        // 시야 영역의 반경을 빛이 닿는 반경과 같게 시작한다(이후에는 TransitionToVision이 함께 바꾼다)
+        if (fovMask && visionLight) fovMask.viewRadius = visionLight.pointLightOuterRadius;
     }
 
     public void InitFOV(FOVMaskController2D fov)

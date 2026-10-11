@@ -1,10 +1,9 @@
-﻿using System.Collections;
-using System.Collections.Generic;
 using TMPro;
-using Unity.Services.Vivox;
 using UnityEngine;
 using UnityEngine.UI;
 
+// 설정 창의 플레이어 음성 목록 한 줄: 닉네임, 개별 음량, 개별 음소거, 사망/말하는 중 표시.
+// 음성 채널이 아니라 플레이어(음성 ID) 기준이라, 그 사람이 지금 어느 채널에 있든 같은 설정이 적용된다
 public class LobbyVoiceParticipantRow : MonoBehaviour
 {
     [SerializeField] TMP_Text nameText;
@@ -13,122 +12,123 @@ public class LobbyVoiceParticipantRow : MonoBehaviour
     [SerializeField] Toggle muteToggle;
     [SerializeField] string unknownName = "Player";
 
-    const string PREF_KEY_PREFIX = "Vivox_ParticipantVol_";
-    const string PREF_MUTE_PREFIX = "Vivox_ParticipantMute_";
-    const int DEFAULT_PLAYER_VOL_01 = 70;
+    [Header("State")]
+    [Tooltip("죽은 플레이어일 때 어둡게 바꿀 프로필 배경")]
+    [SerializeField] Image profileImage;
+    [Tooltip("말하는 동안 켜지는 초록 테두리")]
+    [SerializeField] GameObject speakingBorder;
+    [SerializeField] Color deadProfileColor = new Color(0.22f, 0.22f, 0.22f, 1f);
+    [SerializeField] Color deadNameColor = new Color(0.55f, 0.55f, 0.55f, 1f);
 
-    VivoxParticipant _participant;
+    string _voiceId;
     bool _uiLock;
-    bool? _appliedMute;
-    public string PlayerId => _participant != null ? _participant.PlayerId : null;
+    bool _listenersHooked;
+    bool _colorsCaptured;
+    Color _aliveProfileColor;
+    Color _aliveNameColor;
+    bool? _dead;
+    bool? _speaking;
 
-    public void Bind(VivoxParticipant participant)
+    public string VoiceId => _voiceId;
+
+    public void Bind(string voiceId, string nickname)
     {
-        _participant = participant;      
+        HookListenersOnce();
 
-        // 표시 이름에는 닉네임이 없다: 플레이어 오브젝트에 동기화된 음성 ID로 닉네임을 찾는다
-        string nick = VoiceManager.ResolveNickname(participant.PlayerId);
+        string shownName = string.IsNullOrEmpty(nickname) ? unknownName : nickname;
+        if (nameText != null && nameText.text != shownName)
+            nameText.text = shownName;
 
-        if (nameText != null)
-            nameText.text = string.IsNullOrEmpty(nick) ? unknownName : nick;
+        if (_voiceId == voiceId) return;
+        _voiceId = voiceId;
 
-        SetupSlider();
+        _uiLock = true;
 
-        int saved01 = PlayerPrefs.GetInt(VoiceManager.ParticipantVolPrefPrefix + participant.PlayerId, 70);
-        SetVolume01(saved01, applyToVivox: true, writePrefs: false);
+        int volume = PlayerPrefs.GetInt(VoiceManager.ParticipantVolPrefPrefix + voiceId, VoiceManager.DefaultParticipantVolume);
+        if (volumeSlider != null) volumeSlider.value = volume;
+        if (volumeValueText != null) volumeValueText.text = volume.ToString();
 
-        if (muteToggle != null)
-        {
-            muteToggle.onValueChanged.RemoveListener(OnMuteToggleChanged);
+        if (muteToggle != null) muteToggle.isOn = VoiceManager.IsParticipantMutedByMe(voiceId);
 
-            bool savedMute = PlayerPrefs.GetInt(PREF_MUTE_PREFIX + participant.PlayerId, 0) == 1;
-
-            _uiLock = true;          
-            muteToggle.isOn = savedMute;
-            _uiLock = false;
-
-            muteToggle.onValueChanged.AddListener(OnMuteToggleChanged);
-
-            if (_appliedMute == null || _appliedMute.Value != savedMute)
-            {
-                _appliedMute = savedMute;
-                if (savedMute) participant.MutePlayerLocally();
-                else participant.UnmutePlayerLocally();
-            }
-        }
+        _uiLock = false;
     }
 
-    void SetupSlider()
+    // dead: 내가 죽음을 알고 있는 플레이어인지 / speaking: 말하는 중으로 표시해도 되는지
+    public void SetState(bool dead, bool speaking)
     {
-        if (volumeSlider == null) return;
+        CaptureColorsOnce();
 
-        volumeSlider.minValue = 0;
-        volumeSlider.maxValue = 100;
-        volumeSlider.wholeNumbers = true;
+        if (_dead != dead)
+        {
+            _dead = dead;
+            if (profileImage != null) profileImage.color = dead ? deadProfileColor : _aliveProfileColor;
+            if (nameText != null) nameText.color = dead ? deadNameColor : _aliveNameColor;
+        }
 
-        volumeSlider.onValueChanged.RemoveAllListeners();
-        volumeSlider.onValueChanged.AddListener(_ => OnSliderChanged());
+        if (_speaking != speaking)
+        {
+            _speaking = speaking;
+            if (speakingBorder != null) speakingBorder.SetActive(speaking);
+        }
     }
 
     public void ApplyDefaultVolume()
     {
-        SetVolume01(DEFAULT_PLAYER_VOL_01, applyToVivox: true, writePrefs: true);
-    }
-    public void SetVolume01(int v01, bool applyToVivox, bool writePrefs)
-    {
-        v01 = Mathf.Clamp(v01, 0, 100);
-
         _uiLock = true;
-        if (volumeSlider != null) volumeSlider.value = v01;
-        if (volumeValueText != null) volumeValueText.text = v01.ToString();
+        if (volumeSlider != null) volumeSlider.value = VoiceManager.DefaultParticipantVolume;
         _uiLock = false;
 
-        if (applyToVivox)
-            ApplyLocalVolume(v01);
-
-        if (writePrefs && _participant != null && !string.IsNullOrEmpty(_participant.PlayerId))
-        {
-            PlayerPrefs.SetInt(PREF_KEY_PREFIX + _participant.PlayerId, v01);
-        }
-    }   
-    void OnSliderChanged()
-    {
-        if (_uiLock) return;
-        int v01 = volumeSlider != null ? Mathf.RoundToInt(volumeSlider.value) : 50;
-
-        if (volumeValueText != null)
-            volumeValueText.text = v01.ToString();
-
-        ApplyLocalVolume(v01);
-
-        if (_participant != null && !string.IsNullOrEmpty(_participant.PlayerId))
-        {
-            PlayerPrefs.SetInt(PREF_KEY_PREFIX + _participant.PlayerId, v01);
-        }
+        ApplyVolume(VoiceManager.DefaultParticipantVolume);
     }
 
-    void ApplyLocalVolume(int v01)
+    void HookListenersOnce()
     {
-        if (_participant == null) return;
+        if (_listenersHooked) return;
+        _listenersHooked = true;
 
-        // 게임 중 생존자 채널은 거리·시야에 따라 음량이 계속 바뀐다.
-        // 여기서 직접 정하면 그 조절을 덮어쓰므로, 저장된 값을 InGameVoiceProximity가 읽어 반영하게 둔다
-        if (VoiceManager.IsProximityChannel(_participant.ChannelName)) return;
+        if (volumeSlider != null)
+        {
+            volumeSlider.minValue = 0;
+            volumeSlider.maxValue = 100;
+            volumeSlider.wholeNumbers = true;
+            volumeSlider.onValueChanged.AddListener(OnSliderChanged);
+        }
 
-        _participant.SetLocalVolume(VoiceManager.ToVivoxVolume(v01));
+        if (muteToggle != null)
+            muteToggle.onValueChanged.AddListener(OnMuteToggleChanged);
+    }
+
+    void CaptureColorsOnce()
+    {
+        if (_colorsCaptured) return;
+        _colorsCaptured = true;
+
+        if (profileImage != null) _aliveProfileColor = profileImage.color;
+        if (nameText != null) _aliveNameColor = nameText.color;
+    }
+
+    void OnSliderChanged(float value)
+    {
+        if (_uiLock) return;
+        ApplyVolume(Mathf.RoundToInt(value));
+    }
+
+    void ApplyVolume(int volume01)
+    {
+        volume01 = Mathf.Clamp(volume01, 0, 100);
+        if (volumeValueText != null) volumeValueText.text = volume01.ToString();
+
+        if (string.IsNullOrEmpty(_voiceId)) return;
+
+        if (VoiceManager.Instance != null)
+            VoiceManager.Instance.SetParticipantVolume(_voiceId, volume01);
     }
 
     void OnMuteToggleChanged(bool isMuted)
     {
-        if (_uiLock) return;
-        if (_participant == null) return;
+        if (_uiLock || string.IsNullOrEmpty(_voiceId)) return;
 
-        _appliedMute = isMuted;
-
-        PlayerPrefs.SetInt(PREF_MUTE_PREFIX + _participant.PlayerId, isMuted ? 1 : 0);
-        PlayerPrefs.Save();
-
-        if (isMuted) _participant.MutePlayerLocally();
-        else _participant.UnmutePlayerLocally();
+        if (VoiceManager.Instance != null)
+            VoiceManager.Instance.SetParticipantMuted(_voiceId, isMuted);
     }
 }

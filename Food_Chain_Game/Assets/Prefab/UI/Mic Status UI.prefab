@@ -353,9 +353,9 @@ MonoBehaviour:
   m_fontSize: 26
   m_fontSizeBase: 26
   m_fontWeight: 400
-  m_enableAutoSizing: 0
-  m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_enableAutoSizing: 1
+  m_fontSizeMin: 14
+  m_fontSizeMax: 26
   m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
@@ -570,7 +570,9 @@ MonoBehaviour:
   statusLabel: {fileID: 8191965812170776970}
   modeButton: {fileID: 661865368601589471}
   modeLabel: {fileID: 8426094856578684028}
-  connectingText: "\uC74C\uC131 \uC5F0\uACB0 \uC911"
+  joinedText: "\uC74C\uC131 \uCC44\uB110 \uCC38\uC5EC\uC911"
+  joinedFormat: "{0} \xB7 {1}"
+  notJoinedText: 
   mutedText: "\uB9C8\uC774\uD06C \uAEBC\uC9D0"
   openText: "\uB9C8\uC774\uD06C \uCF1C\uC9D0"
   talkingText: "\uB9D0\uD558\uB294 \uC911"

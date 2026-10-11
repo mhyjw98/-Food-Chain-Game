@@ -631,3 +631,140 @@ Unity MCP 연결 상태에서 진행(컴파일·씬 확인·플레이 모드 확
 
 **범위 밖에서 본 것(미조치)**
 - `NetworkCoordinator.EnsurePreviousSessionStopped`: 이전 세션이 남아 있을 때 `StopHost()`를 부르는데, 이것이 `OnStopHost → CleanupAndLoadTitle`로 이어져 방금 만든 방 코드/토큰을 지우고 타이틀을 다시 로드한 뒤에도 `StartHost()`를 계속 시도함. 정상 흐름에서는 이전 세션이 남지 않아 드물지만, 그 경로에서는 방 생성이 엉킴(기존 동작, 이번 수정과 무관).
+
+### 후속 메모 (2026-10-10, 같은 날 이어진 작업)
+- **서버 실행 확인됨.** 위 "확인"의 "서버는 실행해 보지 못함"은 이후 해소 — 사용자가 이 PC에서 `Server/`를 실행했고, curl 62개 항목·만료·에디터 1인 호스트 흐름이 통과함. 결과와 남은 수동 항목은 `review-tests-2.md`의 "자동 확인 결과".
+- **환경 변수는 설정하지 않아도 됨**(전부 기본값 있음). 필요한 것은 Node.js 설치와 `npm install`. `TRUST_PROXY`는 프록시 뒤에서만 설정.
+- **커밋/푸시:** `dbc8924`를 `origin/mainc`(`mhyjw98158/Food-Chain-Game`)에 푸시함. `Server/` 포함, `rooms.db`·`node_modules` 제외.
+- **보류 — 원본 저장소 업로드:** 사용자가 "다른 저장소"가 원본이라고 했으나 주소를 아직 받지 못함. 이 PC의 원격은 `origin` 하나뿐이고, 예전 흔적(`mhyjw98/mainc`)으로 추정한 `mhyjw98/Food-Chain-Game`은 조회되지 않음(비공개이거나 이름이 다름). 주소·브랜치와 쓰기 권한 확인 후 진행.
+- **보류 — 서버를 껐다 켜야 하는 테스트**(서버 다운 팝업, 재시작 후 방 유지): 사용자 승인 대기.
+- **다음 수정 후보:** 미충족 항목 중 "게임 진행 중 상태"를 서버에 알리는 것을 우선 권장함(사용자 결정 대기).
+
+## [2026-10-11] 테스트 중 수정 (MCP 자동 테스트 2단계)
+
+### 경고
+- [Assets/Prefab/RoomManager.prefab] Spawnable Prefabs에 Corpse가 없어, 방을 나갔다가(타이틀 복귀 시 RoomManager가 프리팹으로 다시 생성됨) 다시 입장한 클라이언트에서 시체 스폰이 실패함(`Failed to spawn server object`). Corpse는 `Start.unity`의 씬 오버라이드에만 등록돼 있었음 → 프리팹에 Corpse 추가(수정함, MCP). 프리팹 저장 시 `RoomHost`/`RoomJoin`의 새 `[SerializeField]` 기본값도 함께 직렬화됨(값 변화 없음). 테스트: review-tests-2.md 7-4
+- 참고: ParrelSync 클론은 플레이 모드 중에는 바뀐 에셋을 다시 읽지 않는다. 에셋을 고친 뒤에는 클론의 플레이 모드를 끄고 새로고침해야 반영됨
+
+### 추가 수정 (2026-10-11, 사용자 요청)
+- [Assets/Script/Player/GamePlayer.cs `Die`, `OnAliveChanged`] [Assets/Script/UI/GamePlayUI.cs `CloseInvestigationOnDeath`] 탐색/시체 조사 도중 죽으면 즉시 중단하고 결과를 남기지 않도록 변경. 서버: `Die()`에서 진행 중인 탐색·시체 조사 코루틴을 바로 멈춤(실패 안내 RPC도 보내지 않음). 클라이언트: 본인 사망 시 탐색 창(선택/진행/결과)과 시체 조사 진행 바를 닫고 잠금 해제. 기존에는 "탐색 실패" 창이 남고 대상 버튼이 다시 생겼음 → 수정함. 탐색 쪽은 3인 테스트로 확인, 시체 조사 쪽은 review-tests.md 3-10에 남김
+
+### 추가 수정 (2026-10-11, 테스트에서 실패한 M-5 / M-9)
+- [Assets/Script/Player/RoomPlayer.cs `OnClientExitRoom`] 로비에서 누군가 나가면 남은 RoomPlayer 전원이 숨겨지던 문제. Mirror가 RoomPlayer 하나가 파괴될 때마다 남은 전원의 `OnClientExitRoom`을 부르는데 여기서 무조건 숨겼음 → 현재 씬 기준(`RefreshRoomVisualsForCurrentScene`)으로 결정하도록 수정함. 3인 로비 퇴장으로 확인
+- [Assets/Script/Network/RoomManager.cs `OnRoomServerSceneChanged`, `IsSameScene`] 로비 복귀 시 재배치(와 `RpcSetRoomVisualsActive`)가 한 번도 실행되지 않던 문제. Mirror가 넘기는 값은 씬 경로인데 씬 이름과 비교하고 있었음 → 파일 이름 기준으로 비교하도록 수정함. 게임 후 복귀에서 참가자 재배치와 화면 간 위치 일치 확인. 이 수정으로 `RpcTeleport` 재배치 경로가 처음으로 실제 실행되기 시작했으므로, 빌드/느린 클라이언트에서의 재확인은 review-tests-2.md M-9에 남김
+
+### 추가 수정 (2026-10-11, 테스트에서 실패한 입장 거부 사유)
+- [Assets/Script/Network/RoomManager.cs `ServerRejectConnection`, `OnRoomNoticeReceived`, `OnServerReady`] 방장이 게임 씬으로 넘어가는 순간에 입장하면 거부 사유 대신 "서버와의 연결이 끊어졌습니다."가 뜨던 문제. 접속한 클라이언트는 사유보다 먼저 씬 전환 지시를 받아 로딩 중에는 메시지를 처리하지 못하는데, 서버가 0.5초 뒤 끊어서 사유를 읽기 전에 끊겼음 → 사유(게임 진행 중/정원 초과)를 받은 클라이언트가 스스로 타이틀로 나가도록 수정함. 서버 타이머는 나가지 않는 연결을 정리하는 안전장치로만 남기고 `rejectDisconnectTimeout`(기본 5초, 인스펙터 조절)으로 교체. 프리팹에 0.5로 저장돼 있던 옛 필드(`rejectDisconnectDelay`)는 더 이상 읽지 않음
+- 거부된 연결이 서버에 더 오래(최대 5초) 남게 되므로, `OnServerReady`에서 거부된 연결은 준비 상태로 만들지 않도록 막음(준비되면 진행 중인 게임의 오브젝트가 그 클라이언트로 전송됨). 테스트에서 거부된 클라이언트 화면의 GamePlayer 수가 0으로 유지되는 것을 확인
+- 확인: 에디터 3개로 시작 직전/직후/진행 중 5회 모두 올바른 문구, 정원 초과(직접 접속)·방장 방 닫기 문구 정상, 콘솔 에러 없음. 느린 PC/빌드와 5초 안전장치는 review-tests-2.md M-5에 남김
+
+## [2026-10-11] 음성 채팅 보완 (사용자 요청)
+
+### 변경
+- [Assets/Script/Voice/InGameVoiceProximity.cs] 듣는 범위를 "내 시야 + 1.5"에서 **최소 시야(6)와 최대 시야(11)의 가운데 값 8.5**로 고정(`minVisionRadius`, `maxVisionRadius`). 캐릭터·낮밤과 무관해져 서로 대칭으로 들린다. 시야 값 6/11은 `GameMamager.GetVisionForAnimal`에 하드코딩된 값을 옮겨 적은 것이라, 시야 수치를 바꾸면 이쪽도 맞춰야 함
+- [같은 파일 `ComputeDistanceAttenuation`] 거리감 추가: `fullVolumeDistance`(2) 안은 그대로, 가장자리 직전(7.5)에서 `farAttenuationDb`(-12dB)까지 줄고, 마지막 1 구간에서 무음까지 줄어든다. 좌우 방향감은 넣지 않음. `farAttenuationDb`를 0으로 두면 거리감 없음
+- [같은 파일 `Tick`] 채널 전환이 진행 중이면 음량을 적용하지 않음(결과 화면 전환 때 떠나는 채널의 참가자에 적용해 Vivox 1001 에러가 나던 것)
+- [Assets/Script/Player/GamePlayer.cs `TargetShowGameResult`, `OnAliveChanged`] [VoiceManager `EnterResult`, `DesiredContext`] 결과 화면이 뜨면 전원이 로비 채널로 모여 서로 들린다. 그 뒤의 사망 처리로 다시 유령 채널로 돌아가지 않게 막음
+- [Assets/Script/Setting/KeySetting.cs] `KeyAction`에 `VOICE_TALK`(V), `VOICE_MUTE`(M) 추가, 설정 창이 없어도 저장된 키를 읽는 `KeySetting.GetKey` 추가. [VoiceManager] 인스펙터의 키 필드를 없애고 키 설정을 읽도록 변경
+- [Assets/Prefab/UI/Setting UI.prefab, MCP] 키세팅 탭 맨 위에 "눌러서 말하기", "마이크 음소거" 두 줄 추가(ChangeKey 5, 6). 7줄이 들어가도록 줄 배경 높이 120→80, 패널 위아래 여백 70→40
+- [Assets/Script/Voice/VoiceSetting.cs] [Setting UI.prefab "해상도 & 장치" 탭] 마이크 테스트 추가: 버튼으로 시작/중지, 입력 크기 막대, 내 목소리 되돌려 듣기. 음성 채널 밖(타이틀)에서도 되도록 Unity `Microphone`으로 직접 읽는다. 테스트 중에는 음성 송신을 막고(`VoiceManager.SetMicTestActive`), 탭을 옮기거나 창을 닫으면 자동 중지
+- [Assets/Script/Voice/MicStatusUI.cs] [Assets/Prefab/UI/Mic Status UI.prefab] "음성 연결 중" 문구 제거. 채널에 들어가 다른 플레이어를 들을 수 있을 때만 "음성 채널 참여중 · (마이크 상태)" 표시, 그 전에는 비움(`notJoinedText`). 문구가 길어져 잘리므로 라벨 자동 글자 크기(14~26) 켬
+
+### 확인 (에디터 2개, MCP)
+- 컴파일 에러 없음(에디터 3개). 키세팅 목록/맞바꾸기/기본값 복원, 마이크 테스트 시작·중지·창 닫을 때 중지·송신 차단, 거리별 감쇠 수치, 사망 시 유령 채널 전환, 결과 화면에서 양쪽 모두 로비 채널로 합류, 상태 문구(가장 긴 경우 포함 잘림 없음)
+- 못 한 것: 실제 소리, 실제 키 입력, 마이크 막대 움직임(테스트 PC 입력이 무음) → review-tests-2.md V-3, V-5, V-7
+
+### 보고 지나간 것(미조치)
+- 죽은 직후 유령 채널 입장이 끝날 때까지 약 1.5초 동안은 죽은 사람의 목소리가 생존자 채널로 계속 나간다(기존 동작)
+- 결과 화면 전환 시 기존 채널을 먼저 떠나고 로비 채널에 들어가므로 약 2.4초 동안 음성이 끊긴다
+- 음성 점검에서 나온 나머지 문제(끊김 후 재접속 없음, 개별 음소거가 설정 창을 열어야 적용, 유령은 생존자 음량 조절 불가, 장치 변경 취소 미복원, 저장한 음량·장치의 시작 시 적용 여부)는 이번 요청 범위 밖이라 그대로 둠
+
+### 추가 변경 (2026-10-11, 사용자 요청: 눌러서 말하기 표시)
+- [Assets/Script/Voice/MicStatusUI.cs] 눌러서 말하기 방식의 표시를 "키를 누르는 동안만 마이크 켜짐(초록), 그 외에는 마이크 꺼짐(빨강)"으로 변경(기존: "[V] 누르고 말하기" / "말하는 중"). 누르는 키 안내는 아래 방식 줄로 옮김: "눌러서 말하기 [V] (음소거 [M])" (`pushToTalkModeFormat`). 안 쓰게 된 `talkingText`, `pushToTalkWaitingText`, `pushToTalkModeText` 제거
+- 확인: 방식 전환 → 누름 → 뗌 → 음소거 중 누름 순서로 Vivox 입력 음소거 상태와 문구·색이 함께 바뀜(키 입력은 내부 값으로 흉내 냄). 마이크 자체의 켜짐/꺼짐 동작은 기존 코드 그대로
+
+### 추가 변경 (2026-10-11, 사용자 요청: 사운드 설정의 눌러서 말하기 토글)
+- [Assets/Prefab/UI/Setting UI.prefab, MCP] 사운드 탭 "입력 장치" 아래에 "눌러서 말하기" 토글 줄 추가, `VoiceSetting.pushToTalkToggle`에 연결(처리 코드는 기존에 있었음). 켜면 눌러서 말하기 방식(평소 음소거, 키를 누르는 동안만 송신), 끄면 항상 켜짐. 화면 아래 방식 버튼과 서로 따라간다
+- 7줄이 스크롤 없이 들어가도록 사운드 목록의 위 여백 50→20, 줄 간격 20→10, 아래 여백 30, Content에 ContentSizeFitter 추가
+- [Assets/Script/Voice/VoiceSetting.cs `HookVoiceManager`] VoiceManager가 설정 창보다 늦게 만들어져도 토글·장치 목록이 연결되도록 Update에서 다시 확인
+- 확인: 토글 켬 → Vivox 입력 음소거, 키 누름(흉내) → 해제, 뗌 → 음소거, 방식 버튼으로 바꾸면 토글도 바뀜, 화면 배치 겹침 없음
+
+## [2026-10-12] 음성 채팅 개선 1단계 (사용자 요청: 재접속 / 종료 시 로그아웃 / 음소거 저장)
+
+- [Assets/Script/Voice/VoiceManager.cs `UpdateReconnect`, `IsDesiredStateActive`, `GetWantedChannels`] 요청한 음성 상태(로비/생존자/유령 채널)와 실제 상태를 1초마다 비교해, 다르면(로그아웃됨, 채널에서 빠짐, 입장 실패) 다시 맞춘다. 실패하면 2초부터 두 배씩 늘려 최대 30초 간격으로 **횟수 제한 없이** 재시도(`reconnectCheckInterval`, `reconnectInitialDelay`, `reconnectMaxDelay`). 방을 나가 요청 상태가 없으면 시도하지 않는다
+- [같은 파일 `LogVoiceFailure`] 재시도 중 같은 실패가 반복되므로 첫 실패만 에러, 이후는 경고 한 줄
+- [같은 파일 `OnWantsToQuit`, `LogoutThenQuitAsync`, `OnApplicationQuit`] 창을 닫아 끌 때 음성 로그아웃이 끝날 때까지 종료를 최대 `quitLogoutTimeout`(1.5초) 미룬다. 로그아웃이 겹쳐 불려도 한 번만 진행(`LeaveAndLogoutAsync`). 방에서 튕기는 경우의 채널 퇴장은 기존 `RoomManager.CleanupAndLoadTitle` 그대로
+- [같은 파일 `SetMicMuted`, `Awake`] 마이크 음소거 상태를 저장하고 시작할 때 불러온다(`Voice_MicMuted`)
+- 확인(에디터 1개): 강제 로그아웃 → 4.3초 뒤 같은 채널 복귀·음소거 유지 / 채널만 이탈 → 2초 뒤 복귀 / 입장 실패 반복 → 2·4·8·16·30초 간격, 원인 해소 후 다음 시도에서 복구 / 방 나간 뒤 8초간 재접속 없음 / 플레이 종료 시 콘솔 에러 없음
+- 못 한 것: 실제 네트워크 끊김, 빌드에서 창 닫기 → review-tests-2.md V-8
+- 참고: 원인이 풀린 뒤에도 다음 시도 시각까지는 기다리므로 복구가 최대 30초 늦을 수 있음
+
+## [2026-10-12] 음성 채팅 개선 2단계 (사용자 요청: 사망 즉시 송신 차단 / 개별 음소거 유지)
+
+- [Assets/Script/Voice/VoiceManager.cs] 연결 확인 간격 `reconnectCheckInterval` 1초 → 5초(사용자 요청). `Start.unity`의 VoiceManager에도 5로 저장(씬 저장 시 지난번에 없앤 `pushToTalkKey`/`muteToggleKey` 값이 빠지고 재접속·종료 관련 새 필드가 기록됨). 로그아웃 알림이 오는 끊김은 간격과 무관하게 즉시 재시도
+- [VoiceManager `RequestContext`, `_transmitBlocked`] 살아 있다가 죽은 것으로 바뀌는 순간 내 마이크 송신을 바로 막고, 유령 채널로 옮겨져 말하는 채널이 유령 채널로 고정된 뒤에 푼다. 기존에는 채널 이동이 끝날 때까지(약 1.5초) 생존자 채널로 말이 나갔음
+- [VoiceManager `SilenceInAliveChannelNow`] [Assets/Script/Player/GamePlayer.cs `OnAliveChanged`] 다른 플레이어의 사망이 확정되면 듣는 쪽에서도 그 사람의 생존자 채널 음량을 즉시 0으로. [InGameVoiceProximity `Tick`] 죽었거나 누구인지 모르는 참가자는 서서히 줄이지 않고 바로 끔
+- [VoiceManager `SetParticipantMuted`, `IsParticipantMutedByMe`, `OnParticipantAdded`, `ApplyInitialParticipantVolumes`] 개별 음소거의 저장·적용을 VoiceManager로 옮김. 참가자가 채널에 나타날 때마다(채널 이동, 재접속 포함) 저장값을 적용하므로 설정 창을 열지 않아도 유지된다. [LobbyVoiceParticipantRow] 는 이 함수를 부르기만 함
+- 확인(에디터 2개): 로비에서 음소거 → 게임 채널 참가자에 0.01초 안에 음소거 적용 / 서버 사망 처리 후 0.03초에 본인 입력 음소거, 0.01초에 상대 화면 음량 -50, 1.37초 뒤 유령 채널로 송신 대상이 바뀌고 차단 해제 / 콘솔 에러 없음
+- 참고: 사망 판정 시점은 `isAlive` 동기화가 클라이언트에 도착하는 순간이다. 나중에 사망 연출을 넣을 때 `isAlive` 변경을 연출 뒤로 미루면 차단도 같이 늦어지므로, 연출은 `isAlive` 변경 뒤에 재생해야 함
+- 참고: 플레이 도중 메인 에디터가 스크립트를 다시 읽어 들여(로그: "Assetdatabase observed changes in script compilation related files") 테스트가 한 번 중단됨. 원인 파일은 찾지 못함. 에디터 설정 Script Changes While Playing 을 "Recompile After Finished Playing"으로 두면 플레이 중에는 일어나지 않는다
+
+## [2026-10-12] 음성 채팅 개선 3단계 (사용자 요청: 플레이어 목록 개편 / 사망·말하는 표시)
+
+- [Assets/Script/Voice/VoiceUI.cs 새로 작성] 목록의 기준을 "지금 내가 말하는 음성 채널의 참가자"에서 **방의 모든 플레이어(RoomPlayer)**로 바꿈. 유령·생존자·로비·결과 화면 어디서든 전원의 음량·음소거를 정할 수 있다. 목록이 화면에 보일 때만 갱신(구성 0.5초, 상태 0.1초)
+- [Assets/Script/Voice/LobbyVoiceParticipantRow.cs 새로 작성] 음성 참가자 객체가 아니라 음성 ID 기준으로 동작. 음량·음소거는 `VoiceManager.SetParticipantVolume` / `SetParticipantMuted`로 저장·적용. 사망 시 프로필을 어둡게, 말하는 동안 초록 테두리(`SetState`)
+- [Assets/Script/Voice/VoiceManager.cs `UpdateSpeaking`, `IsSpeaking`, `IsSpeakingVisible`, `FindGamePlayer`, `SetParticipantVolume`] 0.1초마다 말하는 참가자를 모아 두고, 표시 가능 여부를 한곳에서 판정: 로비·결과 화면은 조건 없음 / 게임 중은 내 시야 안의 플레이어만 / 유령의 말은 유령에게만
+- [Assets/Script/Voice/VoiceSpeakingIcon.cs 신규] [RoomPlayer.prefab, GamePlayer.prefab, MCP] 닉네임 위에 스피커 아이콘(닉네임 캔버스의 자식이라 시야 밖에서는 닉네임과 함께 숨는다). 아이콘은 임시 이미지 `Assets/Sprite/UI/SpeakerIcon_Temp.png`
+- [Assets/Script/Player/GamePlayer.cs `IsKnownDeadToLocal`, `TargetLearnDeath`, `IsInLocalVision`] [PlayerUIVisibility `IsVisible`] 사망 표시 조건: 유령은 전부, 생존자는 자신이 죽였거나(공격·역공) 시체를 조사한 플레이어만. 서버가 `Die()`에서 죽인 쪽에게, 시체 조사 완료 시 조사한 쪽에게 알린다. 판이 시작될 때 초기화
+- [Assets/Prefab/UI/Voice Row.prefab, MCP] 프로필에 초록 테두리(평소 꺼짐), 음소거 토글과 "음소거" 글자 추가. **기존 음소거 토글은 원본 프리팹이 없는 상태(Missing Prefab)라 동작하지 않고 있었음** → 꺼 두고 새 토글을 연결
+- 확인(에디터 2개): 로비 목록·초록 테두리·머리 위 아이콘 / 게임 중 거리 30에서 미표시, 1.2에서 표시 / 죽인 사람을 모르는 사망은 평소 색, 내가 죽인 경우(실제 서버 알림 경로) 어둡게 / 콘솔 에러 없음
+- 테스트 중 발견·수정: 게임 중에는 내 RoomPlayer의 `isLocalPlayer`가 꺼져서 목록에 나 자신이 한 줄 더 나옴 → 음성 ID·소유 여부로 제외
+- 참고: 말하는 상태는 실제 음성 감지 대신 내부 값을 넣어 흉내 냈다(마이크에 소리를 낼 수 없음). 클론 1은 반영이 늦어 이번 테스트에서 제외
+- 참고(정보 노출): 시체 조사는 원래 죽은 **동물**만 알려 주는데, 이번 요청으로 조사한 사람의 목록에는 그 **플레이어(닉네임)**가 어둡게 표시된다. `isAlive` 자체는 예전부터 전원에게 동기화되는 값이라 변조된 클라이언트는 원래도 알 수 있었음
+
+## [2026-10-12] 음성 채팅 개선 4단계 (사용자 요청: 설정 취소 관련 코드 제거)
+
+- [Assets/Script/Voice/VoiceSetting.cs] 설정 창에는 취소가 없으므로(닫기 = 저장) 남아 있던 되돌리기용 코드를 제거: `RevertToSnapshot()`, `CaptureSnapshot()`, `_snapshot` / `Snapshot` 구조체, 되돌리기에서만 쓰던 `SelectDeviceDropdownById()`. 저장(`SaveVoiceSetting`)과 기본값(`ResetToDefault`)은 그대로
+- 확인: `RevertToSnapshot`은 코드·프리팹·씬 어디에서도 호출되지 않고 있었음(버튼 연결 없음). 해상도·사운드·키 설정에는 취소/되돌리기 코드가 없음(키 설정의 `CancelKeyChange`는 키 입력 대기를 그만두는 기능이라 대상이 아님)
+- 확인: 에디터 3개 컴파일 에러·경고 없음
+
+## [2026-10-12] 시야 영역을 빛과 일치시키기 1단계 (사용자 요청)
+
+- 원인(씬 확인): ① 미션 오브젝트 9개는 그림자(ShadowCaster2D)는 있지만 Occluder 레이어가 아니라, 빛은 막고 시야 마스크는 막지 않았다 ② 마스크 그림(20.48 단위)이 시야 지름(22.2)보다 작아 가장자리가 잘렸다 ③ 고정 각도 레이라 벽 모서리를 정확히 못 짚었다 ④ 마스크는 벽 앞면에서 멈추는데 빛은 벽·오브젝트 자체를 비춘다 ⑤ 반경이 0.1 달랐다
+- [Assets/Script/Setting/FOVMaskController2D.cs 새로 작성] 물리 레이캐스트(Occluder 레이어) 대신 **빛이 쓰는 것과 같은 ShadowCaster2D 도형**을 벽으로 삼아 직접 계산. 고정 각도가 아니라 벽 꼭짓점의 양옆과, 벽이 시야 원과 만나는 지점을 향해 계산(원 가장자리는 `arcStepDegrees` 간격). 빛처럼 그림자 오브젝트 자체는 보이고 그 뒤부터 가린다. 매 프레임 `LateUpdate`에서 갱신. 마스크 그림이 반경보다 작으면 오브젝트를 키워 맞춘다. `occluderMask`·`rayCount`·`updateInterval` 제거, `ignoreOccluders`(유령) 추가, `ContainsPoint` 추가
+- [Assets/Script/Setting/VisionUIController.cs] 머리 위 UI 판정을 시야 마스크와 같은 도형(`ContainsPoint`)으로 통일. 코드에 박혀 있던 반경 11/6과 별도 Linecast 제거
+- [Assets/Script/Player/GamePlayer.cs `RpcApplyGhostMode`] `occluderMask = 0` → `ignoreOccluders = true`
+- [Assets/Script/Player/LocalVisionLight.cs `OnStartLocalPlayer`] 시작할 때 시야 반경을 빛의 바깥 반경과 같게 맞춤. [GamePlayer.prefab, MCP] `fovOffset` 0.1 → 0.2(`outerOffset`과 같게)
+- 확인(게임 씬 플레이 모드, 테스트용 빛과 격자 점): 빛이 닿는 영역과 시야 영역이 벽 모서리·미션 오브젝트·원 가장자리에서 겹침 / 유령 설정 시 벽 뒤 포함 원형 / 실행 중 콘솔 에러 없음 / 에디터 3개 컴파일 에러 없음
+- 참고: 테스트 빛은 그림자 진하기 1로 확인했다. 실제 플레이어 빛은 0.75라 그림자 속이 완전히 검지는 않다(경계 위치는 같음)
+- 참고: GamePlay.unity는 저장하면 그림자 메시가 다시 만들어져 내용과 무관한 변경이 1만 줄 넘게 생긴다. 이번에는 씬을 저장하지 않고 코드로 처리했다(씬에 남은 예전 필드 값은 무시된다)
+- 참고: 유령은 시야 마스크만 벽을 무시하고, 빛의 그림자는 그대로 그려진다(기존 동작, 이번에 바꾸지 않음)
+
+## [2026-10-12] 시야 영역을 빛과 일치시키기 2단계 (사용자 요청: 되돌릴 수 있게 시험 기능으로)
+
+- [Assets/Script/Player/LocalVisionLight.cs] `usePolygonLight`(기본 켜짐) 추가. 켜면 빛의 그림자 기능을 끄고, 시야 마스크와 같은 삼각형 도형을 빛의 모양으로 넘긴다(빛 종류를 Sprite로 바꾸고 직접 만든 그림의 모양을 매 프레임 갱신). 끄면 빛 종류·그림자·크기를 원래 값으로 되돌린다. 플레이 중 전환 가능
+- [Assets/Script/Setting/FOVMaskController2D.cs] 시야 도형을 읽는 `WorldPointCount`/`GetWorldPoint`, 계산 직후 알리는 `PolygonUpdated` 추가
+- 구현 중 확인: 유니티의 자유 도형 빛(Freeform + `SetShapePath`)은 도형을 삼각형으로 나눌 때 일부가 겹쳐 밝은 띠가 생겼다(빛 메시 넓이 761.8 / 도형 넓이 745.1). 그래서 삼각형을 직접 만드는 Sprite 방식으로 바꿨고, 이 방식은 넓이가 정확히 같다(186.27 / 186.27, 이동 후 184.83 / 184.83)
+- 빛은 그림(Sprite)이 다른 것으로 바뀌어야 모양을 다시 읽어서, 그림 두 장을 번갈아 쓴다
+- 확인(게임 씬 플레이 모드, 플레이어 프리팹의 실제 빛): 켠 상태에서 빛과 시야 겹침, 밝은 띠 없음, 이동 시 따라옴 / 끄면 Point·그림자 켜짐·크기 1로 복귀 / 실행 중 콘솔 에러 없음
+- 참고: 네트워크 없이 프리팹을 직접 띄워 로컬 플레이어로 표시해 확인했다(실제 게임 진행 경로는 미확인)
+- 참고: 켠 상태에서는 벽 뒤에 빛이 전혀 닿지 않는다(예전 그림자 진하기 0.75 → 사실상 1)
+
+## [2026-10-12] 시야 2단계 롤백 (사용자 요청: 큰 차이가 없어 되돌림)
+
+- [Assets/Script/Player/LocalVisionLight.cs] 빛을 시야 도형으로 그리는 시험 기능(`usePolygonLight` 등) 전부 제거. 빛은 다시 원형 빛 + 그림자 방식만 쓴다
+- [Assets/Script/Setting/FOVMaskController2D.cs] 2단계용으로 추가했던 `WorldPointCount`/`GetWorldPoint`/`PolygonUpdated` 제거
+- 1단계(시야 계산을 그림자 오브젝트·꼭짓점 기준으로 바꾼 것, 반경 맞춤)는 유지
+- 테스트 목록의 S-2 항목 삭제
+- 참고로 남김: 다시 시도한다면 자유 도형 빛(Freeform)은 삼각형 분할이 겹쳐 밝은 띠가 생기므로, 삼각형을 직접 만드는 Sprite 방식이어야 한다
+
+## [2026-10-12] 미니맵 1~2단계: 기본 틀 + 코너 미니맵 스크롤/줌 (Docs/minimap.md, A안: 미리 찍은 맵 그림 + UI 마커)
+
+- [Assets/Script/Minimap/MinimapConfig.cs 신규] 맵의 월드 경계(`worldMin`/`worldMax`)와 맵 그림, 그림을 찍을 때의 설정. 에셋: `Assets/Data/Minimap/MinimapConfig_GamePlay.asset` (경계 -30.5,-6 ~ 30.5,17.5: MapBoundary 콜라이더 범위)
+- [Assets/Script/Minimap/MinimapView.cs 신규] 미니맵 한 장(코너/전체 맵 공용). `FollowPlayer`(내 위치를 가운데에 두고 맵이 움직임)와 `FitWholeMap`(전체가 한 화면) 두 방식, 모서리·크기·여백·줌·마커 크기·색을 인스펙터에서 조절. 마커는 풀에서 꺼내 쓴다. 화면이 없는 실행(batch mode)에서는 스스로 꺼진다. 네트워크로 주고받는 것 없음
+- [Assets/Script/Minimap/Editor/MinimapCaptureTool.cs 신규] Tools > Minimap > Capture Map Image: 열려 있는 씬을 위에서 찍어 설정 에셋 옆에 PNG로 저장하고 연결. 플레이어·유령·미션 오브젝트·시체·UI 레이어는 찍지 않는다
+- [GamePlay.unity `Canvas/Minimap UI`, MCP] 스크립트 없이 있던 껍데기의 자식을 새 구조(Viewport(RectMask2D) > Content > Map Image / Markers > Marker Template)로 바꾸고 MinimapView 연결. 배경은 반투명 어두운 색, 클릭을 막지 않게 Raycast Target 끔
+- [삭제] `Assets/Script/Game/Map/MiniMapController.cs`, `MinimapProfile.cs`: 씬에서 쓰이지 않았고 y 자리에 z를 넣는 오류가 있었음(사용자 확인 후 삭제)
+- 확인(게임 씬 플레이 모드, 테스트용 로컬 플레이어): 우측 하단 표시, 위치 계산(-2.9, 0.7 → 맵 기준 -34.8, -60.6), 숲으로 이동 시 맵이 따라옴, 콘솔 에러 없음
+- 참고: GamePlay.unity를 저장해서 그림자 메시 재생성에 따른 무관한 변경이 함께 들어갔다. 이 씬 파일에는 아직 커밋하지 않은 시야 변경(FOV 스크립트 필드)도 반영돼 있어, 미니맵만 따로 커밋하면 중간 커밋의 씬과 스크립트가 어긋난다
+- 남은 단계: 3 전체 맵 오버레이(Map 키, 기본 Tab) / 4 미션 마커 / 시야 안의 다른 플레이어 마커 / 5 멀티플레이 검증

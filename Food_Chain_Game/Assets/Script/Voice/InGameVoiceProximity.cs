@@ -5,7 +5,8 @@ using Unity.Services.Vivox;
 using UnityEngine;
 
 // 게임 중 "누구의 목소리가 들리는지"를 듣는 쪽(내 클라이언트)에서 참가자별 음량으로 조절한다.
-//  - 생존자: 내 시야보다 조금 넓은 범위 안에 있고 벽에 가리지 않은 생존자만 들린다
+//  - 생존자: 정해진 거리 안에 있고 벽에 가리지 않은 생존자만 들린다(멀수록 작게 들린다).
+//    거리는 캐릭터·낮밤과 상관없이 같아서, 내가 들리면 상대에게도 내가 들린다
 //  - 유령: 유령끼리는 전부 들리고(유령 채널), 가까이 있는 생존자의 목소리도 들린다
 // 내 플레이어에서만 동작한다(GamePlayer.OnStartLocalPlayer에서 켠다)
 public class InGameVoiceProximity : MonoBehaviour
@@ -14,14 +15,20 @@ public class InGameVoiceProximity : MonoBehaviour
     [SerializeField] private float tickInterval = 0.10f;
 
     [Header("생존자")]
-    [Tooltip("시야 반경에 더해 주는 거리. 시야보다 이만큼 더 먼 곳까지 목소리가 들린다")]
-    [SerializeField] private float hearRangeBeyondVision = 1.5f;
+    [Tooltip("게임에서 가장 좁은 시야 반경(포식자의 밤 시야). 듣는 범위는 최소·최대 시야의 가운데 값이다")]
+    [SerializeField] private float minVisionRadius = 6f;
+    [Tooltip("게임에서 가장 넓은 시야 반경(낮 시야)")]
+    [SerializeField] private float maxVisionRadius = 11f;
     [Tooltip("들리는 범위의 가장자리에서 소리가 서서히 작아지는 구간의 폭")]
     [SerializeField] private float edgeFadeWidth = 1.0f;
     [Tooltip("목소리를 막는 벽 레이어(시야를 막는 레이어와 같게 둔다)")]
     [SerializeField] private LayerMask obstacleMask;
-    [Tooltip("시야 정보를 읽을 수 없을 때 쓰는 시야 반경")]
-    [SerializeField] private float fallbackVisionRadius = 8f;
+
+    [Header("거리감")]
+    [Tooltip("이 거리 안에서는 줄어들지 않고 그대로 들린다")]
+    [SerializeField] private float fullVolumeDistance = 2f;
+    [Tooltip("들리는 범위의 끝(가장자리 구간 직전)에서 줄어드는 음량(dB, 음수). 0이면 거리감 없이 범위 안은 전부 같은 크기로 들린다")]
+    [SerializeField] private float farAttenuationDb = -12f;
 
     [Header("유령")]
     [Tooltip("유령이 생존자의 목소리를 들을 수 있는 거리")]
@@ -94,6 +101,9 @@ public class InGameVoiceProximity : MonoBehaviour
             context != VoiceManager.VoiceContext.GameplayDead)
             return;
 
+        // 채널을 옮기는 중(사망, 결과 화면)에는 건드리지 않는다. 떠나는 채널의 참가자에 음량을 적용하면 Vivox 에러가 난다
+        if (voice.DesiredContext != context) return;
+
         // 생존자 채널만 여기서 조절한다. 유령 채널은 VoiceManager가 개별 음량 그대로 둔다
         string aliveChannel = null;
         foreach (var name in VivoxService.Instance.ActiveChannels.Keys)
@@ -111,7 +121,7 @@ public class InGameVoiceProximity : MonoBehaviour
 
         bool iAmGhost = !localPlayer.isAlive || context == VoiceManager.VoiceContext.GameplayDead;
         Vector2 myPosition = localPlayer.transform.position;
-        float hearRange = iAmGhost ? ghostHearDistance : GetVisionRadius() + hearRangeBeyondVision;
+        float hearRange = iAmGhost ? ghostHearDistance : (minVisionRadius + maxVisionRadius) * 0.5f;
         float fadeWidth = iAmGhost ? ghostEdgeFadeWidth : edgeFadeWidth;
 
         _seen.Clear();
@@ -124,15 +134,20 @@ public class InGameVoiceProximity : MonoBehaviour
 
             float target = VoiceManager.MinVolume;
 
-            // 누구인지 알 수 없는 참가자, 죽은 참가자(유령은 생존자 채널에 말하지 않는다)는 들리지 않게 한다
-            if (_playersByVoiceId.TryGetValue(participant.PlayerId, out var speaker) && speaker != null && speaker.isAlive)
+            // 누구인지 알 수 없는 참가자, 죽은 참가자(유령은 생존자 채널에 말하지 않는다)는 들리지 않게 한다.
+            // 이 경우는 서서히 줄이지 않고 바로 끈다(사망이 확정된 뒤의 말이 새지 않게)
+            bool canSpeakHere = _playersByVoiceId.TryGetValue(participant.PlayerId, out var speaker) && speaker != null && speaker.isAlive;
+            if (!canSpeakHere)
+                _attenuation[participant.PlayerId] = VoiceManager.MinVolume;
+
+            if (canSpeakHere)
             {
                 Vector2 speakerPosition = speaker.transform.position;
                 float distance = Vector2.Distance(myPosition, speakerPosition);
 
                 // 유령은 벽을 통과하므로 벽에 가려도 들린다
                 if (distance < hearRange && (iAmGhost || !IsBlockedByWall(myPosition, speakerPosition)))
-                    target = ComputeEdgeFade(distance, hearRange, fadeWidth);
+                    target = ComputeDistanceAttenuation(distance, hearRange, fadeWidth);
             }
 
             ApplyParticipantVolume(participant, target);
@@ -160,16 +175,6 @@ public class InGameVoiceProximity : MonoBehaviour
         }
     }
 
-    // 지금 실제로 적용돼 있는 내 시야 반경(낮/밤, 능력에 따른 변화 포함)
-    private float GetVisionRadius()
-    {
-        var vision = VisionUIController.Instance;
-        if (vision != null && vision.fov != null)
-            return vision.fov.viewRadius;
-
-        return fallbackVisionRadius;
-    }
-
     private bool IsBlockedByWall(Vector2 from, Vector2 to)
     {
         if (obstacleMask.value == 0) return false;
@@ -177,17 +182,19 @@ public class InGameVoiceProximity : MonoBehaviour
         return Physics2D.Linecast(from, to, obstacleMask).collider != null;
     }
 
-    // 범위 안쪽은 0(그대로), 가장자리 구간에서 MinVolume(무음)까지 서서히 줄어든다
-    private static float ComputeEdgeFade(float distance, float range, float edgeWidth)
+    // 가까우면 0(그대로), 멀어질수록 farAttenuationDb까지 줄고, 가장자리 구간에서 MinVolume(무음)까지 서서히 줄어든다
+    private float ComputeDistanceAttenuation(float distance, float range, float edgeWidth)
     {
         if (distance >= range) return VoiceManager.MinVolume;
-        if (edgeWidth <= 0.001f) return 0f;
 
-        float fadeStart = Mathf.Max(0f, range - edgeWidth);
-        if (distance <= fadeStart) return 0f;
+        float fadeStart = Mathf.Max(0f, range - Mathf.Max(0f, edgeWidth));
+        float nearDistance = Mathf.Min(fullVolumeDistance, fadeStart);
+        float farDb = fadeStart > nearDistance ? Mathf.Min(0f, farAttenuationDb) : 0f;
 
-        float t = Mathf.InverseLerp(fadeStart, range, distance);
-        return Mathf.Lerp(0f, VoiceManager.MinVolume, t);
+        if (distance <= fadeStart)
+            return Mathf.Lerp(0f, farDb, Mathf.InverseLerp(nearDistance, fadeStart, distance));
+
+        return Mathf.Lerp(farDb, VoiceManager.MinVolume, Mathf.InverseLerp(fadeStart, range, distance));
     }
 
     private void ApplyParticipantVolume(VivoxParticipant participant, float target)

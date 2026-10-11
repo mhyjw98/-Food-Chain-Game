@@ -34,7 +34,7 @@ public class RoomManager : NetworkRoomManager
     {
         List<string> baseCharacters = new()
     {
-        "Ostrich", "Zebra", "Wolf", "Badger", "Scorpion", "Crow", "Skunk", "Squirrel", "Crocodile", "Fox"
+        "Crow", "Wolf", "Scorpion", "Ostrich", "Zebra",  "Badger", "Scorpion",  "Skunk", "Squirrel", "Crocodile", "Fox"
     };
 
         List<string> additionalCharacters = new()
@@ -67,8 +67,8 @@ public class RoomManager : NetworkRoomManager
     private readonly Dictionary<NetworkConnectionToClient, Vector3> _pendingRoomTeleports = new();
 
     [Header("Disconnect Notice")]
-    [Tooltip("입장을 거부할 때 사유 메시지가 전달될 시간을 주고 나서 연결을 끊기까지의 지연(초)")]
-    [SerializeField] private float rejectDisconnectDelay = 0.5f;
+    [Tooltip("입장을 거부당한 클라이언트는 사유를 받으면 스스로 나간다. 그래도 나가지 않는 연결을 서버가 강제로 끊기까지의 대기 시간(초)")]
+    [SerializeField] private float rejectDisconnectTimeout = 5f;
     [Tooltip("방장이 방을 닫을 때 안내 메시지가 전달될 시간을 주는 지연(초)")]
     [SerializeField] private float hostCloseNoticeDelay = 0.2f;
 
@@ -115,19 +115,22 @@ public class RoomManager : NetworkRoomManager
         base.OnServerConnect(conn);
     }
 
-    // 사유를 먼저 보내고, 전달될 시간을 준 뒤 연결을 끊는다(바로 끊으면 메시지가 도착하기 전에 끊긴다)
+    // 사유만 보내고 서버가 바로 끊지는 않는다. 사유를 받은 클라이언트가 스스로 나간다(OnRoomNoticeReceived).
+    // 접속한 클라이언트는 사유보다 먼저 씬 전환 지시를 받아 로딩하는 동안 메시지를 처리하지 못하므로,
+    // 서버가 짧은 지연 뒤에 끊으면 로딩이 긴 클라이언트는 사유를 읽기 전에 끊겨 일반 끊김 문구가 나온다
     private void ServerRejectConnection(NetworkConnectionToClient conn, RoomNoticeReason reason)
     {
         Debug.Log($"[RoomManager] 연결 거부({reason}): {conn}");
 
         _rejectedConnections.Add(conn);
         conn.Send(new RoomNoticeMessage { reason = reason });
-        StartCoroutine(CoDisconnectAfterDelay(conn));
+        StartCoroutine(CoDisconnectRejectedAfterTimeout(conn));
     }
 
-    private IEnumerator CoDisconnectAfterDelay(NetworkConnectionToClient conn)
+    // 사유를 받고도 나가지 않는 연결(응답 없음, 변조된 클라이언트)을 정리하는 안전장치
+    private IEnumerator CoDisconnectRejectedAfterTimeout(NetworkConnectionToClient conn)
     {
-        yield return new WaitForSecondsRealtime(rejectDisconnectDelay);
+        yield return new WaitForSecondsRealtime(rejectDisconnectTimeout);
 
         if (conn != null && NetworkServer.connections.ContainsKey(conn.connectionId))
             conn.Disconnect();
@@ -136,6 +139,10 @@ public class RoomManager : NetworkRoomManager
     private void OnRoomNoticeReceived(RoomNoticeMessage message)
     {
         _pendingNotice = message.reason;
+
+        // 입장 거부는 서버가 끊어 주기를 기다리지 않고 스스로 나간다
+        if (message.reason == RoomNoticeReason.GameInProgress || message.reason == RoomNoticeReason.RoomFull)
+            StartCoroutine(ReturnToTitleCoroutine());
     }
 
     // 끊김 사유를 한 번 꺼내 쓰고 비운다. 서버가 알려준 사유가 없으면 fallback을 그대로 쓴다
@@ -621,7 +628,9 @@ public class RoomManager : NetworkRoomManager
 
         _pendingRoomTeleports.Clear();
 
-        if (sceneName == "GamePlay")
+        // Mirror는 씬 이름이 아니라 ServerChangeScene에 넘긴 값(= GameplayScene/RoomScene에 저장된 경로)을 그대로 넘긴다.
+        // "GamePlay"/"GameRoom" 같은 이름과 비교하면 한 번도 일치하지 않아 아래 처리가 전부 건너뛰어진다
+        if (IsSameScene(sceneName, GameplayScene))
         {
             foreach (var rp in roomPlayers)
             {
@@ -631,7 +640,7 @@ public class RoomManager : NetworkRoomManager
             return;
         }
 
-        if (sceneName != "GameRoom")
+        if (!IsSameScene(sceneName, RoomScene))
             return;
 
         foreach (var rp in roomPlayers)
@@ -646,6 +655,17 @@ public class RoomManager : NetworkRoomManager
 
         if (SpawnManager.Instance == null)
             Debug.LogWarning("[RoomManager] OnRoomServerSceneChanged: SpawnManager.Instance가 null이라 RoomPlayer 재배치를 건너뜁니다.");
+    }
+
+    // 씬을 가리키는 두 값이 같은 씬인지. 경로("Assets/Scenes/GameRoom.unity")와 이름("GameRoom")이 섞여 와도 비교되도록 파일 이름만 본다
+    private static bool IsSameScene(string a, string b)
+    {
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
+
+        return string.Equals(
+            System.IO.Path.GetFileNameWithoutExtension(a),
+            System.IO.Path.GetFileNameWithoutExtension(b),
+            System.StringComparison.Ordinal);
     }
 
     // RoomPlayer의 위치는 본인 클라이언트가 정한다(NetworkTransform: Client→Server).
@@ -681,6 +701,9 @@ public class RoomManager : NetworkRoomManager
 
     public override void OnServerReady(NetworkConnectionToClient conn)
     {
+        // 입장을 거부한 연결은 준비 상태로 만들지 않는다(준비되면 진행 중인 게임의 오브젝트가 전부 전송된다)
+        if (conn != null && _rejectedConnections.Contains(conn)) return;
+
         base.OnServerReady(conn);
 
         if (conn == null || !_pendingRoomTeleports.TryGetValue(conn, out Vector3 destination))

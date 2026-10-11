@@ -13,16 +13,18 @@ public class MicStatusUI : MonoBehaviour
     [SerializeField] private TMP_Text modeLabel;
 
     [Header("Text")]
-    [SerializeField] private string connectingText = "음성 연결 중";
+    [Tooltip("음성 채널에 들어가 다른 플레이어의 소리를 들을 수 있는 상태일 때 앞에 붙는 문구")]
+    [SerializeField] private string joinedText = "음성 채널 참여중";
+    [Tooltip("{0} = 참여 문구, {1} = 마이크 상태")]
+    [SerializeField] private string joinedFormat = "{0} · {1}";
+    [Tooltip("아직 음성 채널에 들어가지 못했을 때의 문구(비우면 아무것도 표시하지 않는다)")]
+    [SerializeField] private string notJoinedText = "";
     [SerializeField] private string mutedText = "마이크 꺼짐";
     [SerializeField] private string openText = "마이크 켜짐";
-    [SerializeField] private string talkingText = "말하는 중";
-    [Tooltip("{0} = 눌러서 말하기 키")]
-    [SerializeField] private string pushToTalkWaitingText = "[{0}] 누르고 말하기";
     [Tooltip("{0} = 음소거 키")]
     [SerializeField] private string openModeText = "항상 켜짐 (음소거 [{0}])";
-    [Tooltip("{0} = 음소거 키")]
-    [SerializeField] private string pushToTalkModeText = "눌러서 말하기 (음소거 [{0}])";
+    [Tooltip("{0} = 음소거 키, {1} = 눌러서 말하기 키")]
+    [SerializeField] private string pushToTalkModeFormat = "눌러서 말하기 [{1}] (음소거 [{0}])";
 
     [Header("Color")]
     [SerializeField] private Color activeColor = new Color(0.45f, 0.9f, 0.45f);
@@ -87,6 +89,7 @@ public class MicStatusUI : MonoBehaviour
     private void Refresh()
     {
         var voice = VoiceManager.Instance;
+        // 채널 입장이 끝나 다른 플레이어의 소리를 들을 수 있는 상태인지
         bool connected = voice != null && voice.IsLoggedIn && voice.CurrentContext != VoiceManager.VoiceContext.None;
 
         if (muteButton != null) muteButton.interactable = connected;
@@ -94,28 +97,33 @@ public class MicStatusUI : MonoBehaviour
 
         if (!connected)
         {
-            SetStatus(connectingText, idleColor);
+            SetStatus(notJoinedText, idleColor);
         }
         else if (voice.IsMicMuted)
         {
-            SetStatus(mutedText, mutedColor);
+            SetJoinedStatus(mutedText, mutedColor);
         }
-        else if (voice.Mode == VoiceManager.MicMode.PushToTalk)
+        else if (voice.IsMicOpen)
         {
-            if (voice.IsMicOpen) SetStatus(talkingText, activeColor);
-            else SetStatus(string.Format(pushToTalkWaitingText, voice.PushToTalkKey.ToUserFriendlyString()), idleColor);
+            SetJoinedStatus(openText, activeColor);
         }
         else
         {
-            SetStatus(openText, activeColor);
+            // 눌러서 말하기: 키를 누르고 있는 동안만 켜진 것으로 표시한다
+            SetJoinedStatus(mutedText, mutedColor);
         }
 
         if (modeLabel != null && voice != null)
         {
-            string format = voice.Mode == VoiceManager.MicMode.PushToTalk ? pushToTalkModeText : openModeText;
-            string text = string.Format(format, voice.MuteToggleKey.ToUserFriendlyString());
+            string format = voice.Mode == VoiceManager.MicMode.PushToTalk ? pushToTalkModeFormat : openModeText;
+            string text = string.Format(format, voice.MuteToggleKey.ToUserFriendlyString(), voice.PushToTalkKey.ToUserFriendlyString());
             if (modeLabel.text != text) modeLabel.text = text;
         }
+    }
+
+    private void SetJoinedStatus(string micState, Color color)
+    {
+        SetStatus(string.IsNullOrEmpty(joinedText) ? micState : string.Format(joinedFormat, joinedText, micState), color);
     }
 
     private void SetStatus(string text, Color color)

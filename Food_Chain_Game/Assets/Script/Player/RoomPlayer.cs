@@ -159,7 +159,11 @@ public class RoomPlayer : NetworkRoomPlayer
     {
         base.OnClientExitRoom();
         Debug.Log($"[RoomPlayer] OnClientExitRoom netId={netId} nickname={nickname}");
-        SetRoomVisualsActive(false);
+
+        // 이 훅은 "내가 방을 나갈 때"뿐 아니라 다른 RoomPlayer 하나가 파괴될 때마다(누군가 로비에서 퇴장)
+        // 남아 있는 모든 RoomPlayer에 대해 불린다(NetworkRoomPlayer.OnDisable → CallOnClientExitRoom).
+        // 무조건 숨기면 로비에 남은 플레이어 전원이 안 보이게 되므로, 현재 씬 기준으로만 결정한다
+        RefreshRoomVisualsForCurrentScene();
     }
 
     [Command]

@@ -5,11 +5,37 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public enum KeyAction { UP, DOWN, LEFT, RIGHT, INTERACT, KEYCOUNT }
+// 새 동작은 KEYCOUNT 바로 앞에 추가한다(번호가 버튼의 ChangeKey 인자·저장 순서와 묶여 있다)
+public enum KeyAction { UP, DOWN, LEFT, RIGHT, INTERACT, VOICE_TALK, VOICE_MUTE, KEYCOUNT }
 public class KeySetting : MonoBehaviour
 {
     public static Dictionary<KeyAction, KeyCode> keys = new Dictionary<KeyAction, KeyCode>();
-    KeyCode[] defaultKeys = new KeyCode[] { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space };
+    static readonly KeyCode[] defaultKeys = new KeyCode[] { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.V, KeyCode.M };
+
+    // 설정 창이 아직 만들어지지 않은 씬에서도 저장된 키를 읽을 수 있게 한다(음성 키는 타이틀에서도 쓰인다)
+    public static KeyCode GetKey(KeyAction action)
+    {
+        if (!keys.TryGetValue(action, out var key))
+        {
+            key = LoadKey(action);
+            keys[action] = key;
+        }
+        return key;
+    }
+
+    // 저장값이 없거나 읽을 수 없으면(손상/이전 버전) 기본 키를 쓴다
+    private static KeyCode LoadKey(KeyAction action)
+    {
+        string keyString = PlayerPrefs.GetString(action.ToString(), null);
+        if (!string.IsNullOrEmpty(keyString)
+            && Enum.TryParse(keyString, out KeyCode loadedKey)
+            && loadedKey != KeyCode.None && loadedKey != KeyCode.Escape)
+        {
+            return loadedKey;
+        }
+
+        return defaultKeys[(int)action];
+    }
 
     public GameObject[] keySettingBtn;
     public TextMeshProUGUI[] keyText;
@@ -146,18 +172,7 @@ public class KeySetting : MonoBehaviour
         {
             if (keyAction == KeyAction.KEYCOUNT) continue;
 
-            // 저장값이 없거나 읽을 수 없으면(손상/이전 버전) 기본 키를 쓴다
-            string keyString = PlayerPrefs.GetString(keyAction.ToString(), null);
-            if (!string.IsNullOrEmpty(keyString)
-                && Enum.TryParse(keyString, out KeyCode loadedKey)
-                && loadedKey != KeyCode.None && loadedKey != KeyCode.Escape)
-            {
-                keys[keyAction] = loadedKey;
-            }
-            else
-            {
-                keys[keyAction] = defaultKeys[(int)keyAction];
-            }
+            keys[keyAction] = LoadKey(keyAction);
         }
         UpdateAllKeyTexts();
     }

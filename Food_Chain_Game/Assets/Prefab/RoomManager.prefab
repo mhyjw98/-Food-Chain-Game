@@ -67,6 +67,7 @@ MonoBehaviour:
   playerSpawnMethod: 0
   spawnPrefabs:
   - {fileID: 6961162021532860453, guid: 23324fb326056bc43af4fe941bf26f87, type: 3}
+  - {fileID: 8309283827534913789, guid: 0e0bfb105f019314fa099f05975600f6, type: 3}
   exceptionsDisconnect: 1
   snapshotSettings:
     bufferTimeMultiplier: 2
@@ -185,6 +186,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d37dd2c0388e1b4c97dbacb0b00c25a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  requestTimeoutSeconds: 10
 --- !u!1 &8227577897868143019
 GameObject:
   m_ObjectHideFlags: 0
@@ -229,3 +231,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a260813edeb0cfe4081f1ea8e0f908ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  requestTimeoutSeconds: 10
+  maxRegisterAttempts: 5
+  heartbeatIntervalSeconds: 20

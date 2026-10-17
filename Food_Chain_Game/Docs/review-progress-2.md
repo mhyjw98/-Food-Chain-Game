@@ -778,3 +778,128 @@ Unity MCP 연결 상태에서 진행(컴파일·씬 확인·플레이 모드 확
 - 확인(게임 씬 플레이 모드, 테스트용 로컬 플레이어): 코너 클릭 → 열림·코너 숨김, 배경 클릭 → 닫힘·코너 표시, 전체 맵에 위치 표시, 키 목록에 Tab 표시, 키세팅 창 배치, 콘솔 에러 없음
 - 참고: 실제 Tab 키 입력과 열린 상태에서의 이동은 직접 눌러 볼 수 없어 미확인
 - 참고: 코너 미니맵이 이제 클릭을 받으므로, 미니맵 영역(우측 하단 300x300) 뒤의 월드는 클릭할 수 없다
+
+## [2026-10-17] 플레이어 탐색을 탐색 오브젝트로 일원화, 모든 플레이어 사용 가능
+
+- [Assets/Script/Player/GamePlayer.cs] 탐색 오브젝트를 조력자만이 아니라 모든 생존자가 쓸 수 있게 함(`TryStartInvestigation`, `ServerCanInvestigate`에서 조력자 조건 제거). 횟수 제한 추가: `investigationCount`(기본 1) / `helperInvestigationCount`(조력자, 기본 2), 서버가 `scanCount`로 판정하고 결과를 보낼 때만 차감. 탐색 시간 5초 → 3초(`investigationDuration`, 프리팹 값도 3). 위장한 여우는 위장한 동물로 결과가 나감(포식자 여부도 위장 동물 기준). 결과를 받으면 플레이어 목록 닉네임 옆에 동물 이름 표시
+- [GamePlayer.cs] 우클릭 메뉴용 `CmdScan`, `TargetReceiveScanResult`, `maxScanCount` 제거
+- [Assets/Script/UI/ContextMenuUI.cs, Context Menu.prefab(MCP)] "탐색" 버튼과 `scanBtn` 제거
+- [Assets/Script/UI/GamePlayUI.cs] 탐색 창에 남은 횟수 표시, 다 쓰면 목록을 띄우지 않음. 플레이어 탐색 기록 ID를 새로 만들게 해서 같은 대상을 다시 탐색해도 노트에 남게 함
+- [Assets/Script/Player/Scanner.cs, Assets/Script/Object/InvestigationObject.cs] 탐색 오브젝트 감지·클릭의 조력자 조건 제거
+- 탐색 노트(`ScanList Active Btn`)는 원래 모든 플레이어에게 보이고 있었고, 이제 모두가 기록을 남길 수 있다. 시체 조사는 조력자 전용 그대로
+- 확인: 컴파일 에러 없음. 실제 플레이는 미확인(INV 항목)
+
+## [2026-10-17] 탐색 결과창 확인 버튼이 안 눌리던 문제, 결과창 제목 구분
+
+- 원인: 캐릭터 소개 글자(`ICanvas/Start UI`의 Character/Territory/Description Text)가 연출 뒤에도 투명한 채 켜져 있고 Raycast Target이 켜져 있어, 그 아래에 있는 탐색 결과창의 확인 버튼 클릭을 가로챘다(플레이 모드에서 레이캐스트로 확인)
+- [Assets/Script/UI/GamePlayUI.cs] `Start`에서 위 세 글자의 `raycastTarget`을 끔(보여 주기만 하는 글자)
+- [GamePlayUI.cs] 결과창 제목 필드 `scanResultTitle` 추가. 시체 조사 기록은 `corpseResultTitleText`("부검 결과"), 플레이어 탐색 기록은 `playerResultTitleText`("탐색 결과")
+- [GamePlay.unity, MCP] `scanResultTitle`에 `ICanvas/ScanUI/ScanResult/Panel/Title` 연결 후 저장
+- 확인(게임 씬 플레이 모드): 노트 기록 클릭 → 제목 구분 표시, 확인 버튼으로 닫힘·잠금 해제
+- [Assets/Script/UI/InvestigationListItem.cs, ScanList Item.prefab(MCP)] 노트 목록 항목의 `SubTitle Text`가 "부검 결과"로 고정돼 있던 것을 기록 종류에 따라 바꾸도록 `typeText`로 연결(시체 조사: `corpseTypeText` "부검 결과", 탐색 오브젝트: `playerTypeText` "탐색 결과")
+
+## [2026-10-17] 맵 공간 1.5배 (사용자 결정: 공간만 넓히고 물체 크기는 유지)
+- [GamePlay.unity, MCP] `Room Map` 아래 바닥·벽·경계·Map Block(38개)은 위치·크기 ×1.5, 미션/탐색 오브젝트(19개)는 위치만 ×1.5(크기 그대로). 부모 스케일을 바꾸지 않고 값에 직접 곱해서, 나중에 놓는 물체가 커지지 않게 함. 벽 두께도 1.5배(틈이 생기지 않도록 비율 유지)
+- `Spawn Point` 13개 위치 ×1.5, 꺼져 있는 `Sky Block` 위치·크기 ×1.5
+- 경계: -30.5,-6 ~ 30.5,17.5 → -45.75,-9 ~ 45.75,26.25. `MinimapConfig_GamePlay.asset` 경계를 맞추고 Tools > Minimap > Capture Map Image로 그림을 다시 찍음
+- 코드에 맵 좌표를 하드코딩한 곳은 없음(확인). 시야 반경은 그대로라 맵 대비 상대적으로 좁게 보임
+
+## [2026-10-17] 위장 오브젝트
+- [Assets/Script/Object/DisguiseObject.cs 신규] 위장 오브젝트. 서버 거리 판정용 `IsAnyInRange`(`interactRange` 기본 2), 클릭으로도 열림
+- [Assets/Script/Player/Scanner.cs, PlayerMove.cs] 상호작용 대상에 `Disguise` 추가. 살아 있는 여우에게만 대상이 됨
+- [Assets/Script/Player/GamePlayer.cs] `CanDisguise`(여우), `TryStartDisguise`(위장 창 열기). `CmdSetDisguise`에 위장 오브젝트 근처인지 서버 확인 추가
+- [GamePlay.unity, MCP] `Room Map/Forest/Disguise Object` 배치(숲 아래쪽 가운데, 탐색 오브젝트와 같은 모양에 보라색, 임시). 위장 창에 닫기 버튼(`Disguise UI/Panel/DeActive Btn` → `CloseDisguiseUI`)이 없어서 추가(없으면 동물을 고르기 전에는 창을 닫을 수 없었음)
+- 위장 창(13종 목록·확인창)은 기존 `ShowDisguiseUI`/`SetDisguiseOptions`를 그대로 사용
+- 확인: 컴파일 에러 없음. 플레이 모드(테스트용 여우)로 창·목록·확인창·닫기·Scanner 감지·거리 판정 확인. 실제 위장 적용("네")은 네트워크가 필요해 미확인
+
+## [2026-10-17] 테스트용 직업 선택(로비)
+- [Assets/Script/UI/CharacterSelectUI.cs 신규] 로비의 "직업" 버튼 → 무작위 + 13종 목록 → 고르면 서버에 알리고 "직업 : ○○" 표시. 이동 잠금(Modal)은 열 때 한 번, 닫을 때 한 번
+- [Assets/Script/Player/RoomPlayer.cs] `requestedCharacter`(서버만 가짐, SyncVar 아님 → 다른 플레이어에게 역할이 드러나지 않음), `CmdSetRequestedCharacter`(기능이 켜져 있고 있는 캐릭터만 허용). 다시 접속하면 저장해 둔 선택을 다시 보냄
+- [Assets/Script/Data/RoomSessionData.cs] 본인 선택 `RequestedCharacter`(로비 복귀 후에도 유지, `Reset`에서 비움)
+- [Assets/Script/Network/RoomManager.cs] `allowCharacterSelectForTest`(기본 켬, 에디터·개발 빌드에서만 동작). `ServerAssignCharacters`: 직업을 고른 플레이어를 먼저 배정하고 나머지는 남은 후보에서 무작위(후보가 모자라면 나머지 캐릭터 전체에서 채움, 같은 직업을 여러 명이 고르면 중복 허용 + 경고 로그)
+- [RoomManager.cs] 기존 무작위 배정의 무한 루프 위험 수정: 후보 목록에 "Scorpion"이 두 번 있어, 7~9명이면 `assigned.Count < pool.Count`가 계속 참인 채로 do-while이 끝나지 않을 수 있었다. 아직 배정되지 않은 후보 중에서 고르도록 변경
+- [GameRoom.unity, MCP] `UI Canvas`에 `Character Select Btn`(SET 왼쪽), `Selected Character Text`(버튼 아래), `CharacterSelect UI`(색상 창을 복제해 내용 교체: 제목 "직업 선택 (테스트)", 3열 버튼 그룹, x 닫기 버튼) 추가
+- 확인: 컴파일 에러 없음. 로비 씬 플레이 모드에서 배치·버튼 14개·선택·표시·잠금 해제 확인. 실제 배정은 네트워크가 필요해 미확인
+- [2026-10-17, GamePlay.unity, MCP] 사용자 요청으로 `Disguise Object`를 숲에서 들판으로 옮김: `Room Map/Field/Disguise Object`, 탐색 오브젝트 바로 오른쪽(가장자리 사이 0.75, 월드 6.60, 5.42). 과일 미션까지 간격 3.26
+
+## [2026-10-17] 승리 예측 오브젝트, 위장·예측 1회 제한
+- [Assets/Script/Object/PredictObject.cs 신규] 위장 오브젝트와 같은 구조. 서버 거리 판정 `IsAnyInRange`(`interactRange` 기본 2), 클릭으로도 열림
+- [Assets/Script/Player/Scanner.cs, PlayerMove.cs] 상호작용 대상에 `Predict` 추가(살아 있고 `CanPredict`인 플레이어 = 까마귀)
+- [Assets/Script/Player/PlayerPrivateState.cs] `predictedPlayerNetId` 추가(본인만 동기화). 0이면 아직 예측 안 함
+- [Assets/Script/Player/GamePlayer.cs] `CanPredict`, `HasPredicted`, `HasDisguised`, `TryStartPredict`. `CmdSetPredict(uint)`: 한 번만, 예측 오브젝트 근처에서만, 예측한 플레이어와 그 동물(`predictedWinner`)을 기록. `CmdSetDisguise`: 한 번만. 동물로 예측하던 `CmdSetPredict(AnimalType)` 제거. `TargetShowPredictionUI`의 인덱서 접근을 null 안전하게 변경
+- [Assets/Script/UI/GamePlayUI.cs] 예측 창을 동물 목록에서 플레이어 목록(나 제외, 열 때마다 새로 만듦)으로 변경, 확인창 "○○님을 승리자로 예측하시겠습니까?". 위장·예측 모두 이미 했다면 목록을 숨기고 제목에 "이미 ○○…" 안내(`disguiseTitleText`/`predictTitleText`와 문구는 인스펙터). 서버 응답 전에도 다시 고르지 못하게 본인 화면에서 기억. 무작위 자동 예측(`CheckPredict`)·동물 목록(`allAnimals`)·`isSelected` 제거
+- [Assets/Script/Game/GameMamager.cs] 쓰이지 않던 단계용 `RPCShowDisguiseUI`/`RPCShowPredictUI`/`RPCCheckPredict`와 주석 처리된 위장/탐색 시간 단계 제거
+- [Assets/Script/UI/ContextMenuUI.cs, Context Menu.prefab(MCP)] 우클릭 메뉴의 "예측" 버튼 제거(예측은 예측 오브젝트에서만)
+- [GamePlay.unity, MCP] `Room Map/Field/Predict Object` 배치(위장 오브젝트 오른쪽, 월드 8.85, 5.42, 주황색 임시 그림, 과일 미션까지 1.01). 예측 창에 닫기 버튼 `Predict UI/Panel/DeActive Btn`(→ `ClosePredictUI`) 추가, 제목을 "승리할 플레이어를 예측해주세요."로 변경, `GamePlayUI`에 제목 필드 연결
+- 참고: `predictedWinner`는 기록만 되고 승패 판정에는 아직 쓰이지 않는다(기존과 같음)
+- 확인: 컴파일 에러 없음. 플레이 모드(테스트용 까마귀/여우)로 목록·확인창·확정·재진입 시 안내·닫기·거리 판정 확인. 서버 쪽 확정은 네트워크가 필요해 미확인
+- [2026-10-17, GamePlayer.cs `SetAnimalType`] 임시: 스컹크에게 승리 예측 능력(`canPredict = true`) 부여. 까마귀는 그대로 유지. 예측 판정은 모두 `canPredict`(`CanPredict`)를 보므로 다른 코드 변경 없음
+
+## [2026-10-17] 스컹크 = 승리 예측, 까마귀 = 늑대 조력자
+- [Assets/Script/Game/IWinCondition.cs] `IDependentWinCondition` 추가: 다른 플레이어의 승패를 그대로 따르는 조건(`GetDependency`로 대상을 돌려줌)
+- [Assets/Script/Game/AnimalWinCondition.cs] `SkunkWinCondition`: 예측한 플레이어(`predictedPlayerNetId`)가 승리하면 승리. 스컹크 생존 여부와 무관. 예측하지 않았거나 대상이 목록에 없으면 패배
+- [Assets/Script/Game/GameResultEvaluator.cs 신규] 전원 승패 계산: 일반 조건을 먼저, 의존 조건(스컹크)을 나중에 계산. 스컹크끼리 서로 예측한 순환은 패배. 조건에 넘기는 목록에서 빈 칸(null)을 빼서, null 확인이 없던 까마귀·악어새·하이에나·전갈 조건이 예외를 낼 수 없게 함
+- [Assets/Script/Game/GameMamager.cs] `EvaluateGameResult`가 `GameResultEvaluator.EvaluateAll` 결과를 사용
+- [Assets/Script/Player/GamePlayer.cs `SetAnimalType`] 스컹크: `canPredict = true`(정식 능력으로), `isDisguise = false`. 까마귀: `canPredict = false`(조력자 능력만 유지, 승리 조건은 기존 `CrowWinCondition` = 늑대 생존)
+- [Assets/Script/Data/CharacterData.cs] 스컹크 소개 문구: "예측 오브젝트에서 승리할 플레이어를 예측하세요.\n예측한 플레이어가 승리하면 함께 승리합니다." 까마귀 문구는 기존("늑대가 생존할 수 있도록 도와주세요…") 유지
+- 주석 갱신: 예측 오브젝트·Scanner의 "까마귀" → "스컹크", 위장 주석의 스컹크 플래그 설명
+- 확인: 컴파일 에러 없음. 승패 계산 9개 상황 20항목 통과, 역할 값·소개 문구 확인, 플레이 모드에서 까마귀/스컹크의 예측 창·Scanner 대상 확인. 실제 게임 끝까지의 진행은 미확인
+
+## [2026-10-17] 미니맵: 상호작용 오브젝트 마커, 코너 미니맵을 시야 범위로
+- [Assets/Script/Minimap/MinimapView.cs] 로컬 플레이어가 지금 상호작용할 수 있는 오브젝트에 마커를 그린다(코너 미니맵·전체 맵 공용)
+  - 노란색(`interactableMarkerColor`): 지금 내 미션으로 켜져 있고 아직 끝내지 않은 미션 오브젝트(Scanner의 미션 판정과 같음)
+  - 보라색(`specialMarkerColor`): 탐색 오브젝트(살아 있고 탐색 횟수가 남았을 때), 위장 오브젝트(여우, 아직 위장 전), 승리 예측 오브젝트(스컹크, 아직 예측 전). 다 쓰면 마커가 사라짐
+  - 마커 위치는 콜라이더 가운데. 크기 `objectMarkerSize`(코너 12, 전체 맵 18)
+  - `fitToVision`/`visionFitScale`: FollowPlayer일 때 줌을 시야 반경(`VisionUIController.fov.viewRadius`)에 맞춤 → 미니맵 반지름 = 시야 끝. 낮/밤·유령 전환 때 반경이 바뀌면 함께 바뀜
+  - 역할에 따라 마커가 다르지만 자기 화면에만 그리므로 네트워크로 드러나지 않음
+- [MissionRegistry.cs, InvestigationObject.cs, DisguiseObject.cs, PredictObject.cs] 마커용 읽기 전용 목록 `All` 추가
+- [GamePlay.unity, MCP] 코너 미니맵(`Minimap UI`): `fitToVision` 켬, Viewport의 사각 `RectMask2D`를 원형 `Mask`(테두리와 같은 원 그림)로 바꿔 시야 원 밖은 잘림, 테두리 Image를 Simple(원)로. 전체 맵(`Map`)은 맵 전체 그대로
+- 참고: 코너 미니맵은 시야 "반경"만큼 보여 준다. 벽에 가려진 부분까지 따로 가리지는 않는다
+- 확인: 컴파일 에러 없음. 게임 씬 플레이 모드(테스트용 로컬 플레이어)로 확인: 여우 → 탐색·위장 보라 2개(예측 없음), 위장·탐색을 다 쓰면 사라짐, 내 미션 → 노란 1개, 스컹크 → 탐색·예측 보라(위장 없음), 시야 11.1/5에서 줌 12.97/28.8(반지름 144px), 전체 맵에도 같은 마커, 에러 없음
+
+## [2026-10-17] 미니맵: 시야 안의 플레이어 표시, 얼룩말·타조 시야 공유
+- [Assets/Script/Minimap/MinimapView.cs] 다른 플레이어를 그 플레이어가 고른 색(`gpColor`)의 마커로 표시(`showPlayerMarkers`, `playerMarkerSize` 14). 코너 미니맵·전체 맵 공용
+  - 표시 조건: 지금 내 시야 안(`IsInLocalVision` = 머리 위 닉네임이 보이는 판정과 같음). 산 사람에게 유령은 표시하지 않고, 유령은 시야 안의 모두를 봄(`ApplyVisibility`와 같은 규칙)
+  - 얼룩말·타조: 파트너(`PreySymbiosisAbility.partnerNetId`, 본인만 앎)는 거리와 상관없이 항상 표시, 파트너 시야 안의 플레이어도 표시. 파트너나 내가 죽으면(파트너 해제) 공유 끝
+  - 파트너 시야 반경은 내 시야 반경을 그대로 씀(둘 다 피식자라 낮/밤 값이 같고, 밤 근접 보정도 서로 거리 기준이라 함께 켜짐)
+- [Assets/Script/Setting/FOVMaskController2D.cs] `IsVisibleFrom(origin, radius, point)` 추가: 내 시야와 같은 벽(ShadowCaster2D) 판정으로 다른 위치에서 보이는지 계산. 내 시야 마스크는 건드리지 않음. 같은 프레임·같은 위치는 벽 목록을 다시 추리지 않음
+- 참고: 실제 게임 화면(캐릭터·닉네임 표시)에서는 아직 파트너 시야를 공유하지 않는다(`VisionUIController.sharedFov`는 쓰이지 않음). 이번 변경은 미니맵만
+- 확인: 컴파일 에러 없음. 게임 씬 플레이 모드(테스트용 플레이어 6명): 내 시야 안 A·파트너 P·파트너 시야 안 C만 각자 색으로 표시, 파트너 기준 벽 뒤 H와 먼 B는 표시 안 됨. A·P가 죽으면 A·P·C 모두 사라짐(전체 맵), 내가 유령이 되면 시야 안의 유령 A가 다시 보임. 에러 없음
+
+## [2026-10-17] 전갈·여우 승리 조건을 설명과 통일, isDisguise 제거
+- [Assets/Script/Character/ScorpionAbility.cs] `_hasCountered`(서버 전용, SyncVar 아님) 추가. 독으로 반격하는 순간(`OnBeforeAttack`에서 `killAttacker = true`) 기록, `ServerActivate`에서 초기화. `HasCountered`(컴포넌트가 켜진 전갈만 참)
+- [Assets/Script/Game/AnimalWinCondition.cs] `ScorpionWinCondition`: "8명 이상 사망" → 독 반격에 한 번이라도 성공하면 승리(전갈 생존 여부와 무관). 소개 문구("독으로 반격해 포식자를 죽이면 승리합니다.")와 일치
+- [Assets/Script/Data/CharacterData.cs] 여우 소개 문구: "포식자, 피식자 중 어느편에…" → "위장 오브젝트에서 다른 동물로 위장할 수 있습니다.\n게임 종료까지 살아남으세요." 승리 조건(`FoxWinCondition` = 생존)은 그대로
+- [Assets/Script/Player/GamePlayer.cs] 쓰이지 않던 `isDisguise` 필드와 `SetAnimalType`의 대입 14곳 제거. 위장 가능 여부는 `CanDisguise`(여우인지)만 사용
+- 확인: 컴파일 에러 없음. 편집 모드 테스트용 플레이어로 확인: 반격 전 전갈 패 / 독 없이 공격받으면 반격 없음·패 / 독으로 공격받으면 공격자 사망·전갈 생존·독 소모·전갈 승 / 반격 후 전갈이 죽어도 승 / 전갈이 아닌 플레이어는 반격 기록 없음 / 여우 생존 승·사망 패
+
+## [2026-10-17] 코너 미니맵 원형 테두리 깔끔하게
+- 원인: 원형으로 자르는 `Mask`(스텐실)는 가장자리를 부드럽게 처리하지 못해 계단처럼 깨져 보였다
+- [Assets/Data/Minimap/MinimapCircle.png, MinimapRing.png 신규] 가장자리를 안티앨리어싱한 512px 원·링 그림(MCP로 생성, 밉맵·Trilinear·무압축)
+- [GamePlay.unity, MCP] `Minimap UI` 배경과 `Viewport` 마스크 그림을 새 원으로 교체, Viewport 위에 `Border Ring`(링 그림, 300px 기준 두께 약 10px, 어두운 색, 클릭 막지 않음)을 덮어 마스크의 깨진 가장자리를 가림
+- 확인: 미니맵을 렌더링해 비교(전: 계단 모양 가장자리 / 후: 매끈한 원 + 테두리)
+
+## [2026-10-18] 로비 커스터마이징(의상 + 색상) 시스템
+- [Assets/Script/Costume/CostumeData.cs 신규] 의상 하나: `displayName`, `icon`(버튼, 비면 몸 그림 → 이름만), `bodySprite`(몸 그림, 플레이어 색이 입혀짐, 비면 기본 몸), `overlaySprite`(몸 위 장식, 색 안 입힘), `tintOverlay`
+- [Assets/Script/Costume/CostumeCatalog.cs 신규] 의상 목록(`Assets/Resources/CostumeCatalog.asset`, Resources에서 불러와 서버·클라이언트가 같은 번호를 씀). 0번 = 기본
+- [Assets/Script/Costume/PlayerCostumeView.cs 신규] 플레이어 몸 렌더러의 그림만 바꾸고(색·숨김·유령 반투명은 기존 코드 그대로), 덮는 그림은 자식 `Costume Overlay` 렌더러로 그림. 몸 렌더러의 켜짐·투명도·레이어·정렬·재질·마스크를 따라감
+- [Assets/Script/Costume/CostumeButton.cs 신규] 의상 선택 버튼(아이콘, 이름, 선택 표시 색)
+- [Assets/Script/UI/CharacterSetting.cs] 의상 버튼을 목록만큼 만들고 선택, 미리보기에 의상 몸 그림 + 덮는 그림 + 고른 색을 함께 표시
+- [Assets/Script/Player/RoomPlayer.cs] `costumeIndex` SyncVar(모두에게 보임, 겹쳐도 됨) + `CmdSetCostume`(서버가 범위 확인). 입장 시 저장된 의상을 보냄
+- [Assets/Script/Player/GamePlayer.cs] `costumeIndex` SyncVar, 훅과 `OnStartClient`에서 적용. [RoomManager.cs] 게임 플레이어 생성 때 로비 의상을 넘김
+- [Assets/Script/Data/RoomSessionData.cs] `CostumeIndex`(PlayerPrefs에 저장, 방·재실행 후에도 유지, 목록 밖이면 0)
+- [에셋, MCP] `Assets/Data/Costume/Costume_Default/Dog/Cat/Rabbit.asset`(기본·강아지·고양이·토끼, 그림 비어 있음), `Assets/Resources/CostumeCatalog.asset`. `RoomPlayer.prefab`, `GamePlayer.prefab`에 `PlayerCostumeView` 추가
+- [GameRoom.unity, MCP] `ColorSetting UI` → `Customize UI`(700x960): 제목 "커스터마이징", 미리보기(`Preview Box`, 덮는 그림용 `Costume Overlay Image`), "의상" + `Costume Scroll`(세로 스크롤, 110px 버튼 격자, 템플릿 `Costume Btn Template`), "색상" + 기존 색 버튼
+- 그림 추가 방법: `Assets/Data/Costume/Costume_○○.asset`의 `bodySprite`(필요하면 `overlaySprite`, `icon`)에 넣기만 하면 됨. 새 의상은 CostumeData 에셋을 만들어 `CostumeCatalog`의 목록 끝에 추가(순서를 바꾸면 저장된 번호가 달라짐)
+- 확인: 컴파일 에러 없음. 로비 씬 플레이 모드: 버튼 4개 생성·선택 표시·저장값, 임시 그림을 넣어 미리보기와 GamePlayer에 몸·덮는 그림 적용, 몸이 숨으면 덮는 그림도 숨고 유령 반투명을 따라감, 기본/잘못된 번호면 기본 몸. 임시 그림은 되돌림. 창 배치 렌더링 확인
+
+## [2026-10-18] ESC로 창 닫기(닫기 스택)
+- 사용자 선택: 닫기 스택 방식, 미션 중·탐색/부검 진행 중에는 ESC 무시
+- [Assets/Script/UI/UIManager.cs] ESC 목록 추가: `RegisterEscape(key, onEscape)`(창이 열릴 때, 같은 key면 맨 위로), `UnregisterEscape(key)`(실제로 닫힐 때), `HandleEscape()`(가장 나중에 연 창의 onEscape 실행, onEscape가 null이면 ESC만 막음, 파괴된 창은 건너뜀). 기존 이동 잠금(Push/Pop)과는 별개
+- [Assets/Script/Setting/SettingManager.cs] ESC 순서: 키 설정 중 무시 → 나가기 확인창 → 설정 창 닫기 → **ESC 목록의 맨 위 창** → (아무것도 없으면) 설정 창 열기(기존 동작)
+- 등록한 창
+  - 로비: 커스터마이징 창(`GameRoomUI.CloseColorUI` 추가), 직업 선택(테스트) 창
+  - 게임: 위장 창·예측 창(확인창이 떠 있으면 확인창만 "아니요"로 닫음), 탐색 창("탐색하시겠습니까?" 중이면 목록으로, 진행 중이면 무시), 시체·탐색 결과 창, 탐색노트, 미션 목록(`CloseMissionListUI` 추가), 우클릭 메뉴, 미니맵 전체화면
+  - ESC 막기(onEscape = null): 미션 중(시작 요청~미션 창이 끝날 때까지, `GamePlayer`), 부검 진행 바
+  - 제외(등록 안 함): 채팅, 프로필(플레이어 목록), 캐릭터 소개 연출, 결과 화면
+- 확인: 컴파일 에러 없음. 플레이 모드에서 `HandleEscape`를 직접 호출해 확인(키 입력은 흉내 낼 수 없음): 로비 2개 창이 연 역순으로 닫히고 잠금 해제, 버튼으로 닫으면 목록에서 빠짐 / 게임: 위장 확인창 → 위장 창, 미션 중 ESC는 아무것도 안 닫음, 미니맵 전체 → 미션 목록 → 탐색노트 → 결과창을 역순으로 닫음, 탐색 확인 중 → 목록, 진행 중 무시, 완료 후 닫힘, 프로필은 반응 없음. 에러 없음

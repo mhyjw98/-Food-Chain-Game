@@ -7,7 +7,7 @@ public class Scanner : MonoBehaviour
 {
     public GamePlayer myPlayer;
 
-    public enum ScanTargetType { None, Player, Mission, Corpse, Investigation }
+    public enum ScanTargetType { None, Player, Mission, Corpse, Investigation, Disguise, Predict }
 
     [Header("Interaction Target")]
     public ScanTargetType currentType = ScanTargetType.None;
@@ -29,6 +29,10 @@ public class Scanner : MonoBehaviour
     public HashSet<Corpse> corpsesInRange = new();
     public InvestigationObject investigation;
     public InvestigationObject CurrentInvestigation => investigation;
+    public DisguiseObject disguise;
+    public DisguiseObject CurrentDisguise => disguise;
+    public PredictObject predict;
+    public PredictObject CurrentPredict => predict;
 
     public float scanRadius = 1.2f;
     public LayerMask scanLayers;
@@ -57,6 +61,8 @@ public class Scanner : MonoBehaviour
         mission = null;
         corpse = null;
         investigation = null;
+        disguise = null;
+        predict = null;
 
         currentType = ScanTargetType.None;
         currentInteractTarget = null;
@@ -88,6 +94,8 @@ public class Scanner : MonoBehaviour
                         mission = null;
                         corpse = null;
                         investigation = null;
+                        disguise = null;
+                        predict = null;
                     }
                 }
             }
@@ -108,6 +116,8 @@ public class Scanner : MonoBehaviour
                         targetNetId = 0;
                         corpse = null;
                         investigation = null;
+                        disguise = null;
+                        predict = null;
                     }
                 }
             }
@@ -129,12 +139,14 @@ public class Scanner : MonoBehaviour
                         targetNetId = 0;
                         mission = null;
                         investigation = null;
+                        disguise = null;
+                        predict = null;
                     }
                 }
             }
             if (hit.TryGetComponent(out InvestigationObject inv))
             {
-                if (myPlayer.isAlive && myPlayer.IsHelper())
+                if (myPlayer.isAlive)
                 {
                     if (dist < bestDist)
                     {
@@ -148,12 +160,58 @@ public class Scanner : MonoBehaviour
                         currentTarget = null;
                         targetNetId = 0;
                         mission = null;
+                        disguise = null;
+                        predict = null;
+                    }
+                }
+            }
+            // 위장 오브젝트는 여우에게만 상호작용 대상이 된다(역할은 본인만 알므로 다른 플레이어에게 드러나지 않음)
+            if (hit.TryGetComponent(out DisguiseObject disguiseObj))
+            {
+                if (myPlayer.isAlive && myPlayer.CanDisguise)
+                {
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Disguise;
+                        currentInteractTarget = disguiseObj;
+
+                        disguise = disguiseObj;
+
+                        corpse = null;
+                        currentTarget = null;
+                        targetNetId = 0;
+                        mission = null;
+                        investigation = null;
+                        predict = null;
+                    }
+                }
+            }
+            // 승리 예측 오브젝트는 예측 능력이 있는 플레이어(스컹크)에게만 상호작용 대상이 된다
+            if (hit.TryGetComponent(out PredictObject predictObj))
+            {
+                if (myPlayer.isAlive && myPlayer.CanPredict)
+                {
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Predict;
+                        currentInteractTarget = predictObj;
+
+                        predict = predictObj;
+
+                        corpse = null;
+                        currentTarget = null;
+                        targetNetId = 0;
+                        mission = null;
+                        investigation = null;
+                        disguise = null;
                     }
                 }
             }
         }
 
-        
+
         UpdateInteractUI(currentInteractTarget);
     }
     private bool CanInteractMission(MissionObject obj)

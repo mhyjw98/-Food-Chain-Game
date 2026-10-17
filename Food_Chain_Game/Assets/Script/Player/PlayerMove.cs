@@ -106,6 +106,20 @@ public class PlayerMove : NetworkBehaviour
                 {
                     localPlayer.TryStartInvestigation();
                 }
+            }
+            else if (type == Scanner.ScanTargetType.Disguise)
+            {
+                if (localPlayer.scanner.CurrentDisguise != null)
+                {
+                    localPlayer.TryStartDisguise();
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Predict)
+            {
+                if (localPlayer.scanner.CurrentPredict != null)
+                {
+                    localPlayer.TryStartPredict();
+                }
             }                                                                               
         }
     }

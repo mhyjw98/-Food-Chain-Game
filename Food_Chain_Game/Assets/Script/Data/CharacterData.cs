@@ -19,14 +19,14 @@ public static class CharacterData
             { AnimalType.Hawk, new CharacterInfoData("매", TerritoryType.Sky, "동물들을 잡아먹으며 생존하세요.\n두 라운드를 연속으로 굶으면 사망합니다.") },
             { AnimalType.Hyena, new CharacterInfoData("하이에나", TerritoryType.Field, "늑대가 사망하면 승리합니다.\n세 라운드를 연속으로 굶으면 사망합니다.") },
             { AnimalType.Scorpion, new CharacterInfoData("전갈", TerritoryType.Forest, "독으로 반격해 포식자를 죽이면 승리합니다.") },
-            { AnimalType.Skunk, new CharacterInfoData("스컹크", TerritoryType.Forest, "게임 종료까지 살아남으세요.") },
+            { AnimalType.Skunk, new CharacterInfoData("스컹크", TerritoryType.Forest, "예측 오브젝트에서 승리할 플레이어를 예측하세요.\n예측한 플레이어가 승리하면 함께 승리합니다.") },
             { AnimalType.Zebra, new CharacterInfoData("얼룩말", TerritoryType.Field, "게임 종료까지 살아남으세요. ") },
             { AnimalType.Badger, new CharacterInfoData("오소리", TerritoryType.River, "게임 종료까지 살아남으세요.") },
             { AnimalType.Squirrel, new CharacterInfoData("다람쥐", TerritoryType.Forest, "게임 종료까지 살아남으세요.") },
             { AnimalType.Ostrich, new CharacterInfoData("타조", TerritoryType.Sky, "게임 종료까지 살아남으세요.") },
             { AnimalType.Crow, new CharacterInfoData("까마귀", TerritoryType.Sky, "늑대가 생존할 수 있도록 도와주세요. 늑대가 사망시 패배합니다.") },
             { AnimalType.Plover, new CharacterInfoData("악어새", TerritoryType.River, "악어가 생존할 수 있도록 도와주세요. 악어가 사망시 패배합니다.") },
-            { AnimalType.Fox, new CharacterInfoData("여우", TerritoryType.Forest, "포식자, 피식자 중 어느편에 붙을지 선택할 수 있습니다. 해당 진영 승리시 승리합니다.") },
+            { AnimalType.Fox, new CharacterInfoData("여우", TerritoryType.Forest, "위장 오브젝트에서 다른 동물로 위장할 수 있습니다.\n게임 종료까지 살아남으세요.") },
         };
     }
     public struct CharacterInfoData

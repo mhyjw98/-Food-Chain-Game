@@ -6,8 +6,12 @@ public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility,
     // 독 보유 여부는 서버와 본인만 안다(이 컴포넌트는 Sync Mode = Owner)
     [SyncVar] private bool hasPoison;
 
+    // 독 반격에 한 번이라도 성공했는지(승리 조건). 서버 전용이라 다른 클라이언트에 드러나지 않는다
+    private bool _hasCountered;
+
     protected GamePlayer local;
     public bool NeedsPoisonMission => enabled && !hasPoison;
+    public bool HasCountered => enabled && _hasCountered;
 
     private void Awake()
     {
@@ -35,6 +39,7 @@ public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility,
         Debug.Log("[ScorpionAbility] ServerActivate 호출" + enabled);
 
         hasPoison = false;
+        _hasCountered = false;
 
         ServerSyncPoisonMissionSlot();
     }
@@ -67,6 +72,8 @@ public class ScorpionAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility,
         ctx.killAttacker = true;
         ctx.reason = "ScorpionPoisonCounter";
 
+        // 반격하면 GamePlayer.CmdAttack이 공격자를 바로 사망 처리한다(killAttacker)
+        _hasCountered = true;
         hasPoison = false;
         ServerSyncPoisonMissionSlot();
     }

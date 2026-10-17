@@ -52,6 +52,11 @@ public class FOVMaskController2D : MonoBehaviour
     private readonly List<Caster> _activeCasters = new();
     private float _nextCasterRefresh;
 
+    // IsVisibleFrom이 마지막으로 벽 목록을 추린 기준(같은 프레임·같은 위치면 다시 추리지 않는다)
+    private int _queryFrame = -1;
+    private Vector2 _queryOrigin;
+    private float _queryRadius;
+
     void Awake()
     {
         _mask = GetComponent<SpriteMask>();
@@ -104,6 +109,26 @@ public class FOVMaskController2D : MonoBehaviour
             if (intersect) inside = !inside;
         }
         return inside;
+    }
+
+    // 다른 위치(예: 시야를 공유하는 파트너)에서 그 점이 보이는지. 내 시야와 같은 벽 판정을 쓴다.
+    // 내 시야 마스크(_worldPoly)는 건드리지 않는다
+    public bool IsVisibleFrom(Vector2 origin, float radius, Vector2 point)
+    {
+        Vector2 delta = point - origin;
+        float dist = delta.magnitude;
+        if (dist > radius) return false;
+        if (dist < 0.0001f) return true;
+
+        if (_queryFrame != Time.frameCount || _queryOrigin != origin || !Mathf.Approximately(_queryRadius, radius))
+        {
+            CollectActiveCasters(origin, radius);
+            _queryFrame = Time.frameCount;
+            _queryOrigin = origin;
+            _queryRadius = radius;
+        }
+
+        return CastDistance(origin, delta / dist, radius) >= dist - 0.01f;
     }
 
     void AllocateBuffers(int capacity)
@@ -335,6 +360,7 @@ public class FOVMaskController2D : MonoBehaviour
         transform.localScale = new Vector3(scale / parentScale, scale / parentScale, 1f);
 
         CollectActiveCasters(origin, radius);
+        _queryFrame = -1;   // 벽 목록이 내 위치 기준으로 바뀌었으므로 IsVisibleFrom이 다시 추리게 한다
         CollectAngles(origin, radius);
 
         _polyCount = _angleCount;

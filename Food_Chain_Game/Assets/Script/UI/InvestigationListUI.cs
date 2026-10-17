@@ -10,8 +10,21 @@ public class InvestigationListUI : MonoBehaviour
 
     public void Toggle()
     {
-        root.SetActive(!root.activeSelf);
-        if (root.activeSelf) Refresh();
+        if (root.activeSelf)
+        {
+            Close();
+            return;
+        }
+
+        root.SetActive(true);
+        UIManager.RegisterEscape(root, Close);
+        Refresh();
+    }
+
+    public void Close()
+    {
+        root.SetActive(false);
+        UIManager.UnregisterEscape(root);
     }
 
     public void Refresh()

@@ -711,6 +711,7 @@ GameObject:
   - component: {fileID: 6270434650400483754}
   - component: {fileID: 5810979613096247485}
   - component: {fileID: 872554505374034046}
+  - component: {fileID: 4748407363263812561}
   m_Layer: 7
   m_Name: GamePlayer
   m_TagString: Untagged
@@ -816,6 +817,7 @@ MonoBehaviour:
   syncInterval: 0
   nickname: "\uBB49\uAFB8"
   gpColor: {r: 1, g: 1, b: 1, a: 1}
+  costumeIndex: 0
   currentZone: 0
   isReturn: 0
   isAlive: 1
@@ -826,7 +828,9 @@ MonoBehaviour:
   corpsePrefab: {fileID: 8309283827534913789, guid: 0e0bfb105f019314fa099f05975600f6, type: 3}
   bodyRenderer: {fileID: 8953892327403946368}
   bodyCollider: {fileID: -5351260452600990768}
-  investigationDuration: 5
+  investigationDuration: 3
+  investigationCount: 1
+  helperInvestigationCount: 2
   corpseScanDuration: 3
   corpseScanRange: 2
   attackRange: 3
@@ -944,6 +948,8 @@ MonoBehaviour:
   mission: {fileID: 0}
   corpse: {fileID: 0}
   investigation: {fileID: 0}
+  disguise: {fileID: 0}
+  predict: {fileID: 0}
   scanRadius: 1.2
   scanLayers:
     serializedVersion: 2
@@ -1158,6 +1164,7 @@ MonoBehaviour:
   hasAttacked: 0
   scanCount: 0
   predictedWinner: 13
+  predictedPlayerNetId: 0
   disguisedAs: 13
   predictedAs: 13
   predictedCorrectly: 0
@@ -1175,6 +1182,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoiceSpeakingIcon
   icon: {fileID: 4385252215998807544}
   refreshInterval: 0.1
+--- !u!114 &4748407363263812561
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6610563625137353674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 83a9386f4ae7f1e4399a734e915d9112, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCostumeView
+  bodyRenderer: {fileID: 8953892327403946368}
+  overlayRenderer: {fileID: 0}
+  overlaySortingOffset: 1
 --- !u!1 &7883089064445467819
 GameObject:
   m_ObjectHideFlags: 0

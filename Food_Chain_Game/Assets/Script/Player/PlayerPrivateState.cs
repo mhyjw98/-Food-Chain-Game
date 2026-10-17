@@ -13,6 +13,8 @@ public class PlayerPrivateState : NetworkBehaviour
     [SyncVar] public bool hasAttacked = false;
     [SyncVar] public int scanCount = 0;
     [SyncVar] public AnimalType predictedWinner = AnimalType.None;
+    // 승리자로 예측한 플레이어(0이면 아직 예측하지 않음). 예측은 한 번만 할 수 있다
+    [SyncVar] public uint predictedPlayerNetId;
     [SyncVar] public AnimalType disguisedAs = AnimalType.None;
     [SyncVar] public AnimalType predictedAs = AnimalType.None;
     [SyncVar] public bool predictedCorrectly;

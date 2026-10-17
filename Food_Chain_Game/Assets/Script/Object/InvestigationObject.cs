@@ -12,6 +12,7 @@ public class InvestigationObject : MonoBehaviour
     [SerializeField] private float interactRange = 2f;
 
     private static readonly List<InvestigationObject> _instances = new();
+    public static IReadOnlyList<InvestigationObject> All => _instances;
 
     private Color[] _defaultColors;
     private GamePlayer _localPlayerInRange;
@@ -73,7 +74,6 @@ public class InvestigationObject : MonoBehaviour
     private void TryInteract()
     {
         if (_localPlayerInRange == null) return;
-        if (!_localPlayerInRange.IsHelper()) return;
 
         _localPlayerInRange.TryStartInvestigation();
     }

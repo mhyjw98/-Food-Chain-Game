@@ -161,12 +161,22 @@ public class GameRoomUI : MonoBehaviour
         {
             colorUI.SetActive(true);
             UIManager.Instance.Push(UIPriority.Modal);
+            UIManager.RegisterEscape(colorUI, CloseColorUI);
         }
         else
         {
-            colorUI.SetActive(false);
-            UIManager.Instance.Pop(UIPriority.Modal);
+            CloseColorUI();
         }
+    }
+
+    // 커스터마이징(의상·색상) 창 닫기. ESC로도 닫힌다
+    public void CloseColorUI()
+    {
+        if (!colorUI.activeSelf) return;
+
+        colorUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(colorUI);
     }
     public void CopyRoomCode()
     {

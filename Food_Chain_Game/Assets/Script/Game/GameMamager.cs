@@ -270,21 +270,6 @@ public class GameMamager : NetworkBehaviour
     {       
         textUIGroup.SetActive(false);
     }
-    [ClientRpc]
-    void RPCShowDisguiseUI()
-    {
-        GamePlayUI.Instance.ShowDisguiseUI();
-    }
-    [ClientRpc]
-    void RPCShowPredictUI()
-    {
-        GamePlayUI.Instance.ShowPredictUI();
-    }
-    [ClientRpc]
-    void RPCCheckPredict()
-    {
-        GamePlayUI.Instance.CheckPredict();
-    }
     [Server]
     IEnumerator RoundFlow()
     {
@@ -311,18 +296,7 @@ public class GameMamager : NetworkBehaviour
 
         ActiveTextGroup();
         isRoundActive = true;
-        // 위장 시간
-        //currentTime = RoundTime.Disguise;
-        //timer = disguiseTime;
-        //RPCShowDisguiseUI();             
-        //yield return new WaitForSeconds(disguiseTime);
-
-        // 탐색시간        
-        //currentTime = RoundTime.Exploration;
-        //timer = explorationRoundTime;
-        //RPCShowPredictUI();
-        //yield return new WaitForSeconds(explorationRoundTime);
-        //RPCCheckPredict();
+        // 위장·승리 예측은 별도 단계 없이 위장 오브젝트(DisguiseObject)·예측 오브젝트(PredictObject)에서 한다
 
         // 라운드 시작
         for (int day = 1; day <= maxRounds; day++)
@@ -484,16 +458,17 @@ public class GameMamager : NetworkBehaviour
     [Server]
     void EvaluateGameResult()
     {
-        Debug.Log("게임 종료! 승패 판단 시작");       
+        Debug.Log("게임 종료! 승패 판단 시작");
+
+        // 스컹크처럼 다른 플레이어의 승패를 따르는 조건이 있어 전원의 결과를 한 번에 계산한다
+        var results = GameResultEvaluator.EvaluateAll(players);
 
         foreach (var player in players)
         {
             if (player == null) continue;
 
-            IWinCondition winCondition = WinCondutionFactory.GetCondition(player.animalType);
-
             // 승리 조건이 정의되지 않은 캐릭터는 패배 처리(예외로 결과 표시/로비 복귀가 누락되지 않게)
-            bool isWinner = winCondition != null && winCondition.Evaluate(player, players);
+            bool isWinner = results.TryGetValue(player, out bool won) && won;
             player.isWin = isWinner;
 
             // 결과는 RPC 인자로 본인에게 직접 보낸다. 같은 프레임에 쓴 SyncVar(isWin)는 RPC보다 늦게 도착하므로

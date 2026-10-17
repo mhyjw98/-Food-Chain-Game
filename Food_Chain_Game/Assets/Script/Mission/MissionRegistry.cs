@@ -10,6 +10,7 @@ public class MissionRegistry : MonoBehaviour
     private readonly Dictionary<MissionType, List<MissionObject>> _byType = new();
 
     public int RegisteredCount => _all.Count;
+    public IReadOnlyList<MissionObject> All => _all;
 
     private void Awake()
     {

@@ -45,6 +45,9 @@ public class MinimapOverlay : MonoBehaviour
 
         if (panel.activeSelf != open) panel.SetActive(open);
 
+        if (open) UIManager.RegisterEscape(this, Close);
+        else UIManager.UnregisterEscape(this);
+
         if (cornerMinimap != null && hideCornerWhileOpen)
         {
             bool showCorner = !open;

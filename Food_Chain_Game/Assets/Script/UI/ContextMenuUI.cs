@@ -9,7 +9,8 @@ public class ContextMenuUI : MonoBehaviour
 {
     public static ContextMenuUI CurrentOpen;
 
-    public Button whisperBtn, scanBtn, predictBtn, memoBtn;
+    // 플레이어 탐색과 승리 예측은 각각 탐색 오브젝트(InvestigationObject), 예측 오브젝트(PredictObject)에서만 한다
+    public Button whisperBtn, memoBtn;
     private GamePlayer targetPlayer;
 
     private void Update()
@@ -29,6 +30,7 @@ public class ContextMenuUI : MonoBehaviour
 
         CurrentOpen = this;
         targetPlayer = player;
+        UIManager.RegisterEscape(this, Close);
         GamePlayer localPlayer = NetworkClient.localPlayer != null ? NetworkClient.localPlayer.GetComponent<GamePlayer>() : null;
         if (player == null || localPlayer == null || GameMamager.Instance == null)
         {
@@ -39,24 +41,11 @@ public class ContextMenuUI : MonoBehaviour
         var chatManager = FindFirstObjectByType<ChatManager>();
 
         whisperBtn.interactable = (player.netId != localPlayer.netId);
-        scanBtn.interactable = (localPlayer.canScan && player.netId != localPlayer.netId && GameMamager.Instance.IsExplorationPhase && localPlayer.maxScanCount > localPlayer.scanCount);
-        Debug.Log($"스캔 가능한지 : {localPlayer.canScan}, 본인인지 : {player.netId != localPlayer.netId}, 탐색시간인지 : {GameMamager.Instance.IsExplorationPhase}, 스캔횟수가 남았는지 : {localPlayer.maxScanCount > localPlayer.scanCount}");
-        predictBtn.interactable = localPlayer.canPredict && GameMamager.Instance.IsExplorationPhase;
 
         // 버튼 동작 설정
         // 메뉴가 열린 사이에 대상이 나갔을 수 있으므로 누를 때 다시 확인한다
         whisperBtn.onClick.AddListener(() => {
             if (chatManager != null && targetPlayer != null) chatManager.SelectWhisperTarget(targetPlayer);
-            Close();
-        });
-
-        scanBtn.onClick.AddListener(() => {
-            if (localPlayer != null && targetPlayer != null) localPlayer.CmdScan(targetPlayer.netId);
-            Close();
-        });
-
-        predictBtn.onClick.AddListener(() => {
-            if (localPlayer != null && targetPlayer != null) localPlayer.CmdSetPredict(targetPlayer.netId);
             Close();
         });
 
@@ -91,6 +80,13 @@ public class ContextMenuUI : MonoBehaviour
         if (CurrentOpen == this)
             CurrentOpen = null;
 
+        UIManager.UnregisterEscape(this);
         Destroy(gameObject);
+    }
+
+    // 다른 메뉴가 열리며 바로 Destroy된 경우에도 ESC 목록에서 빠지게 한다
+    private void OnDestroy()
+    {
+        UIManager.UnregisterEscape(this);
     }
 }

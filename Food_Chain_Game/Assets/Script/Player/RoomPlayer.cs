@@ -10,10 +10,14 @@ public class RoomPlayer : NetworkRoomPlayer
     [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;
     [SyncVar(hook = nameof(OnColorIndexChanged))] public int colorIndex = -1;
     [SyncVar(hook = nameof(OnColorChanged))] public Color rpColor = Color.white;
+    // 고른 의상(CostumeCatalog 번호). 겉모습이라 모두에게 보인다. 다른 플레이어와 겹쳐도 된다
+    [SyncVar(hook = nameof(OnCostumeChanged))] public int costumeIndex;
     // 음성 채팅 참가자 ID: 음성 참가자 목록에서 닉네임을 찾는 데 쓰고, 게임 시작 시 GamePlayer로 넘긴다
     [SyncVar] public string voiceId;
     // 배정된 캐릭터는 서버만 가진다(SyncVar 아님). 클라이언트에 보내면 게임 시작 전에 전원의 역할이 노출된다
     [System.NonSerialized] public string assignedCharacter;
+    // 테스트용 직업 선택: 로비에서 고른 캐릭터(서버만 가짐, 비어 있으면 무작위). 같은 이유로 SyncVar가 아니다
+    [System.NonSerialized] public string requestedCharacter;
     [SyncVar] public bool isHost;
 
     public TextMeshProUGUI nicknameText;
@@ -35,11 +39,16 @@ public class RoomPlayer : NetworkRoomPlayer
 
         int index = RoomSessionData.ColorIndex;
         CmdSetColor(index);
+        CmdSetCostume(RoomSessionData.CostumeIndex);
         PlayerColorPalette.InitColorIndex(index);
 
         var setting = FindFirstObjectByType<CharacterSetting>();
         if (setting != null)
             setting.SetLocalPlayer(this, index);
+
+        // 다시 접속해 새 RoomPlayer가 생겨도 이전에 고른 직업이 서버에 남도록 다시 보낸다
+        if (!string.IsNullOrEmpty(RoomSessionData.RequestedCharacter))
+            CmdSetRequestedCharacter(RoomSessionData.RequestedCharacter);
 
         StartCoroutine(CoReportVoiceId());
 
@@ -82,6 +91,7 @@ public class RoomPlayer : NetworkRoomPlayer
 
         SceneManager.activeSceneChanged += OnActiveSceneChanged;
         RefreshRoomVisualsForCurrentScene();
+        ApplyCostume();
     }
 
     public override void OnStopClient()
@@ -111,6 +121,23 @@ public class RoomPlayer : NetworkRoomPlayer
     public void SetCharacter(string character)
     {
         assignedCharacter = character;
+    }
+
+    // 테스트용 직업 선택. 빈 문자열이면 무작위로 되돌린다. 기능이 꺼져 있거나 없는 캐릭터면 무시한다
+    [Command]
+    public void CmdSetRequestedCharacter(string character)
+    {
+        var roomManager = RoomManager.singleton as RoomManager;
+        if (roomManager == null || !roomManager.CharacterSelectEnabled) return;
+
+        if (string.IsNullOrEmpty(character))
+        {
+            requestedCharacter = null;
+            return;
+        }
+        if (!CharacterZoneData.CharacterHomeZone.ContainsKey(character)) return;
+
+        requestedCharacter = character;
     }
 
     // 게임 플레이 중에도 RoomPlayer 오브젝트 자체는 파괴하지 않고 유지해야
@@ -212,6 +239,24 @@ public class RoomPlayer : NetworkRoomPlayer
         var renderer = GetComponent<SpriteRenderer>();
         if (renderer != null)
             renderer.color = newColor;
+    }
+
+    void OnCostumeChanged(int oldIndex, int newIndex)
+    {
+        ApplyCostume();
+    }
+
+    private void ApplyCostume()
+    {
+        var view = GetComponent<PlayerCostumeView>();
+        if (view != null) view.SetCostume(costumeIndex);
+    }
+
+    [Command]
+    public void CmdSetCostume(int index)
+    {
+        if (!CostumeCatalog.IsValidIndex(index)) return;
+        costumeIndex = index;
     }
 
     void OnColorIndexChanged(int oldIndex, int newIndex)

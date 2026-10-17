@@ -22,8 +22,6 @@ public class GamePlayer : NetworkBehaviour
     [NonSerialized] public bool isFly;
     [NonSerialized] public bool canScan;
     [NonSerialized] public bool canPredict;
-    [NonSerialized] public bool isDisguise;
-    [NonSerialized] public int maxScanCount = 0;
     public bool IsRoleReady { get; private set; }
 
     // 사망 원인: 서버 전용 (시체 생성/능력 판정에만 사용)
@@ -37,6 +35,8 @@ public class GamePlayer : NetworkBehaviour
     // 전원에게 공개되는 값
     [SyncVar(hook = nameof(OnNicknameChanged))] public string nickname;
     [SyncVar(hook = nameof(OnColorChanged))] public Color gpColor = Color.white;
+    // 로비에서 고른 의상(CostumeCatalog 번호). 겉모습이라 모두에게 보인다
+    [SyncVar(hook = nameof(OnCostumeChanged))] public int costumeIndex;
     [SyncVar(hook = nameof(OnZoneChanged))] public ZoneType currentZone;
     [SyncVar] public bool isReturn;
     [SyncVar(hook = nameof(OnAliveChanged))] public bool isAlive = true;
@@ -60,6 +60,7 @@ public class GamePlayer : NetworkBehaviour
     public bool hasAttacked { get => PrivateState.hasAttacked; set => PrivateState.hasAttacked = value; }
     public int scanCount { get => PrivateState.scanCount; set => PrivateState.scanCount = value; }
     public AnimalType predictedWinner { get => PrivateState.predictedWinner; set => PrivateState.predictedWinner = value; }
+    public uint predictedPlayerNetId { get => PrivateState.predictedPlayerNetId; set => PrivateState.predictedPlayerNetId = value; }
     public AnimalType disguisedAs { get => PrivateState.disguisedAs; set => PrivateState.disguisedAs = value; }
     public AnimalType predictedAs { get => PrivateState.predictedAs; set => PrivateState.predictedAs = value; }
     public bool predictedCorrectly { get => PrivateState.predictedCorrectly; set => PrivateState.predictedCorrectly = value; }
@@ -72,8 +73,15 @@ public class GamePlayer : NetworkBehaviour
     [SerializeField] private Collider2D bodyCollider;
 
     [Header("Investigation")]
-    [SerializeField] private float investigationDuration = 5f;
+    [SerializeField] private float investigationDuration = 3f;
+    [Tooltip("게임 한 판에 탐색 오브젝트로 탐색할 수 있는 횟수(조력자가 아닌 플레이어)")]
+    [SerializeField] private int investigationCount = 1;
+    [Tooltip("게임 한 판에 탐색 오브젝트로 탐색할 수 있는 횟수(조력자)")]
+    [SerializeField] private int helperInvestigationCount = 2;
     public float InvestigationDuration => investigationDuration;
+    // 역할(canScan)과 scanCount는 서버와 본인만 알므로 본인 UI 표시와 서버 판정에만 쓴다
+    public int MaxInvestigationCount => IsHelper() ? helperInvestigationCount : investigationCount;
+    public int RemainingInvestigationCount => Mathf.Max(0, MaxInvestigationCount - scanCount);
     private Coroutine _serverInvestigationCo;
 
     [Header("Corpse Scan")]
@@ -95,6 +103,8 @@ public class GamePlayer : NetworkBehaviour
 
     public BaseMission progressMission;
     public static GamePlayer LocalPlayer;
+    // 미션 중 ESC를 막을 때 쓰는 ESC 목록 키
+    private static readonly object MissionEscapeKey = new object();
     public Scanner scanner;
     public TextMeshProUGUI nicknameText;
     public GameObject killIndicatorUIPrefab;
@@ -122,6 +132,7 @@ public class GamePlayer : NetworkBehaviour
         base.OnStartClient();
 
         if (!AllPlayers.Contains(this)) AllPlayers.Add(this);
+        ApplyCostume();
 
         Missions.Callback += OnMissionsChanged;
         Abilities = GetComponents<IPlayerAbility>();
@@ -384,61 +395,44 @@ public class GamePlayer : NetworkBehaviour
         target.TargetReceiveWhisper(netId, netId, message);
     }
 
-    [Command]
-    public void CmdScan(uint targetNetId)
+    // 승리 예측(스컹크). 역할은 서버와 본인만 알므로 본인 UI와 서버 판정에만 쓴다
+    public bool CanPredict => canPredict;
+    // 예측과 위장은 한 번 정하면 바꿀 수 없다
+    public bool HasPredicted => predictedPlayerNetId != 0;
+    public bool HasDisguised => disguisedAs != AnimalType.None;
+
+    // 예측 오브젝트에서 상호작용했을 때 예측 창(플레이어 목록)을 연다
+    public void TryStartPredict()
     {
-        // 스캔 자격/횟수는 UI(ContextMenuUI)가 아니라 서버에서 판정
-        if (!isAlive || !canScan) return;
-        if (scanCount >= maxScanCount) return;
-        if (targetNetId == netId) return;
+        if (!isAlive || !CanPredict) return;
+        if (GamePlayUI.Instance == null) return;
 
-        if (!NetworkServer.spawned.TryGetValue(targetNetId, out var identity) || identity == null) return;
+        if (playerMove != null) playerMove.StopMove();
 
-        var target = identity.GetComponent<GamePlayer>();
-        if (target == null) return;
-
-        // 위장 중이면 위장한 동물로 보이고, 위장 값이 비정상이면 실제 동물로 대체
-        var nameMap = AnimalNameMap.AnimalTypeToName;
-        if (target.disguisedAs == AnimalType.None || !nameMap.TryGetValue(target.disguisedAs, out string shownName))
-        {
-            if (!nameMap.TryGetValue(target.animalType, out shownName)) return;
-        }
-
-        // 채팅에 결과 출력
-        string result = $"{target.nickname}는 {shownName}입니다.";
-
-        scanCount++;
-        TargetReceiveScanResult(connectionToClient, target.netId, result, shownName);
+        GamePlayUI.Instance.ShowPredictUI();
     }
 
     [Command]
     public void CmdSetPredict(uint targetNetId)
     {
-        if (!isAlive || !canPredict) return;
+        if (!isAlive || !CanPredict) return;
+        if (HasPredicted) return;
         if (targetNetId == netId) return;
+        // 예측은 예측 오브젝트 근처에서만 할 수 있다
+        if (!PredictObject.IsAnyInRange(transform.position)) return;
         if (!NetworkServer.spawned.TryGetValue(targetNetId, out var identity) || identity == null) return;
 
         GamePlayer predicted = identity.GetComponent<GamePlayer>();
         if (predicted == null) return;
 
         // 예측 기록
+        predictedPlayerNetId = predicted.netId;
         predictedWinner = predicted.animalType;
 
         // 클라이언트에 예측 UI 갱신 요청
         TargetShowPredictionUI(connectionToClient, predicted.netId);
 
         Debug.Log($"{nickname}님이 {predicted.nickname}을(를) 승리자로 예측했습니다.");
-    }
-    [Command]
-    public void CmdSetPredict(AnimalType type)
-    {
-        if (!isAlive || !canPredict) return;
-        if (!AnimalNameMap.AnimalTypeToName.TryGetValue(type, out string typeName)) return;
-
-        // 예측 기록
-        predictedWinner = type;
-
-        Debug.Log($"{nickname}님이 {typeName}을(를) 승리자로 예측했습니다.");
     }
     [Command]
     public void CmdScanCorpse(uint corpseNetId)
@@ -682,30 +676,15 @@ public class GamePlayer : NetworkBehaviour
         }
     }
     [TargetRpc]
-    public void TargetReceiveScanResult(NetworkConnection target, uint scannedNetId, string message, string updateMsg)
-    {
-        // 1. UI에 캐릭터명 공개 (대상이 이미 나갔으면 슬롯 갱신만 건너뜀)
-        if (PlayerSlotUI.Instance != null
-            && NetworkClient.spawned.TryGetValue(scannedNetId, out var identity) && identity != null
-            && identity.TryGetComponent(out GamePlayer scanned))
-        {
-            var slot = PlayerSlotUI.Instance.GetSlotByPlayer(scanned);
-            if (slot != null)
-                slot.UpdateNicknameWithAnimal(updateMsg);
-        }
-
-        var chatManager = FindFirstObjectByType<ChatManager>();
-        if (chatManager != null)
-            chatManager.AddLocalNotice(message);
-    }
-
-    [TargetRpc]
     public void TargetShowPredictionUI(NetworkConnection target, uint predictedId)
     {
-        GamePlayer scanned = NetworkClient.spawned[predictedId].GetComponent<GamePlayer>();
-        // 1. UI에 캐릭터명 공개
-        var slot = PlayerSlotUI.Instance.GetSlotByPlayer(scanned);
-        slot.MarkPrediction(predictedId); // UI 처리 함수
+        // 플레이어 목록에서 예측한 사람에게 표시(대상이 이미 나갔으면 건너뜀)
+        if (PlayerSlotUI.Instance == null) return;
+        if (!NetworkClient.spawned.TryGetValue(predictedId, out var identity) || identity == null) return;
+        if (!identity.TryGetComponent(out GamePlayer predicted)) return;
+
+        var slot = PlayerSlotUI.Instance.GetSlotByPlayer(predicted);
+        if (slot != null) slot.MarkPrediction(predictedId);
     }
     
     [Command]
@@ -831,13 +810,30 @@ public class GamePlayer : NetworkBehaviour
         if (GameMamager.Instance != null)
             GameMamager.Instance.ServerOnPlayerDied(this);
     }
+    // 위장은 여우만 가능.
+    // 역할은 서버와 본인만 알므로 본인 UI와 서버 판정에만 쓴다
+    public bool CanDisguise => animalType == AnimalType.Fox;
+
+    // 위장 오브젝트에서 상호작용했을 때 위장 창(모든 동물 목록)을 연다
+    public void TryStartDisguise()
+    {
+        if (!isAlive || !CanDisguise) return;
+        if (GamePlayUI.Instance == null) return;
+
+        if (playerMove != null) playerMove.StopMove();
+
+        GamePlayUI.Instance.ShowDisguiseUI();
+    }
+
     [Command]
     public void CmdSetDisguise(AnimalType selectedType)
     {
-        // 임시: 위장은 여우만 가능 (isDisguise 플래그는 스컹크에 남아 있으나 사용하지 않음)
         if (!isAlive) return;
-        if (animalType != AnimalType.Fox) return;
+        if (!CanDisguise) return;
+        if (HasDisguised) return;
         if (selectedType == AnimalType.None || !AnimalNameMap.AnimalTypeToName.ContainsKey(selectedType)) return;
+        // 위장은 위장 오브젝트 근처에서만 할 수 있다
+        if (!DisguiseObject.IsAnyInRange(transform.position)) return;
 
         disguisedAs = selectedType;
     }
@@ -863,6 +859,17 @@ public class GamePlayer : NetworkBehaviour
     {
         nicknameText.text = newNick;
     }
+    void OnCostumeChanged(int oldIndex, int newIndex)
+    {
+        ApplyCostume();
+    }
+
+    private void ApplyCostume()
+    {
+        var view = GetComponent<PlayerCostumeView>();
+        if (view != null) view.SetCostume(costumeIndex);
+    }
+
     void OnColorChanged(Color oldColor, Color newColor)
     {
         var renderer = GetComponent<SpriteRenderer>();
@@ -1058,6 +1065,8 @@ public class GamePlayer : NetworkBehaviour
         // 서버 응답(TargetMissionStartAllowed/Denied)이 올 때까지 이동/상호작용을 잠그고 대기
         _missionRequestPending = true;
         UIManager.Instance.Push(UIPriority.Modal);
+        // 미션 중(응답 대기 포함)에는 ESC를 막는다. 미션 창은 미션의 닫기 버튼으로만 나간다
+        UIManager.RegisterEscape(MissionEscapeKey, null);
         if (playerMove != null) playerMove.StopMove();
 
         CmdStartMission(missionType);
@@ -1081,6 +1090,7 @@ public class GamePlayer : NetworkBehaviour
         if (!opened)
         {
             UIManager.Instance.Pop(UIPriority.Modal);
+            UIManager.UnregisterEscape(MissionEscapeKey);
             CmdCancelMission(type);
         }
     }
@@ -1092,6 +1102,7 @@ public class GamePlayer : NetworkBehaviour
         _missionRequestPending = false;
 
         UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(MissionEscapeKey);
 
         string message = reason switch
         {
@@ -1110,6 +1121,7 @@ public class GamePlayer : NetworkBehaviour
     private void OnLocalMissionFinished(MissionType type, bool completed)
     {
         UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(MissionEscapeKey);
 
         if (!completed)
         {
@@ -1142,9 +1154,10 @@ public class GamePlayer : NetworkBehaviour
         progressMission = null;
     }
 
+    // 탐색 오브젝트는 모든 플레이어가 쓸 수 있다(횟수만 역할에 따라 다르다)
     public void TryStartInvestigation()
     {
-        if (!isAlive || !IsHelper()) return;
+        if (!isAlive) return;
         if (GamePlayUI.Instance == null) return;
 
         if (playerMove != null) playerMove.StopMove();
@@ -1157,7 +1170,8 @@ public class GamePlayer : NetworkBehaviour
     {
         ServerStopInvestigation();
 
-        if (!ServerCanInvestigate() || !ServerTryGetInvestigationTarget(targetNetId, out _))
+        if (scanCount >= MaxInvestigationCount
+            || !ServerCanInvestigate() || !ServerTryGetInvestigationTarget(targetNetId, out _))
         {
             TargetInvestigationCanceled();
             return;
@@ -1184,7 +1198,7 @@ public class GamePlayer : NetworkBehaviour
     [Server]
     private bool ServerCanInvestigate()
     {
-        return isAlive && canScan && InvestigationObject.IsAnyInRange(transform.position);
+        return isAlive && InvestigationObject.IsAnyInRange(transform.position);
     }
 
     private bool ServerTryGetInvestigationTarget(uint targetNetId, out GamePlayer target)
@@ -1197,7 +1211,8 @@ public class GamePlayer : NetworkBehaviour
         return target != null;
     }
 
-    // 탐색 시간과 조건(생존/조력자/거리)은 서버가 직접 재고, 끝까지 유지됐을 때만 결과를 보낸다
+    // 탐색 시간과 조건(생존/거리/횟수)은 서버가 직접 재고, 끝까지 유지됐을 때만 결과를 보낸다.
+    // 횟수는 결과를 보낼 때만 줄어든다(중간에 실패하면 차감하지 않는다)
     private IEnumerator ServerCoInvestigate(uint targetNetId)
     {
         float elapsed = 0f;
@@ -1222,12 +1237,44 @@ public class GamePlayer : NetworkBehaviour
             yield break;
         }
 
-        TargetInvestigationResult(targetNetId, target.nickname, target.animalType, target.isPredator);
+        if (scanCount >= MaxInvestigationCount)
+        {
+            TargetInvestigationCanceled();
+            yield break;
+        }
+
+        // 위장 중인 여우는 위장한 동물로 보인다(위장 값이 비정상이면 실제 동물로 대체)
+        AnimalType shownType = target.animalType;
+        bool shownIsPredator = target.isPredator;
+        if (target.disguisedAs != AnimalType.None && AnimalNameMap.AnimalTypeToName.ContainsKey(target.disguisedAs))
+        {
+            shownType = target.disguisedAs;
+            shownIsPredator = IsPredatorAnimal(shownType);
+        }
+
+        scanCount++;
+        TargetInvestigationResult(targetNetId, target.nickname, shownType, shownIsPredator);
+    }
+
+    private static bool IsPredatorAnimal(AnimalType type)
+    {
+        return type == AnimalType.Wolf || type == AnimalType.Crocodile
+            || type == AnimalType.Hawk || type == AnimalType.Hyena;
     }
 
     [TargetRpc]
     private void TargetInvestigationResult(uint targetNetId, string targetNickname, AnimalType targetType, bool targetIsPredator)
     {
+        // 플레이어 목록의 닉네임 옆에 탐색으로 알아낸 동물을 표시(대상이 이미 나갔으면 건너뜀)
+        if (PlayerSlotUI.Instance != null
+            && AnimalNameMap.AnimalTypeToName.TryGetValue(targetType, out string shownName)
+            && NetworkClient.spawned.TryGetValue(targetNetId, out var identity) && identity != null
+            && identity.TryGetComponent(out GamePlayer investigated))
+        {
+            var slot = PlayerSlotUI.Instance.GetSlotByPlayer(investigated);
+            if (slot != null) slot.UpdateNicknameWithAnimal(shownName);
+        }
+
         if (GamePlayUI.Instance == null) return;
         GamePlayUI.Instance.ActiveInvestigationResult(targetNetId, targetNickname, targetType, targetIsPredator);
     }
@@ -1253,7 +1300,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Crocodile":
                 animalType = AnimalType.Crocodile;
@@ -1262,7 +1308,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Hawk":
                 animalType = AnimalType.Hawk;
@@ -1271,7 +1316,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = true;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Hyena":
                 animalType = AnimalType.Hyena;
@@ -1280,7 +1324,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Scorpion":
                 animalType = AnimalType.Scorpion;
@@ -1289,7 +1332,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Zebra":
                 animalType = AnimalType.Zebra;
@@ -1298,7 +1340,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Badger":
                 animalType = AnimalType.Badger;
@@ -1307,7 +1348,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Squirrel":
                 animalType = AnimalType.Squirrel;
@@ -1316,7 +1356,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Fox":
                 animalType = AnimalType.Fox;
@@ -1325,8 +1364,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
-                maxScanCount = 2;
                 break;
             case "Ostrich":
                 animalType = AnimalType.Ostrich;
@@ -1335,7 +1372,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = true;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
             case "Plover":
                 animalType = AnimalType.Plover;
@@ -1344,27 +1380,24 @@ public class GamePlayer : NetworkBehaviour
                 isFly = true;
                 canPredict = false;
                 canScan = true;
-                isDisguise = false;
-                maxScanCount = 2;
                 break;
             case "Skunk":
                 animalType = AnimalType.Skunk;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
-                canPredict = false;
+                // 스컹크의 능력: 승리 예측(예측 오브젝트에서 한 번). 고른 플레이어가 이기면 함께 승리(SkunkWinCondition)
+                canPredict = true;
                 canScan = false;
-                isDisguise = true;
                 break;
             case "Crow":
                 animalType = AnimalType.Crow;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = true;
-                canPredict = true;
+                // 까마귀는 늑대의 조력자: 조력자 능력(시체 조사, 탐색 2회)만 갖고, 늑대가 살아 있으면 승리(CrowWinCondition)
+                canPredict = false;
                 canScan = true;
-                isDisguise = false;
-                maxScanCount = 2;
                 break;
             default:
                 animalType = AnimalType.None;
@@ -1373,7 +1406,6 @@ public class GamePlayer : NetworkBehaviour
                 isFly = false;
                 canPredict = false;
                 canScan = false;
-                isDisguise = false;
                 break;
         }
 

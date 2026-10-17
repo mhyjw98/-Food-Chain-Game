@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5d07614e12771148ac7495302124daf, type: 3}
   m_Name: MinimapConfig_GamePlay
   m_EditorClassIdentifier: Assembly-CSharp::MinimapConfig
-  worldMin: {x: -30.5, y: -6}
-  worldMax: {x: 30.5, y: 17.5}
+  worldMin: {x: -45.75, y: -9}
+  worldMax: {x: 45.75, y: 26.25}
   mapSprite: {fileID: 21300000, guid: f706fd7f260f15941998fa33fe71ea65, type: 3}
   capturePixelsPerUnit: 32
   captureLayers:

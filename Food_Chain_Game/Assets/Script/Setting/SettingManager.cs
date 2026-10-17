@@ -45,6 +45,10 @@ public class SettingManager : MonoBehaviour
         {
             CloseSettingUI();
         }
+        // 열려 있는 창이 있으면 가장 나중에 연 창을 닫는다(미션 중·진행 중이면 아무것도 하지 않음)
+        else if (UIManager.Instance != null && UIManager.Instance.HandleEscape())
+        {
+        }
         else if (titleUI == null)
         {
             ActiveSettingUI();

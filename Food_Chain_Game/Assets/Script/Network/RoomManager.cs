@@ -61,6 +61,9 @@ public class RoomManager : NetworkRoomManager
     [SerializeField] private int minPlayersToStart = 3;
     [Tooltip("켜면 에디터/개발 빌드에서는 최소 인원 미만(1~2명)으로도 시작할 수 있다. 정식 빌드에서는 무시된다")]
     [SerializeField] private bool allowBelowMinPlayersForTest = true;
+    [Tooltip("켜면 에디터/개발 빌드에서 로비의 '직업' 버튼으로 각자 캐릭터를 고를 수 있다(테스트용). 정식 빌드에서는 무시된다")]
+    [SerializeField] private bool allowCharacterSelectForTest = true;
+    public bool CharacterSelectEnabled => allowCharacterSelectForTest && (Application.isEditor || Debug.isDebugBuild);
     private bool _startingGame;
 
     // 로비 복귀 시 본인 클라이언트가 아직 씬 로딩 중이라 재배치 지시를 미뤄 둔 플레이어 (연결 → 목적지)
@@ -419,6 +422,7 @@ public class RoomManager : NetworkRoomManager
             gamePlayer.characterName = roomPlayer.assignedCharacter;
             gamePlayer.nickname = roomPlayer.nickname;
             gamePlayer.gpColor = roomPlayer.rpColor;
+            gamePlayer.costumeIndex = roomPlayer.costumeIndex;
             gamePlayer.voiceId = roomPlayer.voiceId;
 
             if (CharacterZoneData.CharacterHomeZone.TryGetValue(roomPlayer.assignedCharacter, out ZoneType zone))
@@ -474,17 +478,54 @@ public class RoomManager : NetworkRoomManager
 
         var pool = GetCharacterPool(roomPlayers.Count);
         HashSet<string> assigned = new();
+        var randomPlayers = new List<NetworkRoomPlayer>();
 
+        // 테스트용 직업 선택: 고른 플레이어는 그 캐릭터로 먼저 배정하고, 나머지만 무작위로 배정한다
         foreach (var playerObj in roomPlayers)
+        {
+            RoomPlayer roomPlayer = playerObj.GetComponent<RoomPlayer>();
+            string requested = roomPlayer != null ? roomPlayer.requestedCharacter : null;
+
+            if (!CharacterSelectEnabled || string.IsNullOrEmpty(requested)
+                || !CharacterZoneData.CharacterHomeZone.ContainsKey(requested))
+            {
+                randomPlayers.Add(playerObj);
+                continue;
+            }
+
+            if (assigned.Contains(requested))
+                Debug.LogWarning($"[RoomManager] 테스트 직업 선택: {requested}를 여러 명이 골라 중복 배정합니다.");
+
+            assigned.Add(requested);
+            roomPlayer.SetCharacter(requested);
+            Debug.Log($"플레이어 {roomPlayer.nickname} 캐릭터 배정(직접 선택): {requested}");
+        }
+
+        // 직접 고른 캐릭터는 무작위 후보에서 빼고, 후보가 모자라면 나머지 캐릭터 전체에서 채운다
+        pool.RemoveAll(assigned.Contains);
+        int needed = randomPlayers.Count - pool.Distinct().Count();
+        if (needed > 0)
+        {
+            foreach (var name in CharacterZoneData.CharacterHomeZone.Keys)
+            {
+                if (needed <= 0) break;
+                if (assigned.Contains(name) || pool.Contains(name)) continue;
+                pool.Add(name);
+                needed--;
+            }
+        }
+        if (pool.Count == 0)
+            pool.AddRange(CharacterZoneData.CharacterHomeZone.Keys);
+
+        foreach (var playerObj in randomPlayers)
         {
 
             string assignedCharacter;
-            if (assigned.Count < pool.Count)
+            // 아직 배정되지 않은 후보 중에서 고른다(풀에 같은 이름이 두 번 있어도 무한 루프가 나지 않도록)
+            var available = pool.Where(c => !assigned.Contains(c)).Distinct().ToList();
+            if (available.Count > 0)
             {
-                do
-                {
-                    assignedCharacter = pool[UnityEngine.Random.Range(0, pool.Count)];
-                } while (assigned.Contains(assignedCharacter));
+                assignedCharacter = available[UnityEngine.Random.Range(0, available.Count)];
             }
             else
             {

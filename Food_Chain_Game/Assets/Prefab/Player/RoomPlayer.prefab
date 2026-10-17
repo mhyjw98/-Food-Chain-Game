@@ -95,6 +95,7 @@ GameObject:
   - component: {fileID: -5761001999832732709}
   - component: {fileID: 6457686042285777237}
   - component: {fileID: 4524633398130111490}
+  - component: {fileID: 1379944850574273305}
   m_Layer: 0
   m_Name: RoomPlayer
   m_TagString: Untagged
@@ -216,6 +217,7 @@ MonoBehaviour:
   nickname: 
   colorIndex: -1
   rpColor: {r: 0, g: 0, b: 0, a: 0}
+  costumeIndex: 0
   voiceId: 
   isHost: 0
   nicknameText: {fileID: 5380004414359697381}
@@ -378,6 +380,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VoiceSpeakingIcon
   icon: {fileID: 8283816927125534010}
   refreshInterval: 0.1
+--- !u!114 &1379944850574273305
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3007614341957874153}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 83a9386f4ae7f1e4399a734e915d9112, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerCostumeView
+  bodyRenderer: {fileID: 6222701727186846427}
+  overlayRenderer: {fileID: 0}
+  overlaySortingOffset: 1
 --- !u!1 &4593328827562711256
 GameObject:
   m_ObjectHideFlags: 0

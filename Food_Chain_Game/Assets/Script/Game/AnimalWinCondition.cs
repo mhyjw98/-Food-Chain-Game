@@ -75,9 +75,9 @@ public class AnimalWinCondition : MonoBehaviour
     {
         public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
-            // 8명 이상 사망
-            int deadCount = allPlayers.Count(p => !p.isAlive);
-            return deadCount >= 8;
+            // 독으로 포식자 반격에 성공했으면 승리(전갈 생존 여부와 무관)
+            var ability = player.GetComponent<ScorpionAbility>();
+            return ability != null && ability.HasCountered;
         }
     }
     public class CrowWinCondition : IWinCondition
@@ -108,11 +108,27 @@ public class AnimalWinCondition : MonoBehaviour
             return false;
         }
     }
-    public class SkunkWinCondition : IWinCondition
+    // 스컹크: 예측 오브젝트에서 고른 플레이어가 승리하면 함께 승리한다(스컹크 본인의 생존 여부와 무관).
+    // 예측하지 않았거나 고른 플레이어가 게임에서 나갔으면 패배
+    public class SkunkWinCondition : IDependentWinCondition
     {
+        // 결과는 GameResultEvaluator가 GetDependency로 계산한다. 단독으로 불리면 판단할 수 없으므로 패배
         public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
-            return player.isAlive;
+            return false;
+        }
+
+        public GamePlayer GetDependency(GamePlayer player, SyncList<GamePlayer> allPlayers)
+        {
+            uint predictedId = player.predictedPlayerNetId;
+            if (predictedId == 0) return null;
+
+            foreach (var p in allPlayers)
+            {
+                if (p != null && p != player && p.netId == predictedId)
+                    return p;
+            }
+            return null;
         }
     }
 

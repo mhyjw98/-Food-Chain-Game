@@ -47,6 +47,10 @@ public class GamePlayUI : MonoBehaviour
     public TextMeshProUGUI investigationType;
 
     [Header("Scan Result Labels")]
+    [Tooltip("결과 창의 제목. 시체 조사 기록과 플레이어 탐색 기록이 같은 창을 쓰므로 기록 종류에 맞게 바꿔 표시한다")]
+    [SerializeField] private TextMeshProUGUI scanResultTitle;
+    [SerializeField] private string corpseResultTitleText = "부검 결과";
+    [SerializeField] private string playerResultTitleText = "탐색 결과";
     [Tooltip("결과 창의 항목 이름. 시체 조사 기록과 플레이어 탐색 기록이 같은 창을 쓰므로 기록 종류에 맞게 바꿔 표시한다")]
     [SerializeField] private TextMeshProUGUI scanTimeLabel;
     [SerializeField] private TextMeshProUGUI scanCorpseLabel;
@@ -74,6 +78,16 @@ public class GamePlayUI : MonoBehaviour
 
     public GameObject investigationObj;
 
+    [Header("Disguise / Predict")]
+    [Tooltip("위장 창 제목. 이미 위장했다면 위장한 동물 안내로 바뀐다")]
+    [SerializeField] private TextMeshProUGUI disguiseTitleText;
+    [SerializeField] private string disguiseSelectTitle = "위장할 캐릭터를\n선택해주세요.";
+    [SerializeField] private string disguiseDoneFormat = "이미 {0}(으)로\n위장했습니다.";
+    [Tooltip("승리 예측 창 제목. 이미 예측했다면 예측한 플레이어 안내로 바뀐다")]
+    [SerializeField] private TextMeshProUGUI predictTitleText;
+    [SerializeField] private string predictSelectTitle = "승리할 플레이어를\n예측해주세요.";
+    [SerializeField] private string predictDoneFormat = "이미 {0}님을\n승리자로 예측했습니다.";
+
     Animator textAni;
     Animator panelAni;
     Animator territoryAni;
@@ -89,7 +103,12 @@ public class GamePlayUI : MonoBehaviour
     public TMP_InputField chatInputField;
     private bool _predictOpen;
     private bool _disguiseOpen;
-    private bool isSelected = false;
+    // 위장/예측을 서버에 보낸 직후 SyncVar가 도착하기 전에도 다시 고르지 못하게 본인 화면에서 기억해 둔다
+    private AnimalType _localDisguise = AnimalType.None;
+    private uint _predictTargetNetId;
+    private string _predictTargetNickname;
+    private uint _localPredictNetId;
+    private string _localPredictNickname;
     private GamePlayer localPlayer;
     private AnimalType selectType;
     
@@ -107,6 +126,12 @@ public class GamePlayUI : MonoBehaviour
         territoryAni = territoryText.GetComponent<Animator>();
         descriptionAni = descriptionText.GetComponent<Animator>();
         resultAni = resultUI.GetComponent<Animator>();
+
+        // 캐릭터 소개 글자는 연출이 끝나도 투명한 채 켜져 있어서, 클릭을 받으면 그 아래 창의 버튼
+        // (탐색 결과 창의 확인 버튼 등)이 눌리지 않는다. 보여 주기만 하는 글자이므로 클릭을 받지 않게 한다
+        characterText.raycastTarget = false;
+        territoryText.raycastTarget = false;
+        descriptionText.raycastTarget = false;
     }
     public void InitLocalPlayer(GamePlayer lgp)
     {
@@ -165,20 +190,34 @@ public class GamePlayUI : MonoBehaviour
         }
             
     }
-    // 위장 창. "위장 시간" 단계는 없어지고 위장 오브젝트로 대체될 예정이라 시간 제한(자동 무작위 선택)은 두지 않는다.
-    // 이동 잠금(Modal)은 창을 열 때 한 번 걸고, 닫을 때(CloseDisguiseUI) 한 번만 푼다
+    // 위장 창(위장 오브젝트에서 연다). 이동 잠금(Modal)은 창을 열 때 한 번 걸고, 닫을 때(CloseDisguiseUI) 한 번만 푼다.
+    // 위장은 한 번만 할 수 있어서, 이미 위장했다면 목록 대신 위장한 동물을 안내한다
     public void ShowDisguiseUI()
     {
-        if (localPlayer == null || localPlayer.animalType != AnimalType.Fox) return;
+        if (localPlayer == null || !localPlayer.CanDisguise) return;
         if (_disguiseOpen) return;
 
         _disguiseOpen = true;
         selectType = AnimalType.None;
 
+        AnimalType done = localPlayer.HasDisguised ? localPlayer.disguisedAs : _localDisguise;
+        bool isDone = done != AnimalType.None;
+        disguiseButtonGroup.gameObject.SetActive(!isDone);
+        if (disguiseTitleText != null)
+            disguiseTitleText.text = isDone ? string.Format(disguiseDoneFormat, GetAnimalName(done)) : disguiseSelectTitle;
+
         UIManager.Instance.Push(UIPriority.Modal);
+        UIManager.RegisterEscape(disguiseUI, EscapeDisguiseUI);
         checkUI.SetActive(false);
         disguiseUI.SetActive(true);
         disguiseUI.transform.SetAsLastSibling();
+    }
+
+    // ESC: 확인창이 떠 있으면 확인창만 닫고("아니요"), 아니면 위장 창을 닫는다
+    private void EscapeDisguiseUI()
+    {
+        if (checkUI.activeSelf) DeActiveCheckUI();
+        else CloseDisguiseUI();
     }
 
     // 선택하지 않고 닫을 때도 이 메서드를 쓴다(닫기 버튼/위장 오브젝트에서 벗어남 등)
@@ -191,34 +230,66 @@ public class GamePlayUI : MonoBehaviour
         if (!_disguiseOpen) return;
         _disguiseOpen = false;
         UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(disguiseUI);
     }
 
     public void OnDisguiseSelected(AnimalType type)
     {
         if (!_disguiseOpen || localPlayer == null) return;
         if (type == AnimalType.None || !AnimalNameMap.AnimalTypeToName.TryGetValue(type, out string animalName)) return;
+        // 이미 위장했다면 바꿀 수 없다(서버도 다시 확인)
+        if (localPlayer.HasDisguised || _localDisguise != AnimalType.None)
+        {
+            CloseDisguiseUI();
+            return;
+        }
 
         localPlayer.CmdSetDisguise(type);
+        _localDisguise = type;
 
         PlayerSlot slot = PlayerSlotUI.Instance != null ? PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer) : null;
         if (slot != null) slot.UpdateNicknameWithAnimal($"여우 > {animalName}");
 
         CloseDisguiseUI();
     }
-    // 예측 창(까마귀). "탐색 시간" 단계는 없어지고 예측 오브젝트로 대체될 예정이라 시간 제한(자동 무작위 선택)은 두지 않는다.
-    // 이동 잠금(Modal)은 창을 열 때 한 번 걸고, 닫을 때(ClosePredictUI) 한 번만 푼다
+    // 승리 예측 창(예측 오브젝트에서 연다): 나를 뺀 플레이어 목록 → 확인 → 확정.
+    // 이동 잠금(Modal)은 창을 열 때 한 번 걸고, 닫을 때(ClosePredictUI) 한 번만 푼다.
+    // 예측은 한 번만 할 수 있어서, 이미 예측했다면 목록 대신 예측한 플레이어를 안내한다
     public void ShowPredictUI()
     {
-        if (localPlayer == null || localPlayer.animalType != AnimalType.Crow) return;
+        if (localPlayer == null || !localPlayer.CanPredict) return;
         if (_predictOpen) return;
 
         _predictOpen = true;
-        selectType = AnimalType.None;
+        _predictTargetNetId = 0;
+
+        string predictedNickname = GetPredictedNickname();
+        bool isDone = predictedNickname != null;
+        if (isDone)
+        {
+            foreach (Transform child in predictButtonGroup)
+                Destroy(child.gameObject);
+        }
+        else
+        {
+            BuildPredictButtons();
+        }
+        predictButtonGroup.gameObject.SetActive(!isDone);
+        if (predictTitleText != null)
+            predictTitleText.text = isDone ? string.Format(predictDoneFormat, predictedNickname) : predictSelectTitle;
 
         UIManager.Instance.Push(UIPriority.Modal);
+        UIManager.RegisterEscape(predictUI, EscapePredictUI);
         predictCheckUI.SetActive(false);
         predictUI.SetActive(true);
         predictUI.transform.SetAsLastSibling();
+    }
+
+    // ESC: 확인창이 떠 있으면 확인창만 닫고("아니요"), 아니면 예측 창을 닫는다
+    private void EscapePredictUI()
+    {
+        if (predictCheckUI.activeSelf) DeActivePredictCheckUI();
+        else ClosePredictUI();
     }
 
     // 선택하지 않고 닫을 때도 이 메서드를 쓴다(닫기 버튼/예측 오브젝트에서 벗어남 등)
@@ -226,11 +297,12 @@ public class GamePlayUI : MonoBehaviour
     {
         predictCheckUI.SetActive(false);
         predictUI.SetActive(false);
-        selectType = AnimalType.None;
+        _predictTargetNetId = 0;
 
         if (!_predictOpen) return;
         _predictOpen = false;
         UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(predictUI);
     }
 
     // 서버가 조사 시작을 승인했을 때 호출됨(GamePlayer.TargetStartCorpseScan)
@@ -240,6 +312,8 @@ public class GamePlayUI : MonoBehaviour
 
         isCorpseScanning = true;
         UIManager.Instance.Push(UIPriority.Scan);
+        // 부검 진행 중에는 ESC를 막는다(창을 닫지도, 설정 창을 열지도 않음)
+        UIManager.RegisterEscape(scanPanel, null);
         scanCo = StartCoroutine(CoScanCorpse(corpse, localPlayer.CorpseScanDuration, localPlayer.CorpseScanRange));
     }
 
@@ -346,11 +420,13 @@ public class GamePlayUI : MonoBehaviour
 
         scanPanel.gameObject.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Scan);
+        UIManager.UnregisterEscape(scanPanel);
         scanPanel.value = 0f;
     }
     // 시체 조사 기록: 사망 시각 / 사망자 / 공격자
     public void ActiveScanResult(InvestigationRecord record)
     {
+        SetScanResultTitle(corpseResultTitleText);
         SetScanResultLabels("사망 시각 :", "사망자 :", "공격자 :");
 
         scanDeathTime.text = FormatRecordTime(record);
@@ -366,12 +442,14 @@ public class GamePlayUI : MonoBehaviour
 
         scanResultUI.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Scan);
+        UIManager.UnregisterEscape(scanResultUI);
     }
 
     // 플레이어 탐색 기록: 탐색 시각 / 대상(닉네임) / 정체.
     // 시체 조사와 같은 창을 쓰므로 항목 이름을 바꿔 준다(그대로 두면 "사망자: 늑대"처럼 엉뚱하게 표시된다)
     public void ActivePlayerScanResult(InvestigationRecord record)
     {
+        SetScanResultTitle(playerResultTitleText);
         SetScanResultLabels("탐색 시각 :", "대상 :", "정체 :");
 
         scanDeathTime.text = FormatRecordTime(record);
@@ -386,10 +464,16 @@ public class GamePlayUI : MonoBehaviour
     private void OpenScanResultUI()
     {
         scanResultUI.transform.SetAsLastSibling();
+        UIManager.RegisterEscape(scanResultUI, DeActiveScanResult);
         if (scanResultUI.activeSelf) return;
 
         scanResultUI.SetActive(true);
         UIManager.Instance.Push(UIPriority.Scan);
+    }
+
+    private void SetScanResultTitle(string title)
+    {
+        if (scanResultTitle != null) scanResultTitle.text = title;
     }
 
     private void SetScanResultLabels(string time, string corpse, string killer)
@@ -410,27 +494,6 @@ public class GamePlayUI : MonoBehaviour
         return AnimalNameMap.AnimalTypeToName.TryGetValue(type, out string animalName) ? animalName : "???";
     }
 
-    // type이 None이면 "플레이어 예측"을 고른 것: 서버에 보내지 않고 창만 닫는다(플레이어 목록에서 따로 예측)
-    public void OnPredictSelected(AnimalType type)
-    {
-        if (!_predictOpen || localPlayer == null) return;
-
-        if (type != AnimalType.None)
-        {
-            isSelected = true;
-            localPlayer.CmdSetPredict(type);
-        }
-
-        ClosePredictUI();
-    }
-
-    public void CheckPredict()
-    {
-        if (localPlayer == null || localPlayer.animalType != AnimalType.Crow || isSelected || selectType != AnimalType.None) return;
-
-        var type = GetRandomAnimalType();
-        localPlayer.CmdSetPredict(type);
-    }
     public void Startinvestigation()
     {
         if (investigationUI.activeSelf) return;
@@ -441,18 +504,37 @@ public class GamePlayUI : MonoBehaviour
     void ActiveInvestigationSelectUI()
     {
         UIManager.Instance.Push(UIPriority.Modal);
+        UIManager.RegisterEscape(investigationUI, EscapeInvestigationUI);
 
         investigationUI.SetActive(true);
         investigationUI.transform.SetAsLastSibling();
 
         DestroyBtn();
 
-        investigationDescript.text = string.Empty;
+        investigationDescript.text = GetRemainingInvestigationText();
         investigationResult.text = string.Empty;
         investigationType.text = string.Empty;
         invCheckBtnGroup.SetActive(false);
         HideInvestigationProgress();
         InitBtnGroup();
+    }
+
+    // ESC: 탐색 진행 중이면 무시, "탐색하시겠습니까?" 확인 중이면 목록으로 돌아가고, 아니면 창을 닫는다
+    private void EscapeInvestigationUI()
+    {
+        if (isInvestigating) return;
+
+        if (invCheckBtnGroup.activeSelf) CancleInvestigation();
+        else DeActiveInvestigationSelectUI();
+    }
+
+    // 횟수 판정은 서버(GamePlayer.CmdBeginInvestigation)가 한다. 여기서는 안내만 한다
+    private string GetRemainingInvestigationText()
+    {
+        if (localPlayer == null) return string.Empty;
+
+        int remaining = localPlayer.RemainingInvestigationCount;
+        return remaining > 0 ? $"남은 탐색 횟수 : {remaining}" : "탐색 횟수를 모두 사용했습니다.";
     }
     // Modal은 창을 열 때 한 번 Push, 닫을 때 한 번만 Pop
     public void DeActiveInvestigationSelectUI()
@@ -468,6 +550,7 @@ public class GamePlayUI : MonoBehaviour
 
         investigationUI.SetActive(false);
         UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(investigationUI);
     }
     // 로컬 플레이어가 죽었을 때 호출됨(GamePlayer.OnAliveChanged).
     // 탐색 창(대상 선택/진행 중/결과 표시)과 시체 조사 진행 바를 즉시 닫고 잠금을 푼다
@@ -503,12 +586,15 @@ public class GamePlayUI : MonoBehaviour
     public void CancleInvestigation()
     {
         InitBtnGroup();
+        investigationDescript.text = GetRemainingInvestigationText();
         investigationResult.text = string.Empty;
         invCheckBtnGroup.SetActive(false);
     }
     void InitBtnGroup()
     {
         if (GameMamager.Instance == null) return;
+        // 횟수를 다 쓰면 대상 목록을 띄우지 않는다
+        if (localPlayer == null || localPlayer.RemainingInvestigationCount <= 0) return;
 
         var players = GameMamager.Instance.players;
 
@@ -588,10 +674,10 @@ public class GamePlayUI : MonoBehaviour
 
         var gameMamager = GameMamager.Instance;
 
+        // recordId는 비워 두어 InvestigationLog가 새 ID를 만든다(같은 대상을 다시 탐색해도 기록이 남도록)
         var rec = new InvestigationRecord
         {
             type = InvestigationType.PlayerIdentity,
-            recordId = $"{targetNetId}",
             title = targetNickname,
             subtitle = $"탐색 결과: {GetAnimalName(targetType)}",
             Day = gameMamager.currentRound,
@@ -681,7 +767,7 @@ public class GamePlayUI : MonoBehaviour
             btn.GetComponent<Button>().onClick.AddListener(() =>
             {
                 selectType = candidate;
-                checkText.text = $"정말로 {label}(으)로 \n위장하시겠습니까??";
+                checkText.text = $"정말로 {label}(으)로 \n위장하시겠습니까??\n<size=24>(다시 바꿀 수 없습니다)</size>";
                 checkUI.SetActive(true);
                 checkUI.transform.SetAsLastSibling();
             });
@@ -689,36 +775,58 @@ public class GamePlayUI : MonoBehaviour
         disguiseUI.SetActive(false);
     }
 
+    // 예측 후보는 플레이어 목록이라 창을 열 때마다 새로 만든다(BuildPredictButtons). 게임 시작 시에는 비워 두기만 한다
     public void SetPredictOptions()
     {
-        // 기존 버튼 제거
         foreach (Transform child in predictButtonGroup)
             Destroy(child.gameObject);
 
-        foreach (var type in allAnimals)
-        {
-            GameObject btn = Instantiate(uiButtonPrefab, predictButtonGroup);
-            string label = AnimalNameMap.AnimalTypeToName[type];
-            btn.GetComponentInChildren<TextMeshProUGUI>().text = label;
-
-            btn.GetComponent<Button>().onClick.AddListener(() =>
-            {
-                selectType = type;
-                predictCheckText.text = $"{label}(을)를 승리자로\n예측 하시겠습니까??";
-                predictCheckUI.SetActive(true);
-                predictCheckUI.transform.SetAsLastSibling();
-            });
-        }
-        GameObject cancleBtn = Instantiate(uiButtonPrefab, predictButtonGroup);
-        cancleBtn.GetComponentInChildren<TextMeshProUGUI>().text = "플레이어 예측";
-        cancleBtn.GetComponent<Button>().onClick.AddListener(() =>
-        {
-            selectType = AnimalType.None;
-            predictCheckText.text = $"동물이 아닌 플레이어로 승리자를 예측 하시겠습니까??\n플레이어 예측은 우측 상단의 프로필 > 우클릭 > 예측버튼을 통해 가능합니다.";
-            predictCheckUI.SetActive(true);
-            predictCheckUI.transform.SetAsLastSibling();
-        });
         predictUI.SetActive(false);
+    }
+
+    private void BuildPredictButtons()
+    {
+        foreach (Transform child in predictButtonGroup)
+            Destroy(child.gameObject);
+
+        if (GameMamager.Instance == null) return;
+
+        foreach (var p in GameMamager.Instance.players)
+        {
+            // 나간 플레이어는 목록에 null로 남을 수 있다
+            if (p == null || p == localPlayer) continue;
+
+            GamePlayer candidate = p;
+            GameObject btn = Instantiate(uiButtonPrefab, predictButtonGroup);
+            btn.GetComponentInChildren<TextMeshProUGUI>().text = candidate.nickname;
+            btn.GetComponent<Button>().onClick.AddListener(() => OnSelectPredictTarget(candidate));
+        }
+    }
+
+    private void OnSelectPredictTarget(GamePlayer target)
+    {
+        if (!_predictOpen || target == null) return;
+
+        _predictTargetNetId = target.netId;
+        _predictTargetNickname = target.nickname;
+
+        predictCheckText.text = $"{target.nickname}님을 승리자로\n예측하시겠습니까?\n<size=24>(다시 바꿀 수 없습니다)</size>";
+        predictCheckUI.SetActive(true);
+        predictCheckUI.transform.SetAsLastSibling();
+    }
+
+    // 이미 예측했다면 예측한 플레이어 닉네임, 아니면 null
+    private string GetPredictedNickname()
+    {
+        if (_localPredictNetId != 0) return _localPredictNickname;
+        if (localPlayer == null || !localPlayer.HasPredicted) return null;
+
+        uint id = localPlayer.predictedPlayerNetId;
+        if (NetworkClient.spawned.TryGetValue(id, out var identity) && identity != null
+            && identity.TryGetComponent(out GamePlayer predicted))
+            return predicted.nickname;
+
+        return "???";
     }
     public void OnClickChatBtn()
     {
@@ -741,19 +849,43 @@ public class GamePlayUI : MonoBehaviour
     public void DeActivePredictCheckUI()
     {
         predictCheckUI.SetActive(false);
-        selectType = AnimalType.None;
+        _predictTargetNetId = 0;
     }
-    // 예측 확인창 "네": 선택을 확정하고 창을 닫는다
+    // 예측 확인창 "네": 선택을 확정하고 창을 닫는다. 한 번 정하면 바꿀 수 없다(서버도 다시 확인)
     public void DeActivePredictUI()
     {
-        AnimalType chosen = selectType;
         predictCheckUI.SetActive(false);
-        OnPredictSelected(chosen);
+
+        if (!_predictOpen || localPlayer == null || _predictTargetNetId == 0) return;
+        if (GetPredictedNickname() != null)
+        {
+            ClosePredictUI();
+            return;
+        }
+
+        localPlayer.CmdSetPredict(_predictTargetNetId);
+        _localPredictNetId = _predictTargetNetId;
+        _localPredictNickname = _predictTargetNickname;
+
+        ClosePredictUI();
     }
 
     public void OnClickMissionListUI()
     {
-        missionListUI.SetActive(!missionListUI.activeSelf);
+        if (missionListUI.activeSelf)
+        {
+            CloseMissionListUI();
+            return;
+        }
+
+        missionListUI.SetActive(true);
+        UIManager.RegisterEscape(missionListUI, CloseMissionListUI);
+    }
+
+    public void CloseMissionListUI()
+    {
+        missionListUI.SetActive(false);
+        UIManager.UnregisterEscape(missionListUI);
     }
     public void OnClickProfileSlotUI()
     {
@@ -792,23 +924,6 @@ public class GamePlayUI : MonoBehaviour
             iconMap.Remove(player);
         }
     }
-    AnimalType GetRandomAnimalType()
-    {       
-        int index = UnityEngine.Random.Range(0, allAnimals.Length);
-        return allAnimals[index];
-    }
-
-    AnimalType[] allAnimals = new AnimalType[]
-        {
-            AnimalType.Wolf,
-            AnimalType.Crocodile,
-            AnimalType.Fox,
-            AnimalType.Scorpion,
-            AnimalType.Hawk,
-            AnimalType.Plover,
-            AnimalType.Crow,
-            AnimalType.Hyena
-        };
     Transform GetZonePanel(ZoneType zone) => zone switch
     {
         ZoneType.Field => fieldPanel,

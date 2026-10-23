@@ -3,9 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BadgerAbility : NetworkBehaviour, IAnimalAbility, IMissionCompleteHandler
+public class HippoAbility : NetworkBehaviour, IAnimalAbility, IMissionCompleteHandler
 {
-    // 서버 전용(SyncVar 아님). 동기화하면 오소리가 죽는 순간 살해자가 모든 클라이언트에 노출된다
+    // 서버 전용(SyncVar 아님). 동기화하면 하마가 죽는 순간 살해자가 모든 클라이언트에 노출된다
     private uint revengeTargetNetId;
     private bool revengeActive;
 
@@ -13,18 +13,18 @@ public class BadgerAbility : NetworkBehaviour, IAnimalAbility, IMissionCompleteH
 
     private static readonly MissionType[] RevengeMissions =
     {
-        MissionType.BadgerA,
-        //MissionType.BadgerB,
-        //MissionType.BadgerC,
-        //MissionType.BadgerD,
-        //MissionType.BadgerE,
+        MissionType.RevengeA,
+        //MissionType.RevengeB,
+        //MissionType.RevengeC,
+        //MissionType.RevengeD,
+        //MissionType.RevengeE,
     };
 
     [Server]
     public void ServerActivate(GamePlayer local, AnimalType type)
     {
         this.local = local;
-        enabled = (type == AnimalType.Badger);
+        enabled = (type == AnimalType.Hippo);
         revengeTargetNetId = 0;
         revengeActive = false;
     }
@@ -81,20 +81,20 @@ public class BadgerAbility : NetworkBehaviour, IAnimalAbility, IMissionCompleteH
     {
         switch (completedType)
         {
-            case MissionType.BadgerA:
-                Debug.Log("BadgerA 미션 완료");
+            case MissionType.RevengeA:
+                Debug.Log("RevengeA 미션 완료");
                 break;
 
-            case MissionType.BadgerB:
+            case MissionType.RevengeB:
                 break;
 
-            case MissionType.BadgerC:
+            case MissionType.RevengeC:
                 break;
 
-            case MissionType.BadgerD:
+            case MissionType.RevengeD:
                 break;
 
-            case MissionType.BadgerE:
+            case MissionType.RevengeE:
                 break;
         }
     }

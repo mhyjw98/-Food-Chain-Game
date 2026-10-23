@@ -247,12 +247,13 @@ public class PreySymbiosisAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbi
             if (partnerAbility == null) return;
 
             if (partnerGp.connectionToClient != null)
-                partnerAbility.TargetRpcUnderAttack(partnerGp.connectionToClient, target.netId, attacker.netId);
+                partnerAbility.TargetRpcUnderAttack(partnerGp.connectionToClient, target.netId);
         }
     }   
 
     [TargetRpc]
-    private void TargetRpcUnderAttack(NetworkConnectionToClient conn, uint victimNetId, uint attackerNetId)
+    // 공격자는 보내지 않는다(알림만 띄우며, 누가 공격했는지 알려 주면 포식자 정체가 드러난다)
+    private void TargetRpcUnderAttack(NetworkConnectionToClient conn, uint victimNetId)
     {
         if (!isLocalPlayer) return;
         if (!enablePartnerAttackAlert) return;

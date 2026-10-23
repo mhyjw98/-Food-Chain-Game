@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 위장 오브젝트: 여우가 가까이 가서 상호작용하면 위장 창(모든 동물 목록)이 열린다.
-// 위장 확정(GamePlayer.CmdSetDisguise)은 서버가 여우인지와 이 오브젝트 근처인지를 다시 확인한다
+// 위장 오브젝트: 카멜레온이 가까이 가서 상호작용하면 위장 창(모든 동물 목록)이 열린다.
+// 위장 확정(GamePlayer.CmdSetDisguise)은 서버가 카멜레온인지와 이 오브젝트 근처인지를 다시 확인한다
 public class DisguiseObject : MonoBehaviour
 {
     [Tooltip("서버가 위장을 허용하는 최대 거리. Scanner의 scanRadius보다 조금 크게 잡아 지연 오차를 허용")]

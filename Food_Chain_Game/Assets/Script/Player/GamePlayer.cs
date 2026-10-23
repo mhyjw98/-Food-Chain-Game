@@ -5,7 +5,8 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
-public enum AnimalType { Wolf, Crocodile, Hawk, Hyena, Scorpion, Crow, Plover, Squirrel, Badger, Ostrich, Zebra, Skunk, Fox, None }
+// 코드 이름과 화면 이름이 다른 것: Owl = 올빼미, Hippo = 하마, Chameleon = 카멜레온, Meerkat = 미어캣 (화면 이름은 AnimalNameMap / CharacterConfig)
+public enum AnimalType { Wolf, Crocodile, Hawk, Hyena, Scorpion, Crow, Plover, Meerkat, Hippo, Ostrich, Zebra, Owl, Chameleon, None }
 public enum PredatorType { Prey, Hyena, Hawk, Crocodile, Wolf, Scorpion }
 // Left: 게임 도중 퇴장(접속 종료/튕김). 임시 구현 — 추후 수정 예정
 public enum DeathReason { None = 0, Hunger, MissionFail, KilledByAttack, CounterKill, Left }
@@ -37,7 +38,6 @@ public class GamePlayer : NetworkBehaviour
     [SyncVar(hook = nameof(OnColorChanged))] public Color gpColor = Color.white;
     // 로비에서 고른 의상(CostumeCatalog 번호). 겉모습이라 모두에게 보인다
     [SyncVar(hook = nameof(OnCostumeChanged))] public int costumeIndex;
-    [SyncVar(hook = nameof(OnZoneChanged))] public ZoneType currentZone;
     [SyncVar] public bool isReturn;
     [SyncVar(hook = nameof(OnAliveChanged))] public bool isAlive = true;
     [SyncVar] public bool isWin;
@@ -63,6 +63,7 @@ public class GamePlayer : NetworkBehaviour
     public uint predictedPlayerNetId { get => PrivateState.predictedPlayerNetId; set => PrivateState.predictedPlayerNetId = value; }
     public AnimalType disguisedAs { get => PrivateState.disguisedAs; set => PrivateState.disguisedAs = value; }
     public AnimalType predictedAs { get => PrivateState.predictedAs; set => PrivateState.predictedAs = value; }
+    public ZoneType currentZone { get => PrivateState.currentZone; set => PrivateState.currentZone = value; }
     public bool predictedCorrectly { get => PrivateState.predictedCorrectly; set => PrivateState.predictedCorrectly = value; }
     public SyncList<MissionSlot> Missions => PrivateState.Missions;
 
@@ -116,7 +117,9 @@ public class GamePlayer : NetworkBehaviour
     // 서버: 시작을 승인한 미션(플레이어당 하나)과 시작 시각
     private bool _serverHasActiveMission;
     private MissionType _serverActiveMission;
-    private float _serverMissionStartTime;
+    // 실제 시간(초). Time.time은 방장 PC가 심하게 느리면 한 프레임에 최대 0.33초만 늘어 실제보다 느리게 가므로,
+    // 정상적으로 끝낸 미션이 최소 소요 시간 미달로 거부될 수 있었다
+    private double _serverMissionStartTime;
     // 클라: 시작 요청을 보내고 서버 응답을 기다리는 중
     private bool _missionRequestPending;
     // 클라: 시작 연출을 이미 재생했는지
@@ -137,14 +140,14 @@ public class GamePlayer : NetworkBehaviour
         Missions.Callback += OnMissionsChanged;
         Abilities = GetComponents<IPlayerAbility>();
         _missionCompleteHandlers = GetComponents<IMissionCompleteHandler>();
-        // 구역 아이콘은 거주지가 아니라 현재 구역 기준으로 놓는다(거주지는 클라이언트에 보내지 않음)
-        GamePlayUI.Instance.AddPlayer(this, currentZone);
     }
     public override void OnStartLocalPlayer()
     {       
         base.OnStartLocalPlayer();
 
         LocalPlayer = this;
+        // 구역 아이콘은 내 것만 놓는다(현재 구역은 본인에게만 동기화된다). 거주지가 아니라 현재 구역 기준
+        if (GamePlayUI.Instance != null) GamePlayUI.Instance.AddPlayer(this, currentZone);
         _knownDeadNetIds.Clear();
         visionUI = FindFirstObjectByType<VisionUIController>();
         visionUI.localPlayer = this;
@@ -315,7 +318,7 @@ public class GamePlayer : NetworkBehaviour
         while (MissionListUI.Instance == null)
             yield return null;
 
-        // 죽은 뒤에는 사망 후 전용 미션이 있는 캐릭터(오소리)만 미션을 본다
+        // 죽은 뒤에는 사망 후 전용 미션이 있는 캐릭터(하마)만 미션을 본다
         if (CanDoMissions)
             MissionListUI.Instance.RefreshList(Missions);
         else
@@ -395,7 +398,7 @@ public class GamePlayer : NetworkBehaviour
         target.TargetReceiveWhisper(netId, netId, message);
     }
 
-    // 승리 예측(스컹크). 역할은 서버와 본인만 알므로 본인 UI와 서버 판정에만 쓴다
+    // 승리 예측(올빼미). 역할은 서버와 본인만 알므로 본인 UI와 서버 판정에만 쓴다
     public bool CanPredict => canPredict;
     // 예측과 위장은 한 번 정하면 바꿀 수 없다
     public bool HasPredicted => predictedPlayerNetId != 0;
@@ -549,11 +552,13 @@ public class GamePlayer : NetworkBehaviour
             
         if (isLocalPlayer)
         {
+            // 진행 중이던 미션과 서버 응답을 기다리던 미션 시작 요청을 취소한다
             FailProgressMission();
+            CancelPendingMissionRequest();
 
-            // 탐색/시체 조사 중이었다면 창을 바로 닫는다(결과나 실패 안내를 남기지 않는다)
+            // 탐색·부검 등 준비·진행 중이던 행동을 취소하고 열린 창을 모두 닫은 뒤 사망 연출을 보여 준다
             if (GamePlayUI.Instance != null)
-                GamePlayUI.Instance.CloseInvestigationOnDeath();
+                GamePlayUI.Instance.BeginLocalDeath();
 
             // 음성: 유령 채널로 옮긴다(유령끼리 대화, 생존자 채널은 듣기만).
             // 게임이 끝나 전원 대화로 넘어간 뒤의 사망 처리라면 그대로 둔다
@@ -582,8 +587,11 @@ public class GamePlayer : NetworkBehaviour
         AllRefreshVisibility();
     }
 
-    void OnZoneChanged(ZoneType oldVal, ZoneType newVal)
+    // PlayerPrivateState의 currentZone 훅에서 부른다. 호스트에서는 다른 플레이어 값도 바뀌므로 내 것만 처리한다
+    public void HandleZoneChanged(ZoneType newVal)
     {
+        if (!isLocalPlayer || GamePlayUI.Instance == null) return;
+
         GamePlayUI.Instance.MovePlayerIcon(this, newVal);
     }
 
@@ -783,9 +791,9 @@ public class GamePlayer : NetworkBehaviour
             if (sym != null)
                 sym.ServerClearPartnerBothSides();
         }        
-        else if(animalType == AnimalType.Badger)
+        else if(animalType == AnimalType.Hippo)
         {
-            var bga = GetComponent<BadgerAbility>();
+            var bga = GetComponent<HippoAbility>();
             if (bga != null)
                 bga.ServerOnlocalDied(info.KillerNetId);
         }       
@@ -810,9 +818,9 @@ public class GamePlayer : NetworkBehaviour
         if (GameMamager.Instance != null)
             GameMamager.Instance.ServerOnPlayerDied(this);
     }
-    // 위장은 여우만 가능.
+    // 위장은 카멜레온만 가능.
     // 역할은 서버와 본인만 알므로 본인 UI와 서버 판정에만 쓴다
-    public bool CanDisguise => animalType == AnimalType.Fox;
+    public bool CanDisguise => animalType == AnimalType.Chameleon;
 
     // 위장 오브젝트에서 상호작용했을 때 위장 창(모든 동물 목록)을 연다
     public void TryStartDisguise()
@@ -921,8 +929,8 @@ public class GamePlayer : NetworkBehaviour
         Missions[idx] = slot;
     }
 
-    // 죽은 뒤에도 미션(복수 미션)을 하는 건 오소리뿐
-    public bool CanDoMissions => isAlive || animalType == AnimalType.Badger;
+    // 죽은 뒤에도 미션(복수 미션)을 하는 건 하마뿐
+    public bool CanDoMissions => isAlive || animalType == AnimalType.Hippo;
 
     // ===== 미션 흐름 =====
     // [클라] TryStartMission → CmdStartMission
@@ -961,7 +969,7 @@ public class GamePlayer : NetworkBehaviour
         MissionRegistry.Instance.Lock(type, netId);
         _serverHasActiveMission = true;
         _serverActiveMission = type;
-        _serverMissionStartTime = Time.time;
+        _serverMissionStartTime = Time.realtimeSinceStartupAsDouble;
 
         SetMissionStatusServer(type, MissionStatus.InProgress);
         TargetMissionStartAllowed(type);
@@ -980,7 +988,7 @@ public class GamePlayer : NetworkBehaviour
         var registry = MissionRegistry.Instance;
         if (registry == null || !registry.IsAnyInRange(type, transform.position)) return false;
 
-        return Time.time - _serverMissionStartTime >= registry.GetMinDuration(type);
+        return Time.realtimeSinceStartupAsDouble - _serverMissionStartTime >= registry.GetMinDuration(type);
     }
 
     [Command]
@@ -1070,6 +1078,17 @@ public class GamePlayer : NetworkBehaviour
         if (playerMove != null) playerMove.StopMove();
 
         CmdStartMission(missionType);
+    }
+
+    // 미션 시작을 요청하고 서버 응답을 기다리던 중이면 잠금을 풀고 요청을 버린다.
+    // 나중에 허용 응답이 와도 TargetMissionStartAllowed가 대기 중이 아님을 보고 서버에 취소를 보낸다
+    private void CancelPendingMissionRequest()
+    {
+        if (!_missionRequestPending) return;
+        _missionRequestPending = false;
+
+        UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(MissionEscapeKey);
     }
 
     [TargetRpc]
@@ -1243,7 +1262,7 @@ public class GamePlayer : NetworkBehaviour
             yield break;
         }
 
-        // 위장 중인 여우는 위장한 동물로 보인다(위장 값이 비정상이면 실제 동물로 대체)
+        // 위장 중인 카멜레온은 위장한 동물로 보인다(위장 값이 비정상이면 실제 동물로 대체)
         AnimalType shownType = target.animalType;
         bool shownIsPredator = target.isPredator;
         if (target.disguisedAs != AnimalType.None && AnimalNameMap.AnimalTypeToName.ContainsKey(target.disguisedAs))
@@ -1341,24 +1360,24 @@ public class GamePlayer : NetworkBehaviour
                 canPredict = false;
                 canScan = false;
                 break;
-            case "Badger":
-                animalType = AnimalType.Badger;
+            case "Hippo":
+                animalType = AnimalType.Hippo;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
                 canPredict = false;
                 canScan = false;
                 break;
-            case "Squirrel":
-                animalType = AnimalType.Squirrel;
+            case "Meerkat":
+                animalType = AnimalType.Meerkat;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
                 canPredict = false;
                 canScan = false;
                 break;
-            case "Fox":
-                animalType = AnimalType.Fox;
+            case "Chameleon":
+                animalType = AnimalType.Chameleon;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
@@ -1381,12 +1400,12 @@ public class GamePlayer : NetworkBehaviour
                 canPredict = false;
                 canScan = true;
                 break;
-            case "Skunk":
-                animalType = AnimalType.Skunk;
+            case "Owl":
+                animalType = AnimalType.Owl;
                 predatorType = PredatorType.Prey;
                 isPredator = false;
                 isFly = false;
-                // 스컹크의 능력: 승리 예측(예측 오브젝트에서 한 번). 고른 플레이어가 이기면 함께 승리(SkunkWinCondition)
+                // 올빼미의 능력: 승리 예측(예측 오브젝트에서 한 번). 고른 플레이어가 이기면 함께 승리(OwlWinCondition)
                 canPredict = true;
                 canScan = false;
                 break;

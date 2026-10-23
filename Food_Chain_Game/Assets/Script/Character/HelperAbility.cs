@@ -21,7 +21,7 @@ public class HelperAbility : NetworkBehaviour, IAnimalAbility, IPlayerAbility
     {
         this.local = local;
 
-        enabled = (type == AnimalType.Crow || type == AnimalType.Plover || type == AnimalType.Squirrel);
+        enabled = (type == AnimalType.Crow || type == AnimalType.Plover || type == AnimalType.Meerkat);
         Debug.Log("[HelperAbilty] ServerActivate 호출" + enabled);
     }
     [Server]

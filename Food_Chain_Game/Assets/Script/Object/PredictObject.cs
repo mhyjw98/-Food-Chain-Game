@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// 승리 예측 오브젝트: 예측 능력이 있는 플레이어(스컹크)가 가까이 가서 상호작용하면 플레이어 목록이 열린다.
+// 승리 예측 오브젝트: 예측 능력이 있는 플레이어(올빼미)가 가까이 가서 상호작용하면 플레이어 목록이 열린다.
 // 예측 확정(GamePlayer.CmdSetPredict)은 서버가 능력 여부, 이 오브젝트 근처인지, 이미 예측했는지를 다시 확인한다
 public class PredictObject : MonoBehaviour
 {

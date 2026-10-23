@@ -75,6 +75,8 @@ public class NetworkCoordinator : MonoBehaviour
     {
         yield return null;
         yield return EnsurePreviousSessionStopped();
+        // Node 서버에 등록한 포트(RoomHost)와 같은 포트로 연다
+        ConfigManager.TrySetTransportPort(ConfigManager.HostGamePort);
         yield return StartWithRetry(() => RoomManager.singleton.StartHost(), "StartHost");
     }
 
@@ -95,7 +97,11 @@ public class NetworkCoordinator : MonoBehaviour
             yield break;
 
         Debug.LogWarning("[Coordinator] 이전 네트워크 세션이 아직 활성 상태라 먼저 정리합니다.");
-        RoomManager.singleton.StopHost();
+        // 일반 종료(StopHost)로 끄면 새 방 코드/토큰이 지워지고 타이틀로 돌아가 버리므로 조용히 끈다
+        if (RoomManager.singleton is RoomManager roomManager)
+            roomManager.StopStaleSession();
+        else
+            RoomManager.singleton.StopHost();
 
         // 트랜스포트가 소켓을 실제로 해제할 시간을 한 프레임 준다.
         yield return null;

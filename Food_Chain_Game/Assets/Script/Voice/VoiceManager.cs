@@ -53,6 +53,8 @@ public class VoiceManager : MonoBehaviour
     [Header("Mic")]
     [Tooltip("눌러서 말하기 키를 뗀 뒤 마이크가 꺼질 때까지의 시간(초). 말끝이 잘리지 않게 한다")]
     [SerializeField] private float pushToTalkReleaseDelay = 0.2f;
+    [Tooltip("죽은 순간부터 말을 못 하는 시간(초). 유령 채널로 옮겨진 뒤에도 이 시간이 지나야 유령끼리 말할 수 있다. 사망 연출(GamePlayUI.deathEffectSeconds)과 같게 둔다")]
+    [SerializeField] private float deathSilenceSeconds = 2f;
 
     [Header("Speaking")]
     [Tooltip("누가 말하고 있는지 다시 확인하는 간격(초)")]
@@ -89,7 +91,9 @@ public class VoiceManager : MonoBehaviour
     public KeyCode PushToTalkKey => KeySetting.GetKey(KeyAction.VOICE_TALK);
     public KeyCode MuteToggleKey => KeySetting.GetKey(KeyAction.VOICE_MUTE);
     // 지금 내 목소리가 나가고 있는 상태인지(마이크가 열려 있는지)
-    public bool IsMicOpen => !IsMicMuted && !_micTestActive && !_transmitBlocked && (Mode == MicMode.Open || _pttActive);
+    public bool IsMicOpen => !IsMicMuted && !_micTestActive && !_transmitBlocked && !IsDeathSilenced && (Mode == MicMode.Open || _pttActive);
+    // 죽은 직후라 아직 말할 수 없는 상태인지
+    public bool IsDeathSilenced => _deathSilenceUntil > 0f && Time.unscaledTime < _deathSilenceUntil;
     // 가장 마지막으로 요청된 음성 상태(전환이 아직 끝나지 않았을 수 있다)
     public VoiceContext DesiredContext => _desiredContext;
 
@@ -122,6 +126,8 @@ public class VoiceManager : MonoBehaviour
     private bool _micTestActive;
     // 사망이 확정된 순간부터 유령 채널로 옮겨질 때까지 송신을 막는다(그사이 생존자 채널로 말이 새지 않게)
     private bool _transmitBlocked;
+    // 죽은 직후 말을 막는 시간이 끝나는 시각(unscaledTime). 0이면 막지 않음
+    private float _deathSilenceUntil;
     private bool? _appliedInputMuted;
 
     // 같은 PC에서 여러 개를 실행했을 때 인스턴스마다 다른 계정으로 로그인하기 위한 번호표
@@ -164,6 +170,7 @@ public class VoiceManager : MonoBehaviour
     {
         UpdateReconnect();
         UpdateSpeaking();
+        UpdateDeathSilence();
 
         if (!IsLoggedIn) return;
 
@@ -183,6 +190,15 @@ public class VoiceManager : MonoBehaviour
             _pttActive = active;
             ApplyMicState();
         }
+    }
+
+    // 죽은 직후 말을 막는 시간이 끝나면 마이크 상태를 다시 맞춘다(채널 이동이 먼저 끝났어도 이때 풀린다)
+    private void UpdateDeathSilence()
+    {
+        if (_deathSilenceUntil <= 0f || Time.unscaledTime < _deathSilenceUntil) return;
+
+        _deathSilenceUntil = 0f;
+        ApplyMicState();
     }
 
     // 채팅·닉네임 등 글자를 입력하는 중에는 음성 키가 눌린 것으로 치지 않는다
@@ -670,10 +686,18 @@ public class VoiceManager : MonoBehaviour
             return;
         }
 
-        // 살아 있다가 죽은 경우: 유령 채널로 옮겨질 때까지 내 목소리가 생존자 채널로 나가지 않게 바로 막는다
+        // 살아 있다가 죽은 경우: 죽은 순간 바로 말을 못 하게 한다.
+        // 유령 채널로 옮겨질 때까지(생존자 채널로 새지 않게) + 죽은 뒤 deathSilenceSeconds 동안(사망 연출 중) 둘 다 끝나야 다시 말할 수 있다
         if (context == VoiceContext.GameplayDead && _desiredContext == VoiceContext.GameplayAlive && !_transmitBlocked)
         {
             _transmitBlocked = true;
+            _deathSilenceUntil = Time.unscaledTime + Mathf.Max(0f, deathSilenceSeconds);
+            ApplyMicState();
+        }
+        else if (context != VoiceContext.GameplayDead && _deathSilenceUntil > 0f)
+        {
+            // 결과 화면·로비로 넘어가면 바로 전원 대화로 돌아간다
+            _deathSilenceUntil = 0f;
             ApplyMicState();
         }
 

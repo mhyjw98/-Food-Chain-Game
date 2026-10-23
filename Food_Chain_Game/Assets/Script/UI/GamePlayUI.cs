@@ -63,6 +63,12 @@ public class GamePlayUI : MonoBehaviour
     [SerializeField] private float characterIntroSeconds = 5f;
     [SerializeField] private float characterIntroUnlockDelay = 0.1f;
 
+    [Header("Death")]
+    [Tooltip("사망 연출(죽으면 열린 창을 모두 닫은 뒤 켰다가 deathEffectSeconds 뒤에 끈다). 비워 두면 창만 닫는다")]
+    [SerializeField] private GameObject deathEffectUI;
+    [Tooltip("사망 연출을 보여 주는 동안 조작을 막는 시간(초)")]
+    [SerializeField] private float deathEffectSeconds = 2f;
+
     [Header("Zone Panels")]
     public Transform fieldPanel;
     public Transform forestPanel;
@@ -98,6 +104,9 @@ public class GamePlayUI : MonoBehaviour
     private Coroutine invCo;
     private bool isInvestigating;
     private bool isCorpseScanning;
+    private Coroutine deathCo;
+    // 사망 연출 중 ESC를 막는 키(UIManager 닫기 스택)
+    private static readonly object DeathEffectEscapeKey = new();
 
     private Dictionary<GamePlayer, GameObject> iconMap = new();
     public TMP_InputField chatInputField;
@@ -168,17 +177,7 @@ public class GamePlayUI : MonoBehaviour
 
     public void UpdateRoundText(int round, RoundTime time)
     {
-        if(time == RoundTime.Disguise)
-        {
-            roundText.text = "위장 시간";
-            timerDisplay.text = "위장 종료까지";
-        }
-        else if (time == RoundTime.Exploration)
-        {
-            roundText.text = "탐색 시간";
-            timerDisplay.text = "탐색 종료까지";
-        }
-        else if (time == RoundTime.End)
+        if (time == RoundTime.End)
         {
             roundText.text = "게임 종료";
             timerDisplay.text = "";
@@ -248,7 +247,7 @@ public class GamePlayUI : MonoBehaviour
         _localDisguise = type;
 
         PlayerSlot slot = PlayerSlotUI.Instance != null ? PlayerSlotUI.Instance.GetSlotByPlayer(localPlayer) : null;
-        if (slot != null) slot.UpdateNicknameWithAnimal($"여우 > {animalName}");
+        if (slot != null) slot.UpdateNicknameWithAnimal($"카멜레온 > {animalName}");
 
         CloseDisguiseUI();
     }
@@ -552,12 +551,47 @@ public class GamePlayUI : MonoBehaviour
         UIManager.Instance.Pop(UIPriority.Modal);
         UIManager.UnregisterEscape(investigationUI);
     }
-    // 로컬 플레이어가 죽었을 때 호출됨(GamePlayer.OnAliveChanged).
-    // 탐색 창(대상 선택/진행 중/결과 표시)과 시체 조사 진행 바를 즉시 닫고 잠금을 푼다
-    public void CloseInvestigationOnDeath()
+    // 로컬 플레이어가 죽었을 때 호출됨(GamePlayer.OnAliveChanged. 진행 중이던 미션은 그쪽에서 먼저 취소한다).
+    // 준비·진행 중이던 행동(탐색 확인/진행, 부검 진행)을 취소하고 열린 창을 모두 닫은 뒤 사망 연출을 보여 준다.
+    // 결과나 실패 안내는 남기지 않는다(서버도 GamePlayer.Die에서 탐색·부검을 즉시 중단한다)
+    public void BeginLocalDeath()
     {
         DeActiveInvestigationSelectUI();
         OnCorpseScanCanceled();
+
+        CloseDisguiseUI();
+        ClosePredictUI();
+        DeActiveScanResult();
+        CloseMissionListUI();
+        if (playerSlotUI.activeSelf) OnClickProfileSlotUI();
+
+        // 여기서 직접 닫지 않은 창(탐색 노트, 우클릭 메뉴, 미니맵 전체화면 등)
+        if (UIManager.Instance != null)
+            UIManager.Instance.CloseAllEscapable();
+
+        if (deathCo != null) StopCoroutine(deathCo);
+        deathCo = StartCoroutine(CoPlayDeathEffect());
+    }
+
+    private IEnumerator CoPlayDeathEffect()
+    {
+        if (deathEffectUI == null)
+        {
+            deathCo = null;
+            yield break;
+        }
+
+        UIManager.Instance.Push(UIPriority.Modal);
+        UIManager.RegisterEscape(DeathEffectEscapeKey, null);
+        deathEffectUI.SetActive(true);
+        deathEffectUI.transform.SetAsLastSibling();
+
+        yield return new WaitForSeconds(deathEffectSeconds);
+
+        deathEffectUI.SetActive(false);
+        UIManager.Instance.Pop(UIPriority.Modal);
+        UIManager.UnregisterEscape(DeathEffectEscapeKey);
+        deathCo = null;
     }
 
     private void OnSelectInvestigationTarget(GamePlayer target)

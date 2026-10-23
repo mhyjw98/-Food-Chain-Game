@@ -25,6 +25,26 @@ public struct RoomNoticeMessage : NetworkMessage
 public class RoomManager : NetworkRoomManager
 {
     private bool _isCleaningUp = false;
+    // 새 세션을 시작하기 직전에 남아 있던 이전 세션을 끄는 중인지(StopStaleSession).
+    // 이때는 방 삭제·세션 정보 초기화·타이틀 이동을 하지 않는다(이미 새 방 코드/토큰이 들어 있다)
+    private bool _stoppingStaleSession;
+
+    // NetworkCoordinator가 새 호스트/클라이언트를 시작하기 전에 부른다.
+    // 예전에는 StopHost()가 일반 종료처럼 처리되어 방금 등록한 새 방을 Node 서버에서 지우고, 방 코드/토큰을 비우고,
+    // 타이틀 씬을 불러온 뒤에도 StartHost()를 계속 시도했다
+    public void StopStaleSession()
+    {
+        _stoppingStaleSession = true;
+        try
+        {
+            StopHost();
+        }
+        finally
+        {
+            _stoppingStaleSession = false;
+            _isCleaningUp = false;
+        }
+    }
 
     public RoomHost roomHost;
     public GameObject chatManagerPrefab;
@@ -34,7 +54,7 @@ public class RoomManager : NetworkRoomManager
     {
         List<string> baseCharacters = new()
     {
-        "Crow", "Wolf", "Scorpion", "Ostrich", "Zebra",  "Badger", "Scorpion",  "Skunk", "Squirrel", "Crocodile", "Fox"
+        "Crow", "Wolf", "Scorpion", "Ostrich", "Zebra", "Hippo", "Owl", "Meerkat", "Crocodile", "Chameleon"
     };
 
         List<string> additionalCharacters = new()
@@ -85,6 +105,10 @@ public class RoomManager : NetworkRoomManager
 
     private bool _userRequestedQuit = false;
     Coroutine _voiceJoinCo;
+
+    // 클라: 이번 접속에서 로비 준비(내 플레이어 생성·닉네임·색 적용)가 한 번 끝났는지.
+    // 게임이 끝나고 로비로 돌아올 때는 "연결 중" 화면을 다시 띄우지 않기 위해 GameRoomUI가 본다
+    public bool ClientLobbyReady { get; set; }
     void OnEnable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -201,6 +225,14 @@ public class RoomManager : NetworkRoomManager
 
     public override void OnStopServer()
     {
+        if (_stoppingStaleSession)
+        {
+            // 이전 방은 하트비트가 끊겨 Node 서버에서 만료로 지워진다(지금 들어 있는 코드는 새 방의 것)
+            if (roomHost != null) roomHost.StopHeartbeat();
+            base.OnStopServer();
+            return;
+        }
+
         // 서버가 내려가면 방 코드는 더 이상 쓸 수 없다. 접속 종료 처리(마지막 퇴장 보고)가
         // 전부 돌지 않고 서버가 꺼지는 경우에도 Node 서버에 방이 남지 않도록 여기서 직접 지운다
         if (roomHost != null)
@@ -221,7 +253,60 @@ public class RoomManager : NetworkRoomManager
         _isCleaningUp = false;
 
         _pendingNotice = RoomNoticeReason.None;
+        ClientLobbyReady = false;
+        _clientAddPlayerRequested = false;
         NetworkClient.RegisterHandler<RoomNoticeMessage>(OnRoomNoticeReceived, false);
+    }
+
+    public override void OnStopClient()
+    {
+        ClientLobbyReady = false;
+        base.OnStopClient();
+    }
+
+    // 클라: 접속 직후 플레이어 생성을 요청했고, 아직 씬 메시지로 인한 씬 재로드를 거치지 않았는지
+    private bool _clientAddPlayerRequested;
+
+    public override void OnClientConnect()
+    {
+        // base는 씬 메시지를 기다릴 필요가 없을 때(이미 온라인 씬인 로비에 있음) 바로 준비·생성 요청을 한다
+        _clientAddPlayerRequested = !clientLoadedScene && autoCreatePlayer;
+        base.OnClientConnect();
+    }
+
+    // 클라이언트는 로비 씬을 먼저 열고 접속하므로 접속 직후 바로 생성을 요청한다(위).
+    // 서버가 한 번이라도 씬을 바꾼 뒤(게임 후 로비)라면 서버가 씬 메시지를 보내 로비를 다시 불러오는데,
+    // 불러오는 동안 메시지 처리가 멈춰 내 플레이어가 아직 도착하지 않았으므로 base가 생성을 한 번 더 요청해
+    // 서버 콘솔에 "There is already a player for this connection."이 찍힌다 → 이미 요청했으면 이번에는 요청하지 않는다.
+    // (첫 로비에서는 서버가 씬 메시지를 보내지 않으므로 접속 직후의 요청이 유일한 요청이다)
+    public override void OnClientSceneChanged()
+    {
+        bool skipAddPlayer = _clientAddPlayerRequested && NetworkClient.localPlayer == null && Utils.IsSceneActive(RoomScene);
+        _clientAddPlayerRequested = false;
+
+        bool autoCreate = autoCreatePlayer;
+        if (skipAddPlayer) autoCreatePlayer = false;
+        try
+        {
+            base.OnClientSceneChanged();
+        }
+        finally
+        {
+            autoCreatePlayer = autoCreate;
+        }
+    }
+
+    // 로비 플레이어를 처음부터 스폰 위치에 만든다. RoomPlayer의 위치는 본인 클라이언트가 정하므로(NetworkTransform: Client→Server)
+    // 생성(스폰 메시지 전송) 뒤에 서버가 위치를 바꾸면 본인 화면에는 반영되지 않고 (0,0)에 서 있게 된다
+    public override GameObject OnRoomServerCreateRoomPlayer(NetworkConnectionToClient conn)
+    {
+        Vector3 position = Vector3.zero;
+        if (SpawnManager.Instance != null)
+            position = SpawnManager.Instance.GetAvailableSpawnPosition();
+        else
+            Debug.LogWarning("[RoomManager] SpawnManager.Instance가 아직 준비되지 않아 스폰 위치를 지정하지 못했습니다.");
+
+        return Instantiate(roomPlayerPrefab.gameObject, position, Quaternion.identity);
     }
 
     public override void OnServerAddPlayer(NetworkConnectionToClient conn)
@@ -231,12 +316,12 @@ public class RoomManager : NetworkRoomManager
 
         base.OnServerAddPlayer(conn);        
 
-        var roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+        // 거부되지 않았는데도 로비가 아니면 base가 연결을 끊고 플레이어를 만들지 않는다
+        if (conn.identity == null) return;
 
-        if (SpawnManager.Instance != null)
-            roomPlayer.gameObject.transform.position = SpawnManager.Instance.GetAvailableSpawnPosition();
-        else
-            Debug.LogWarning("[RoomManager] SpawnManager.Instance가 아직 준비되지 않아 스폰 위치를 지정하지 못했습니다.");
+        // 스폰 위치는 생성할 때 정한다(OnRoomServerCreateRoomPlayer)
+        var roomPlayer = conn.identity.GetComponent<RoomPlayer>();
+        if (roomPlayer == null) return;
 
         roomPlayers.Add(roomPlayer);
         Debug.Log($"[OnServerAddPlayer] roomPlayers 등록 roomPlayers count : {roomPlayers.Count}");
@@ -342,6 +427,9 @@ public class RoomManager : NetworkRoomManager
             ReassignHostAfterDisconnect();
         }
 
+        // 이전 세션을 끄는 중이면 지금 코드는 새 방의 것이므로 Node 서버에 보고하지 않는다
+        if (_stoppingStaleSession) return;
+
         string code = RoomSessionData.CurrentRoomCode;
 
         if (wasJoined && !string.IsNullOrEmpty(code))
@@ -363,6 +451,8 @@ public class RoomManager : NetworkRoomManager
     {
 
         base.OnClientDisconnect();
+
+        if (_stoppingStaleSession) return;
 
         StartCoroutine(ReturnToTitleCoroutine());
     }
@@ -460,6 +550,8 @@ public class RoomManager : NetworkRoomManager
     public override void OnStopHost()
     {
         base.OnStopHost();
+
+        if (_stoppingStaleSession) return;
 
         if (_userRequestedQuit)
         {
@@ -578,6 +670,8 @@ public class RoomManager : NetworkRoomManager
         }
 
         _startingGame = true;
+        // 이 순간부터 새 입장은 게임 서버가 거부하므로 Node 서버에도 알려 코드 조회에서 바로 막히게 한다
+        if (roomHost != null) roomHost.SetInGame(true);
         StartCoroutine(StartGameDelayed());
         return true;
     }
@@ -589,6 +683,13 @@ public class RoomManager : NetworkRoomManager
         // 동물(직업) 배정은 로비 색상/닉네임과 달리 매 게임 시작마다 새로 무작위 배정한다.
         roomPlayers.RemoveAll(rp => rp == null);
         ServerAssignCharacters();
+
+        // 로비에서 준비(Ready)된 연결은 NetworkRoomManager가 pendingPlayers에 쌓아 두고, 게임 씬 로딩이 끝나는 순간
+        // 각 클라이언트가 새 씬에서 준비되기 전에 게임 캐릭터를 만들어 버린다. 그러면 방장 클라이언트에
+        // "NetworkClient can't AddPlayer before being ready" 경고가 뜬다. Mirror 기본 흐름은 전원 준비 시
+        // CheckReadyToBegin이 이 목록을 비우지만, 우리는 방장 버튼으로 시작하므로(게임 후 로비에서는 준비 표시도 다시 안 함) 여기서 비운다.
+        // 비우면 각 연결이 게임 씬에서 준비될 때(OnServerReady) 캐릭터가 만들어진다
+        pendingPlayers.Clear();
 
         ServerChangeScene(GameplayScene);
     }
@@ -684,6 +785,9 @@ public class RoomManager : NetworkRoomManager
         if (!IsSameScene(sceneName, RoomScene))
             return;
 
+        // 로비로 돌아왔으므로 다시 코드로 입장할 수 있다
+        if (roomHost != null) roomHost.SetInGame(false);
+
         foreach (var rp in roomPlayers)
         {
             if (rp == null) continue;
@@ -710,8 +814,11 @@ public class RoomManager : NetworkRoomManager
     }
 
     // RoomPlayer의 위치는 본인 클라이언트가 정한다(NetworkTransform: Client→Server).
-    // 서버가 transform만 바꾸면 방장 외에는 반영되지 않고 클라이언트가 보내는 기존 위치로 덮이므로 Teleport로 지시한다.
-    // ClientRpc는 준비(ready)된 클라이언트에게만 전달되므로, 본인이 아직 씬 로딩 중이면 준비될 때까지 미룬다(OnServerReady)
+    // 서버가 transform만 바꾸면 방장 외에는 반영되지 않고 클라이언트가 보내는 기존 위치로 덮이므로 본인에게 옮기라고 지시한다.
+    // NetworkTransform.RpcTeleport는 쓰지 않는다: NetworkTransformReliable은 Teleport 때 위치 압축(델타) 기준값을 지우는데,
+    // RPC를 받은 쪽만 지우고 서버나 아직 준비 전이라 RPC를 못 받은 클라이언트는 그대로라 이후 위치가 계속 어긋났다
+    // (로비 복귀 뒤 상대 캐릭터가 화면 밖에 보이거나 다른 자리에 보임)
+    // 연결이 아직 씬 로딩 중이면 준비될 때까지 미룬다(OnServerReady)
     private void ServerRelocateRoomPlayer(RoomPlayer rp, Vector3 destination)
     {
         if (rp == null) return;
@@ -730,14 +837,10 @@ public class RoomManager : NetworkRoomManager
 
     private void ServerSendRoomTeleport(RoomPlayer rp, Vector3 destination)
     {
-        var networkTransform = rp.GetComponent<NetworkTransformBase>();
-        if (networkTransform == null)
-        {
-            Debug.LogWarning("[RoomManager] RoomPlayer에 NetworkTransform이 없어 재배치를 전달하지 못했습니다.");
-            return;
-        }
+        if (rp.connectionToClient == null) return;
 
-        networkTransform.RpcTeleport(destination);
+        // 본인이 옮기면 평소 이동처럼 동기화되어 모두에게 같은 위치로 보인다
+        rp.TargetMoveTo(destination);
     }
 
     public override void OnServerReady(NetworkConnectionToClient conn)

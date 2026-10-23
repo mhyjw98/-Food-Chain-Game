@@ -41,6 +41,12 @@ public class InGameVoiceProximity : MonoBehaviour
 
     // 참가자별 현재 감쇠량(0 = 그대로, MinVolume = 무음)
     private readonly Dictionary<string, float> _attenuation = new();
+    // 참가자별로 Vivox에 마지막으로 보낸 음량. 값이 같으면 다시 보내지 않는다.
+    // 매 틱 보내면 채널을 옮기는 순간 처리 중이던 요청이 "Target Object Does Not Exist"로 실패해 에러가 찍혔다.
+    // 같은 사람이 채널에 다시 들어오면 참가자 객체가 새로 생기므로 객체 단위로 기억한다
+    private readonly Dictionary<VivoxParticipant, int> _appliedVolume = new();
+    private readonly HashSet<VivoxParticipant> _seenParticipants = new();
+    private readonly List<VivoxParticipant> _removeParticipantBuffer = new();
     private readonly Dictionary<string, GamePlayer> _playersByVoiceId = new();
     private readonly HashSet<string> _seen = new();
     private readonly List<string> _removeBuffer = new();
@@ -68,6 +74,7 @@ public class InGameVoiceProximity : MonoBehaviour
             _loop = null;
         }
         _attenuation.Clear();
+        _appliedVolume.Clear();
     }
 
     private IEnumerator Loop()
@@ -125,12 +132,14 @@ public class InGameVoiceProximity : MonoBehaviour
         float fadeWidth = iAmGhost ? ghostEdgeFadeWidth : edgeFadeWidth;
 
         _seen.Clear();
+        _seenParticipants.Clear();
 
         foreach (var participant in participants)
         {
             if (participant == null || participant.IsSelf || string.IsNullOrEmpty(participant.PlayerId)) continue;
 
             _seen.Add(participant.PlayerId);
+            _seenParticipants.Add(participant);
 
             float target = VoiceManager.MinVolume;
 
@@ -159,6 +168,12 @@ public class InGameVoiceProximity : MonoBehaviour
             if (!_seen.Contains(id)) _removeBuffer.Add(id);
         foreach (var id in _removeBuffer)
             _attenuation.Remove(id);
+
+        _removeParticipantBuffer.Clear();
+        foreach (var p in _appliedVolume.Keys)
+            if (!_seenParticipants.Contains(p)) _removeParticipantBuffer.Add(p);
+        foreach (var p in _removeParticipantBuffer)
+            _appliedVolume.Remove(p);
     }
 
     private void RebuildPlayerMap()
@@ -210,6 +225,11 @@ public class InGameVoiceProximity : MonoBehaviour
 
         // 내가 그 사람에게 정해 둔 개별 음량에 거리 감쇠를 더한다
         float volume = VoiceManager.GetParticipantBaseVolume(id) + next;
-        participant.SetLocalVolume(Mathf.RoundToInt(Mathf.Clamp(volume, VoiceManager.MinVolume, VoiceManager.MaxBoostVolume)));
+        int rounded = Mathf.RoundToInt(Mathf.Clamp(volume, VoiceManager.MinVolume, VoiceManager.MaxBoostVolume));
+
+        if (_appliedVolume.TryGetValue(participant, out int applied) && applied == rounded) return;
+
+        _appliedVolume[participant] = rounded;
+        participant.SetLocalVolume(rounded);
     }
 }

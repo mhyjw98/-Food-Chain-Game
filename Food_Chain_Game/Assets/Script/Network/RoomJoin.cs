@@ -13,20 +13,17 @@ public class RoomJoin : MonoBehaviour
     [Tooltip("Node 서버 응답을 기다리는 최대 시간(초)")]
     [SerializeField] private int requestTimeoutSeconds = 10;
 
-    private string nodeServerUrl;
-    private bool isConfigValid;
+    // 설정은 Awake에서 한 번만 읽지 않고 요청할 때마다 확인한다
+    private static string NodeServerUrl => ConfigManager.NodeServerUrl;
 
     private void Awake()
     {
-        isConfigValid = !string.IsNullOrWhiteSpace(ConfigManager.Config.IP);
-        nodeServerUrl = "http://" + ConfigManager.Config.IP + ":3000";
-
-        if (!isConfigValid)
+        if (!ConfigManager.IsValid)
             Debug.LogError("[RoomJoin] ConfigManager.Config.IP가 비어있어 Node 서버와 통신할 수 없습니다. Assets/StreamingAssets/config.json을 확인해주세요.");
     }
     public void CheckRoomBeforeJoin(string code, Action<bool, string> onResult)
     {
-        if (!isConfigValid)
+        if (!ConfigManager.EnsureValid())
         {
             onResult(false, "서버 설정(IP)이 올바르지 않습니다.");
             return;
@@ -40,7 +37,7 @@ public class RoomJoin : MonoBehaviour
             return;
         }
 
-        StartCoroutine(GetIpFromCode(code, (ip, error) =>
+        StartCoroutine(GetIpFromCode(code, (ip, port, error) =>
         {
             if (!string.IsNullOrEmpty(error))
             {
@@ -48,32 +45,46 @@ public class RoomJoin : MonoBehaviour
                 return;
             }
 
+            if (!ConfigManager.TrySetTransportPort(port))
+            {
+                onResult(false, "문제가 발생했습니다. 나중에 다시 시도해주세요.");
+                return;
+            }
+
             RoomSessionData.CurrentRoomCode = code;
 
-            Debug.Log($"[RoomJoin] 조회된 IP: {ip}");
+            Debug.Log($"[RoomJoin] 조회된 주소: {ip}:{port}");
             RoomManager.singleton.networkAddress = ip;
             onResult(true, null); // 입장 가능
         }));
     }
-    IEnumerator GetIpFromCode(string code, Action<string, string> callback)
+    IEnumerator GetIpFromCode(string code, Action<string, int, string> callback)
     {
         string ip = null;
+        int port = ConfigManager.GamePort;
         string error = null;
 
-        using (UnityWebRequest request = UnityWebRequest.Get($"{nodeServerUrl}/lookup/{UnityWebRequest.EscapeURL(code)}"))
+        using (UnityWebRequest request = UnityWebRequest.Get($"{NodeServerUrl}/lookup/{UnityWebRequest.EscapeURL(code)}"))
         {
             request.timeout = requestTimeoutSeconds;
             yield return request.SendWebRequest();
 
             if (request.responseCode == 200)
             {
-                ip = request.downloadHandler.text.Trim();
-                if (string.IsNullOrEmpty(ip))
+                if (!TryParseLookup(request.downloadHandler.text, out ip, out port))
                     error = "문제가 발생했습니다. 나중에 다시 시도해주세요.";
             }
             else if (request.responseCode == 404)
             {
                 error = "코드가 유효하지 않습니다.";
+            }
+            else if (request.responseCode == 429) // 요청 횟수 제한
+            {
+                error = "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.";
+            }
+            else if (request.responseCode == 423) // 게임 진행 중(방장이 Node 서버에 알림)
+            {
+                error = "게임이 진행 중인 방에는 입장할 수 없습니다.";
             }
             else if (request.responseCode == 403) // 인원수 초과
             {
@@ -89,6 +100,39 @@ public class RoomJoin : MonoBehaviour
             }
         }
 
-        callback(ip, error);
+        callback(ip, port, error);
     }
+
+    // 응답: {"address":"...","port":7777}. 포트를 보내지 않던 예전 서버(주소만 텍스트로)도 받아 기본 게임 포트로 접속한다
+    private static bool TryParseLookup(string text, out string address, out int port)
+    {
+        address = null;
+        port = ConfigManager.GamePort;
+
+        text = (text ?? string.Empty).Trim();
+        if (text.Length == 0) return false;
+
+        if (!text.StartsWith("{"))
+        {
+            address = text;
+            return true;
+        }
+
+        try
+        {
+            var response = JsonUtility.FromJson<LookupResponse>(text);
+            if (response == null || string.IsNullOrWhiteSpace(response.address)) return false;
+
+            address = response.address.Trim();
+            if (ConfigManager.IsValidPort(response.port)) port = response.port;
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    [Serializable]
+    class LookupResponse { public string address; public int port; }
 }

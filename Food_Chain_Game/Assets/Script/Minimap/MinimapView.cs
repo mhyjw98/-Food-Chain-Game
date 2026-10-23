@@ -57,6 +57,8 @@ public class MinimapView : MonoBehaviour
     [SerializeField] private float objectMarkerSize = 12f;
     [Tooltip("상호작용할 수 있는 미션 오브젝트")]
     [SerializeField] private Color interactableMarkerColor = new Color(1f, 0.85f, 0.1f);
+    [Tooltip("전갈 독 미션 오브젝트")]
+    [SerializeField] private Color poisonMarkerColor = new Color(0.65f, 0.3f, 1f);
     [Tooltip("탐색, 위장, 승리 예측 같은 특수 오브젝트")]
     [SerializeField] private Color specialMarkerColor = new Color(0.65f, 0.3f, 1f);
 
@@ -177,7 +179,9 @@ public class MinimapView : MonoBehaviour
                 for (int i = 0; i < missions.Count; i++)
                 {
                     if (CanInteractMission(local, missions[i]))
-                        ShowObjectMarker(missions[i], interactableMarkerColor);
+                        ShowObjectMarker(missions[i], missions[i].MissionType == MissionType.Scorpion_Poison
+                            ? poisonMarkerColor
+                            : interactableMarkerColor);
                 }
             }
 

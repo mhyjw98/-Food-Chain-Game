@@ -12,13 +12,13 @@ public static class CharacterZoneData
         { "Hawk", ZoneType.Sky },
         { "Hyena", ZoneType.Field },
         { "Scorpion", ZoneType.Forest },
-        { "Skunk", ZoneType.Forest },
+        { "Owl", ZoneType.Sky },
         { "Zebra", ZoneType.Field },
-        { "Badger", ZoneType.River },
-        { "Squirrel", ZoneType.Forest },
+        { "Hippo", ZoneType.River },
+        { "Meerkat", ZoneType.Field },
         { "Ostrich", ZoneType.Sky },
         { "Crow", ZoneType.Sky },
         { "Plover", ZoneType.River },
-        { "Fox", ZoneType.Forest },
+        { "Chameleon", ZoneType.Forest },
     };
 }

@@ -14,17 +14,17 @@ public static class WinCondutionFactory
         { AnimalType.Hawk, new HawkWinCondition() },
         { AnimalType.Hyena, new HyenaWinCondition() },
         // 피식자
-        { AnimalType.Squirrel, new SquirrelWinCondition() },
+        { AnimalType.Meerkat, new MeerkatWinCondition() },
         { AnimalType.Zebra, new ZebraWinCondition() },
-        { AnimalType.Badger, new BadgerWinCondition() },        
-        { AnimalType.Skunk, new SkunkWinCondition() },
+        { AnimalType.Hippo, new HippoWinCondition() },        
+        { AnimalType.Owl, new OwlWinCondition() },
         { AnimalType.Ostrich, new OstrichWinCondition() },
         // 조력자
         { AnimalType.Plover, new PloverWinCondition() },
         { AnimalType.Crow, new CrowWinCondition() },
         // 중립
         { AnimalType.Scorpion, new ScorpionWinCondition() },
-        { AnimalType.Fox, new FoxWinCondition() },
+        { AnimalType.Chameleon, new ChameleonWinCondition() },
     };
 
     public static IWinCondition GetCondition(AnimalType characterType)

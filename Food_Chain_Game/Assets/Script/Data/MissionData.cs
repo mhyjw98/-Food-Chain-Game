@@ -78,9 +78,9 @@ public static class MissionData
         {
             MissionType.Scorpion_Poison, "독 수집하기"
         },
-        // === 오소리 ===
+        // === 하마 ===
         {
-            MissionType.BadgerA, "복수 A 미션"
+            MissionType.RevengeA, "복수 A 미션"
         },
     };
 

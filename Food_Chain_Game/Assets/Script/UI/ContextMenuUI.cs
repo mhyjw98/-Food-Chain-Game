@@ -40,7 +40,8 @@ public class ContextMenuUI : MonoBehaviour
 
         var chatManager = FindFirstObjectByType<ChatManager>();
 
-        whisperBtn.interactable = (player.netId != localPlayer.netId);
+        // 산 사람과 유령 사이에는 귓속말을 할 수 없다
+        whisperBtn.interactable = player.netId != localPlayer.netId && player.isAlive == localPlayer.isAlive;
 
         // 버튼 동작 설정
         // 메뉴가 열린 사이에 대상이 나갔을 수 있으므로 누를 때 다시 확인한다

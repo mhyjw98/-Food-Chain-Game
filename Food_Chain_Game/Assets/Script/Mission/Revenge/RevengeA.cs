@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class BadgerA : BaseMission
+public class RevengeA : BaseMission
 {
     [Header("UI References")]
     [SerializeField] private Button[] ingredientButtons;

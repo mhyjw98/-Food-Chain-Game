@@ -2,7 +2,7 @@ using Mirror;
 using System.Collections.Generic;
 
 // 게임 종료 시 전원의 승패를 계산한다(서버 전용).
-// 다른 플레이어의 승패를 따르는 조건(IDependentWinCondition, 예: 스컹크)은 나머지 결과가 정해진 뒤에 계산한다
+// 다른 플레이어의 승패를 따르는 조건(IDependentWinCondition, 예: 올빼미)은 나머지 결과가 정해진 뒤에 계산한다
 public static class GameResultEvaluator
 {
     public static Dictionary<GamePlayer, bool> EvaluateAll(SyncList<GamePlayer> players)
@@ -40,7 +40,7 @@ public static class GameResultEvaluator
     {
         if (results.TryGetValue(player, out bool known)) return known;
 
-        // 스컹크 둘이 서로를 예측한 경우처럼 순환하면 정할 수 없으므로 패배
+        // 올빼미 둘이 서로를 예측한 경우처럼 순환하면 정할 수 없으므로 패배
         if (!resolving.Add(player)) return false;
 
         bool win = false;

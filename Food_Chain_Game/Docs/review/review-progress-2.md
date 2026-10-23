@@ -903,3 +903,79 @@ Unity MCP 연결 상태에서 진행(컴파일·씬 확인·플레이 모드 확
   - ESC 막기(onEscape = null): 미션 중(시작 요청~미션 창이 끝날 때까지, `GamePlayer`), 부검 진행 바
   - 제외(등록 안 함): 채팅, 프로필(플레이어 목록), 캐릭터 소개 연출, 결과 화면
 - 확인: 컴파일 에러 없음. 플레이 모드에서 `HandleEscape`를 직접 호출해 확인(키 입력은 흉내 낼 수 없음): 로비 2개 창이 연 역순으로 닫히고 잠금 해제, 버튼으로 닫으면 목록에서 빠짐 / 게임: 위장 확인창 → 위장 창, 미션 중 ESC는 아무것도 안 닫음, 미니맵 전체 → 미션 목록 → 탐색노트 → 결과창을 역순으로 닫음, 탐색 확인 중 → 목록, 진행 중 무시, 완료 후 닫힘, 프로필은 반응 없음. 에러 없음
+
+## [2026-10-23] 캐릭터 이름 변경 (사용자 요청: 스컹크→올빼미, 오소리→하마, 여우→카멜레온, 다람쥐→미어캣)
+- 화면에 보이는 이름만 바꿈: `AnimalNameMap`(PlayerSlot.cs — 플레이어 목록, 탐색·부검 결과, 위장 창, 직업 선택 버튼), `CharacterConfig`(CharacterData.cs — 캐릭터 소개), 위장 표시 문구 `"카멜레온 > ○○"`(GamePlayUI.cs). 관련 주석도 새 이름으로 변경(14개 파일)
+- 코드 이름은 그대로: `AnimalType.Skunk/Badger/Fox/Squirrel`, `BadgerAbility`, `SkunkWinCondition` 등, `RoomManager`·`CharacterZoneData`의 문자열 키, 미션 `BadgerA`. 대응표는 `AnimalType` 위 주석
+- 거주지·능력·승리 조건·미션은 바꾸지 않음(하마=강, 올빼미·카멜레온·미어캣=숲). 씬·프리팹에는 이 이름이 들어간 글자가 없음(확인)
+- 동물별 전용 그림 파일은 원래 없음(이름이 Skunk/Badger/Fox/Squirrel인 이미지 없음 확인)
+- 확인: Unity MCP 재컴파일, 콘솔에 C# 에러·경고 없음. 테스트: review-tests-2.md NAME
+
+## [2026-10-23] plan 1단계: 로비 입장·사망 처리 정리 (사용자 요청)
+- **[RoomManager.cs `OnRoomServerCreateRoomPlayer`] 첫 입장 시 (0,0)에 서 있던 문제** — 서버가 플레이어를 만든(스폰 메시지 전송) 뒤에 위치를 바꿔서, 위치를 정하는 본인 클라이언트(NetworkTransform Client→Server)에 반영되지 않았음 → 로비 플레이어를 처음부터 스폰 위치(`SpawnManager.GetAvailableSpawnPosition`)에 만들도록 변경. `OnServerAddPlayer`의 사후 위치 지정은 제거
+- **[RoomManager.cs `OnClientConnect`, `OnClientSceneChanged`] `There is already a player for this connection.`** — 클라이언트는 로비 씬을 먼저 열고 접속해 접속 직후 플레이어 생성을 요청한다. 서버가 한 번이라도 씬을 바꾼 뒤(게임 후 로비)에는 서버가 씬 메시지를 보내 로비를 다시 불러오게 하는데, 그동안 메시지 처리가 멈춰 내 플레이어가 도착하기 전이라 Mirror가 생성을 한 번 더 요청했음 → 접속 직후 이미 요청했으면 그 뒤 로비 재로드에서는 요청하지 않음(`autoCreatePlayer`를 그때만 끔). 처음 방에서는 서버가 씬 메시지를 보내지 않으므로 접속 직후 요청이 유일한 요청
+  - **수정 이력:** 처음에는 "클라이언트는 접속 직후 요청하지 않고 씬 메시지 후에만 요청"으로 고쳤는데, Mirror는 방을 처음 열 때(이미 로비 씬에서 호스트 시작) 씬 메시지를 보내지 않아 **첫 로비 입장자가 생성 요청을 아예 못 보내 "연결 중..."에서 멈췄음**(사용자 보고, ParrelSync 클론). 위 방식으로 다시 고침
+- **[RoomPlayer.cs `OnStartLocalPlayer`] 로비 복귀 시 `Command ... received ... when client not ready` 경고 3건** — 게임 후 로비로 돌아오면 같은 RoomPlayer에 `OnStartLocalPlayer`가 다시 불려 닉네임·색·의상 Command를 다시 보내는데, 연결이 아직 준비 전이라 버려졌음 → RoomPlayer당 한 번만 보냄(`_localDataSent`). 로비 UI 연결(`CharacterSetting.SetLocalPlayer`)은 매번
+- **[GameRoomUI.cs `CoShowConnectingOverlay`] "연결 중" 화면** — 입장자는 로비를 다시 불러온 시점에 이미 접속돼 있어 화면이 아예 뜨지 않았고, 기준도 "내 플레이어 생성"뿐이었음 → 내 RoomPlayer가 생기고 서버가 정한 닉네임·색(`RoomPlayer.IsLocalSetupComplete`)까지 받은 뒤에 걷도록 변경. 한 번 끝나면 `RoomManager.ClientLobbyReady`를 켜서 게임 후 로비 복귀 때는 띄우지 않음(접속 종료 시 초기화). 플레이어가 생긴 뒤 `connectingSetupTimeout`(5초)이 지나면 그대로 로비를 보여 줌(빈 색이 없을 때 등)
+- **[RoomPlayer.cs `CmdSetData`] 로비 복귀 때 방장 입장 안내 재표시** — 서버 전용 플래그 `_joinAnnounced`로 RoomPlayer당 한 번만 안내
+- **[RoomManager.cs `GetCharacterPool`] 전갈 중복 제거** — 7명에서 스컹크(올빼미) 대신 전갈이 두 번 들어가 6종만 나오던 것. 이제 7명: 까마귀·늑대·전갈·타조·얼룩말·하마·올빼미, 8명 미어캣, 9명 악어 추가(10명 이상은 기존대로 전체)
+- **[GamePlayUI.cs `BeginLocalDeath`, UIManager.cs `CloseAllEscapable`, GamePlayer.cs `OnAliveChanged`] 사망 시 창 정리 + 사망 연출 자리** — 본인이 죽으면 ① 진행 중 미션 실패 처리, 서버 응답을 기다리던 미션 시작 요청 취소(`CancelPendingMissionRequest`, 나중에 허용이 와도 서버에 취소를 보냄) ② 탐색(대상 확인·진행·결과), 부검 진행 바 취소 ③ 위장·예측 창(확인창 포함), 부검/탐색 결과 창, 미션 목록, 플레이어 목록(프로필) 닫기 ④ 그 밖에 ESC 스택에 있는 창(탐색 노트, 우클릭 메뉴, 미니맵 전체화면) 일괄 닫기 ⑤ 사망 연출 재생. 연출은 `GamePlayUI.deathEffectUI`(비어 있음)를 켜고 `deathEffectSeconds`(2초) 동안 이동·ESC를 막은 뒤 끔 — 연출 오브젝트를 만들어 연결하면 바로 동작. 채팅 창은 닫지 않음. 서버 쪽 탐색·부검 중단은 기존 `GamePlayer.Die` 그대로
+- **[GameMamager.cs, GamePlayUI.cs] 옛 위장/탐색 단계 코드 제거** — `RoundTime.Disguise`/`Exploration`, `IsExplorationPhase`, `UpdateRoundText`의 두 분기, 주석 처리된 시간 필드. `RoundTime`은 씬에 저장된 값과 어긋나지 않게 기존 숫자(None 0, Day 3, Night 4, End 5)를 명시
+- **[CodeManager.cs, Title.unity] CodeManager 정리** — 쓰지 않던 싱글톤·`RegisterRoom`·`GetIpFromCode`·딕셔너리 제거, `GenerateCode`만 남긴 static 클래스로 변경. Title 씬의 `CodeManager` 오브젝트(이 컴포넌트만 있던 빈 오브젝트)는 MCP로 삭제. 씬 저장 시 `RoomHost`/`RoomJoin`의 기존 기본값이 함께 직렬화됨(값 변화 없음)
+- 확인: Unity MCP 재컴파일, 콘솔에 C# 에러·경고·Weaver 에러 없음
+- 확인(MCP, 메인 에디터 호스트 + ParrelSync 클론 1개, Node 서버 사용): 방 생성 → 방장 스폰 위치 배치·연결 중 화면 해제 / 클론 코드 입장 → "연결 중" 표시 후 스폰 위치(방장 화면과 같은 좌표)에서 해제 / 게임 시작 → 로비 복귀(연결 중 화면 안 뜸) → 클론 퇴장 후 재입장 → 스폰 위치·해제, 방장 콘솔에 `already a player`·`not ready` 경고 없음. 사망 처리는 미확인 — 테스트: review-tests-2.md LOBBY, DEATH
+
+## [2026-10-23] plan 2단계 결정 반영
+
+사용자 결정: 산 사람↔유령 귓속말 불가, 음성은 유령이 근처 생존자만 듣고 생존자는 유령을 못 들음, 유령은 맵 바깥 경계 말고 전부 통과, `currentZone` 전체 동기화 금지, 타조·얼룩말 피격 알림의 공격자 netId 제거, 시야 공유는 미니맵만 유지, 방 정원은 기본 구현 뒤에 정함(그 전엔 3명 이하도 가능), 올빼미 하늘·하마 강·카멜레온 숲·미어캣 들판 + 코드 이름 변경, 포트 분리. 미션 enum은 겹치는 항목을 알려 드리고 답을 기다리는 중(plan 2단계).
+
+- **[ChatManager.cs, ContextMenuUI.cs] 산 사람↔유령 귓속말 안내** — 서버(`CmdSendWhisper`)는 이미 양방향 차단. 보낸 글이 말없이 사라지던 것을 클라이언트에서 먼저 막고 "산 사람과 유령은 귓속말을 주고받을 수 없습니다."(`whisperAliveDeadNotice`)를 표시. 우클릭 메뉴의 귓속말 버튼도 생존 상태가 다르면 비활성
+- **음성: 변경 없음** — 이미 요청대로 동작. 생존자는 `alive_` 채널만 들어가 유령(`dead_`)을 못 듣고, 생존자 채널에 남은 죽은 참가자는 듣는 쪽에서 즉시 음량 0. 유령은 `dead_`에 말하고 `alive_`는 `ghostHearDistance`(3.5) 안의 생존자만 들림(`InGameVoiceProximity`)
+- **[ProjectSettings/Physics2DSettings.asset] 유령 통과** — Ghost 레이어가 MapBoundary하고만 충돌하도록 변경. 전에는 Water·MissionObject(미션 오브젝트 본체가 트리거가 아닌 충돌체라 유령이 막힘)·TransparentFX·Ignore Raycast·UI와 충돌. 미션 시작은 Scanner의 OverlapCircle(충돌 설정과 무관)이라 죽은 하마 복수 미션에 영향 없음. 파일 저장 시 `serializedVersion`이 6→11로 올라감(에디터 버전 갱신)
+- **[GamePlayer.cs, PlayerPrivateState.cs] 현재 구역 본인만 동기화** — `currentZone` SyncVar를 `PlayerPrivateState`(Sync Mode Owner)로 옮기고 `GamePlayer.currentZone`은 그 값을 중계. 훅 → `GamePlayer.HandleZoneChanged`(내 플레이어만 처리, 호스트에서 다른 사람 값이 바뀌어도 무시). 구역 아이콘은 `OnStartLocalPlayer`에서 내 것만 추가(다른 사람 값은 클라이언트에 없으므로)
+- **[PreySymbiosisAbility.cs] 피격 알림에서 공격자 netId 제거** — `TargetRpcUnderAttack(conn, victimNetId)`. 받는 쪽은 원래 쓰지 않았음
+- **[전체 스크립트, Character/HippoAbility.cs] 코드 이름 변경** — `AnimalType` Skunk→Owl, Badger→Hippo, Fox→Chameleon, Squirrel→Meerkat(순서 그대로라 씬·프리팹의 저장 값 영향 없음), `BadgerAbility`→`HippoAbility`(파일·meta를 git mv해 GUID 유지, GamePlayer 프리팹 연결 확인), 승리 조건 클래스(`OwlWinCondition` 등), 캐릭터 풀·`CharacterZoneData` 문자열 키, `GamePlayer` switch. 미션 enum `BadgerA`~`E`, `Mission/Badger/BadgerA.cs`, 씬의 `Badger` 미션 오브젝트 이름은 미션 enum 답을 받은 뒤 함께 처리
+- **[CharacterData.cs, CharacterZoneData.cs] 거주지** — 올빼미 숲→하늘, 미어캣 숲→들판(하마 강, 카멜레온 숲은 그대로)
+- **방 정원: 변경 없음** — 정원 드롭다운이 1명부터 있고, `allowBelowMinPlayersForTest`(켜짐)로 에디터·개발 빌드에서는 1명부터 시작 가능. 정식 값은 plan 6단계로
+- **[ConfigManager.cs, RoomHost.cs, RoomJoin.cs, NetworkCoordinator.cs, Server/server.js, Server/README.md] 포트 분리** — `config.json`에 `ServerPort`(Node, 기본 3000)·`GamePort`(Mirror, 기본 7777) 추가(없거나 0이면 기본값). ParrelSync 클론은 폴더 이름 `_clone_N`을 보고 방을 열 때 `GamePort + N + 1`을 사용(에디터에서만, `ConfigManager.HostGamePort`). 방장은 `/register`에 `port`를 보내고 `StartHost` 직전에 트랜스포트 포트를 맞춤. 서버는 `rooms.port` 칸에 저장(기존 DB는 칸만 추가)하고 `/lookup`이 `{ address, port }` JSON을 돌려줌. 입장자는 받은 포트로 트랜스포트를 맞춘 뒤 접속. 예전 서버의 텍스트 응답도 읽음(기본 포트로 접속). 로컬 `config.json`(git 제외)에 두 값을 적어 둠
+- 확인: Unity MCP 재컴파일(메인·클론), 콘솔에 C# 에러·경고 없음. 프리팹 누락 스크립트 없음. 수정한 서버를 포트 3100·DB 복사본으로 따로 띄워 확인: 예전 DB에 port 칸 추가, port 7778 등록 → 조회 `{"address":"localhost","port":7778}`, port 없이 등록 → 7777, 잘못된 port(70000) → 400. Unity `TryParseLookup` JSON·텍스트·빈 주소·잘못된 포트 처리 확인. 메인 `HostGamePort` 7777, clone_0 7778. **실행 중인 Node 서버(3000)는 예전 코드라 다시 켜야 클론 방 포트가 전달됨.** 실제 플레이 확인은 review-tests-2.md WHSP, ZONE, GHOST, HAB, PORT
+- **[RoomPlayer.prefab] 플레이어끼리 충돌 제거(추가 요청)** — 게임 중(`GamePlayer` 레이어끼리, 유령·시체 포함)은 이미 충돌하지 않았고, 로비의 `RoomPlayer`가 Default 레이어라 서로 밀렸다. 프리팹 루트 레이어를 GamePlayer로 바꿈(MCP). 로비 벽은 Default라 그대로 막히고, 로비 카메라는 모든 레이어를 그림. 레이어로 판정하는 로비 스크립트 없음 — 테스트: review-tests-2.md GHOST
+
+## [2026-10-23] plan 3단계 — 사망 직후 음성 차단
+
+- **[VoiceManager.cs] 죽은 순간부터 일정 시간 말 못 함** — 전에는 사망 순간 송신을 막았다가 유령 채널 입장이 끝나는 즉시(약 1.4초) 풀어서, 사망 연출 중에도 유령끼리 말할 수 있었다. 이제 ① 유령 채널 이동 완료 ② 죽은 뒤 `deathSilenceSeconds`(2초, `[SerializeField]`, 사망 연출 `GamePlayUI.deathEffectSeconds`와 같게) 경과 — 둘 다 끝나야 마이크가 열림(`IsDeathSilenced`, `UpdateDeathSilence`). 결과 화면·로비로 넘어가면 바로 해제. 막힌 동안은 마이크 표시가 꺼짐으로, 내 "말하는 중" 표시도 안 뜸(둘 다 `IsMicOpen` 기준). 생존자 쪽에서 죽은 사람 목소리를 즉시 끄는 기존 처리(`SilenceInAliveChannelNow`, 근접 음량 0)는 그대로. 남은 차이는 서버 사망 처리 → 각 클라이언트에 사망이 전달되는 네트워크 지연뿐
+- 확인: Unity MCP 재컴파일, 콘솔에 C# 에러·경고 없음. 실제 소리 확인은 review-tests-2.md VDEATH
+
+## [2026-10-23] plan 4단계 — Node 서버·네트워크
+
+1. **[Server/server.js, RoomHost.cs, RoomManager.cs, RoomJoin.cs] 게임 진행 중 상태 알리기** — `rooms.in_game` 칸 추가(기존 DB는 칸만 추가). 방장은 `TryStartGame` 성공 순간 `RoomHost.SetInGame(true)`, 로비 씬 복귀(`OnRoomServerSceneChanged`) 때 `false`를 `/heartbeat`의 `inGame`으로 바로 보내고, 20초 하트비트에도 같은 값을 실음(한 번 실패해도 맞춰짐). `/lookup`은 게임 중이면 423, Unity `RoomJoin`은 "게임이 진행 중인 방에는 입장할 수 없습니다."(게임 서버의 거부 문구와 같게). 예전 서버는 `inGame`을 무시하므로 함께 써도 깨지지 않음
+2. **[ConfigManager.cs, RoomHost.cs, RoomJoin.cs] 설정 매번 확인** — `isConfigValid`/`nodeServerUrl` 필드를 요청마다 읽는 프로퍼티(`IsConfigValid`, `NodeServerUrl`)로 바꿈. 방 만들기·입장 전에는 `ConfigManager.EnsureValid()`가 IP가 비어 있으면 `config.json`을 다시 읽음(게임을 켠 채 파일을 고쳐도 됨)
+3. **[RoomManager.cs, NetworkCoordinator.cs] 이전 세션 정리** — `EnsurePreviousSessionStopped`가 `StopHost()`를 부르면 일반 종료로 처리되어 방금 등록한 **새** 방을 Node 서버에서 지우고, 방 코드/토큰을 비우고, 타이틀을 불러온 뒤에도 `StartHost()`를 시도했다. `RoomManager.StopStaleSession()`으로 바꿔 끄는 동안(`_stoppingStaleSession`) `OnStopServer`(방 삭제), 연결 정리(출입 보고·세션 초기화), `OnClientDisconnect`·`OnStopHost`(타이틀 이동)를 건너뜀. 이전 방은 하트비트가 끊겨 만료로 지워짐
+4. **[Server/server.js, Server/ecosystem.config.js, Server/package.json] 서버 안정성** — DB 호출을 Promise로 감싸고 요청 처리 함수를 async로 바꿈. Express 5가 async 함수의 예외를 오류 처리 미들웨어로 넘겨 500으로 답하므로 DB 콜백 안 예외로 프로세스가 죽지 않음. 요청 밖 예외(`uncaughtException`)는 기록 후 종료 → pm2가 다시 켬. `SIGINT`/`SIGTERM`에 DB를 닫고 종료. pm2 설정(`ecosystem.config.js`, 10초 안에 계속 죽으면 최대 10회까지만 재시작)과 `npm run pm2` 추가. pm2 설치·실행은 사용자 PC에서
+5. **[Server/server.js, RoomHost.cs, RoomJoin.cs] 서버 보안** — 주소별 요청 횟수 제한(1분당 등록 10, 조회 30, 출입·하트비트·삭제 120, 환경 변수로 조절, 넘으면 429 + `Retry-After`). Unity는 429에 "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." 표시. CORS는 `CORS_ORIGIN`을 설정했을 때만 허용(Unity 클라이언트는 필요 없음). 로그의 방 코드는 앞 3글자만, 주소는 생략(`LOG_VERBOSE=1`이면 그대로). README에 환경 변수·pm2·423·429 정리
+6. **[GamePlayer.cs] 미션 최소 소요 시간** — 서버 판정을 `Time.time`에서 `Time.realtimeSinceStartupAsDouble`로 변경. `Time.time`은 한 프레임에 최대 0.33초만 늘어 방장 PC가 심하게 느리면 실제보다 느리게 가서 정상 완료가 거부될 수 있었음
+- 7번(원본 저장소 업로드)은 주소·브랜치·권한을 사용자에게 받아야 해서 진행하지 않음
+- 확인: Unity MCP 재컴파일, 콘솔에 C# 에러·경고 없음. 새 서버를 포트 3100·DB 복사본으로 띄워 확인: 등록·조회(포트 포함)·하트비트(inGame true → 조회 423, false → 해제, 값 없음 → 200, 문자열 → 400)·출입·중복 409·등록 제한 429·잘못된 JSON 400·CORS 헤더 없음·삭제, 기존 DB에 in_game 칸 추가, 로그 가림. 메인 에디터를 그 서버에 붙여(테스트 동안만 `config.json` ServerPort 3100, 끝나고 3000으로 되돌림) 방 생성 → 게임 시작 → `/lookup` 423 → 로비 복귀 → 해제(정원 1명이라 403) → 플레이 종료 시 방 삭제까지 확인. 이전 세션 정리 경로는 재현하지 못함. 테스트: review-tests-2.md NODE4
+
+## [2026-10-24] 복수 미션 이름 변경, 전갈 독 미션 구현
+
+1. **[BaseMission.cs, MissionData.cs, HippoAbility.cs, Mission/Revenge/RevengeA.cs] `Badger*` → `Revenge*`** — `MissionType.BadgerA~E` → `RevengeA~E`(값 18~22 그대로라 씬·프리팹에 저장된 값 유지), 클래스 `BadgerA` → `RevengeA`, 폴더 `Mission/Badger` → `Mission/Revenge`, 프리팹 `Mission_BadgerA` → `Mission_RevengeA`(MCP `AssetDatabase.RenameAsset`, GUID 유지). `GamePlay` 씬의 미션 오브젝트 `Room Map/Field/Badger` → `Revenge`, `Mission Test` 씬의 테스트 오브젝트·버튼 이름과 버튼 연결 타입 이름도 바꿈. 표시 이름("복수 A 미션")과 동작은 그대로
+2. **[Mission/Poision/PoisonA.cs, Mission_PoisonA.prefab] 전갈 독 미션 새로 구현** — 예전 화면(재료 버튼 4개를 아무 순서로 누르기)을 바꿈. 빨강·파랑·초록 병 3개를 누르면 그 병의 액체가 가운데 잔에 아래부터 쌓이고(`pourSeconds` 0.6초 동안 붓는 연출, 붓는 동안 다른 병은 안 눌림), 오른쪽 위 가이드에 보이는 순서(미션을 열 때마다 무작위)대로 3병을 다 부으면 성공. 순서가 틀려도 3병을 다 부은 뒤에 실패로 판정. 제한 시간 20초(`timeLimit`), 지나면 실패. 병 색은 `liquidColors`로 인스펙터에서 조절. 성공하면 기존 흐름대로 서버의 `ScorpionAbility.OnMissionCompletedServer`가 독을 준다. UI는 MCP로 프리팹을 다시 구성(병·잔·가이드는 Unity 기본 도형 스프라이트로 만든 임시 그림)
+- 확인: Unity MCP 재컴파일, 콘솔에 C# 에러·경고 없음. `Mission Test` 씬 플레이: 틀린 첫 병 → 판정 없음, 3병 다 부음 → "실 패", 정답 순서 → "성 공", 시간 초과 → "실 패", 가이드 색이 정답 순서와 일치. 실제 게임에서 독을 얻는 흐름은 확인하지 않음. 테스트: review-tests-2.md POISON
+- 참고: `Mission Test` 씬의 `Mission_PoisonA (1)`(프리팹 연결이 끊긴 예전 복사본)은 새 스크립트와 필드가 맞지 않아 쓸 수 없음. 테스트 버튼은 프리팹 인스턴스 `Mission_PoisonA`를 쓰므로 영향 없음
+
+3. **[MinimapView.cs] 독 미션 미니맵 마커 보라색** — 독 미션 오브젝트는 이미 `GamePlay` 씬에 있음(`Poision`, `MissionObject` 종류 `Scorpion_Poison`, `MissionRegistry`에 등록되어 다른 미션과 같은 방식으로 동작). 미니맵에서 이 종류의 마커만 `poisonMarkerColor`(기본 보라 0.65, 0.3, 1 — 특수 오브젝트 색과 같음, 인스펙터에서 조절)로 그리고 나머지 미션은 기존 노란색. 확인: 재컴파일, 콘솔 에러·경고 없음. 테스트: review-tests-2.md POISON
+
+## [2026-10-24] 로비 복귀 뒤 위치 어긋남, 사망·종료 때 Vivox 에러
+
+사용자 보고: 늑대가 독 있는 전갈을 공격해 반격으로 죽고 게임이 끝난 뒤 로비로 돌아오니, 참여자 화면에 방장 캐릭터가 안 보이고 방장 화면에는 참여자가 다른 자리에 보임. 늑대가 까마귀를 죽였을 때 Vivox 에러.
+
+1. **[RoomManager.cs, RoomPlayer.cs] 로비 복귀 위치 어긋남** — 원인: 로비 복귀 재배치에 `NetworkTransform.RpcTeleport`를 썼는데, `NetworkTransformReliable`은 Teleport 때(`ResetState`) 위치 델타 압축의 기준값(`lastSerialized/DeserializedPosition`)을 0으로 지운다. RPC를 받은 쪽만 지우고 서버(직접 transform을 바꿈)나 씬 로딩 중이라 RPC를 못 받은 클라이언트는 이전 기준값을 그대로 써서, 이후 모든 위치가 일정한 거리만큼 어긋나게 풀렸다. MCP로 확인한 실제 값: 방장 캐릭터는 방장 화면 (1.55, -4.25) / 참여자 화면 (10.57, -4.97)(화면 밖이라 안 보임), 참여자 캐릭터는 참여자 화면 (-2.16, -4.25) / 방장 화면 (0.99, -7.20). 수정: Teleport 대신 `RoomPlayer.TargetMoveTo`(TargetRpc)로 주인 클라이언트가 직접 옮기게 함(위치는 원래 주인이 동기화하므로 평소 이동처럼 전달되어 기준값이 맞음). 연결이 준비 전이면 `OnServerReady`까지 미루는 기존 흐름은 그대로. 프로젝트에서 `RpcTeleport`를 쓰던 곳은 여기 하나뿐
+2. **[InGameVoiceProximity.cs] Vivox `Target Object Does Not Exist (1001)`** — 근접 음성이 0.1초마다 값이 같아도 모든 참가자에게 `SetLocalVolume`을 보내서, 사망·게임 종료로 채널을 옮기는 순간 처리 중이던 요청이 실패해 에러가 찍혔다. 참가자(객체)별로 마지막으로 보낸 음량을 기억해 값이 바뀔 때만 보내도록 바꿈(가만히 있을 때는 요청이 없음). 들리는 규칙·거리감은 그대로
+3. **[RoomPlayer.cs] 로비 복귀 때 `CmdSetRequestedCharacter ... when client not ready` 경고** — 복귀 때 `OnStartLocalPlayer`가 다시 불리며 직업 선택을 다시 보냈는데 연결이 준비 전이라 버려졌다. 같은 RoomPlayer면 값이 서버에 남아 있으므로, 처음 한 번(닉네임·색과 같은 블록)만 보내도록 옮김
+- `AUDCLNT_E_DEVICE_INVALIDATED`: 코드 문제가 아니라 Windows 소리 장치 오류(Vivox가 채널에 들어가며 장치를 여는 순간 장치가 없어졌거나 바뀜). 보고 화면의 작업 표시줄 스피커 아이콘이 꺼짐(X) 상태였음 → 출력 장치를 연결·선택한 뒤 다시 확인 필요. 소리 장치를 쓰지 못하는 것 외에 게임 진행에는 영향 없음
+- 남은 관찰: 2판째 게임 시작 때 방장 콘솔에 Mirror 경고 `NetworkClient can't AddPlayer before being ready`가 한 번 찍힘(게임 진행은 정상) → 아래 4번에서 수정
+- 확인: 메인·클론 재컴파일, 콘솔 에러·경고 없음. 두 에디터로 다시 플레이해 확인하지는 않음. 테스트: review-tests-2.md RSYNC
+
+4. **[RoomManager.cs] 2판째 시작 때 `NetworkClient can't AddPlayer before being ready`** — 원인: 로비 복귀 때 각 연결이 준비(Ready)되면 `NetworkRoomManager.OnServerReady → SceneLoadedForPlayer`가 RoomPlayer를 `pendingPlayers`에 쌓는다. Mirror 기본 흐름에서는 전원이 준비 표시를 하면 `CheckReadyToBegin`이 이 목록을 비우지만, 우리는 방장 버튼(`TryStartGame`)으로 시작하고 게임 후 로비에서는 준비 표시도 다시 하지 않아 목록이 남았다. 게임 씬 로딩이 끝나면 `OnServerSceneChanged`가 남은 목록으로 각 클라이언트가 새 씬에서 준비되기 **전에** 게임 캐릭터를 만들고(`ReplacePlayerForConnection`), 방장 클라이언트는 아직 준비 전이라 경고가 떴다. 첫 판은 방장이 RoomPlayer가 생기기 전에 준비되고 참여자의 자동 준비 표시가 목록을 비워서 괜찮았다. 수정: `StartGameDelayed`에서 `ServerChangeScene(GameplayScene)` 직전에 `pendingPlayers.Clear()`(Mirror 기본 흐름과 같은 처리). 이제 각 연결이 게임 씬에서 준비될 때(`OnServerReady`) 캐릭터가 만들어진다
+- 확인: 재컴파일 에러 없음. 메인 에디터 혼자 실제 Node 서버로 방 생성 → 게임 → 로비 복귀 → 2판째 시작: 시작 직전 `pendingPlayers` 1개(원인 재현) → 경고 없이 `OnRoomServerSceneChanged` 뒤에 캐릭터 생성, 콘솔 에러·경고 없음. 여러 명으로는 확인하지 않음

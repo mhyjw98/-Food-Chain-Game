@@ -30,13 +30,21 @@ Mirror 기반 멀티플레이 소셜 서바이벌 게임 (Goose Goose Duck / Amo
 ## 폴더 구조
 [Assets 하위 주요 폴더와 역할 — Scripts/Player, Scripts/Network, Scripts/Setting 등]
 
-## 문서 위치
-- 기획: Docs/[.md]
-- 진행상황: Docs/[progress]
-- 코드 리뷰 기록: Docs/review-progress.md(세션 1~5), Docs/review-progress-2.md(세션 6~) (계획: Docs/review-plan.md, review-plan-2.md / 규칙: Docs/review-rules.md)
-- **Unity MCP 연결 후 진행할 작업 목록: Docs/mcp-pending-tasks.md** — MCP가 연결된 세션을 시작하면 이 문서의 "시작 절차"부터 수행 (0번 컴파일/Weaver 확인이 최우선)
-- Node.js 방 코드 서버 점검 목록: Docs/node-server-checklist.md — 사용자가 서버 코드를 주면 이 문서의 "서버 코드를 받으면 진행할 순서"대로 리뷰·보완
-- 리뷰 후 테스트 목록: Docs/review-tests.md(세션 1~5), 이후분은 Docs/review-tests-2.md — 리뷰 중 코드를 수정하면 테스트 항목을 반드시 여기에 추가 (규칙은 review-rules.md 6번). 테스트는 리뷰가 전부 끝난 뒤 한 번에 진행하므로, 수정 직후 테스트를 요청하며 멈추지 않는다
+## 문서 위치와 규칙 (Docs/)
+세션 시작 시 `Docs/progress/progress.md`(진행 상태) → `Docs/progress/plan.md`(남은 작업 계획) → `Docs/progress/handoff.md`(작업 방법·주의점) 순으로 읽는다.
+
+| 폴더 | 넣는 것 | 파일 |
+|---|---|---|
+| `review/` | 코드 리뷰 관련 | `review-rules.md`(규칙), `review-plan.md`(남은 리팩토링), `review-progress.md`·`-2.md`(리뷰·변경 기록), `review-tests.md`·`-2.md`(플레이 테스트 목록) |
+| `prompt/` | 사용자가 준 작업 프롬프트 원문 | 예: `minimap.md` |
+| `log/` | 변경 이력(changelog) | `changelog.md` |
+| `progress/` | 그 외 전부 | `progress.md`(유일한 진행상황 문서), `plan.md`(테스트 제외 남은 작업 계획), `handoff.md`, `important.md`(출시 전 과제), `node-server-checklist.md` |
+
+- 코드를 수정하면: 변경 내역은 `review/review-progress-2.md`에 추가, 확인 항목은 `review/review-tests-2.md`에 추가(규칙은 `review-rules.md` 6번), `progress/progress.md`의 상태를 갱신하고, 끝낸 일은 `plan.md`에서 지운다(새로 생긴 할 일은 `plan.md`의 맞는 단계에 추가). 수정 직후 테스트를 요청하며 멈추지 않는다
+- 진행상황은 `progress.md` 한 곳에만 쓴다. 다른 문서에 진행 현황 표나 상태 요약을 따로 만들지 않는다
+- 끝난 계획·체크리스트 항목은 지운다(테스트는 통과하면 삭제). 단, 기록 문서(`review-progress*.md`, `log/`)는 지우지 않는다
+- 새 문서는 위 분류에 맞는 폴더에 만들고, `Docs/` 바로 아래에는 파일을 두지 않는다
+- 서버를 고칠 때는 `progress/node-server-checklist.md`를 보고 짝이 되는 Unity 쪽도 함께 고친다
 
 
 ## 아직 미정인 것

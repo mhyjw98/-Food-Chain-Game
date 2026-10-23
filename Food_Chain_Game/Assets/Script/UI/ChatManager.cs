@@ -38,6 +38,7 @@ public class ChatManager : NetworkBehaviour
     [SerializeField] private int maxMessagesPerChannel = 100;
     [SerializeField] private string allTabLabel = "전체";
     [SerializeField] private string whisperTargetGoneNotice = "귓속말 상대가 게임에 없습니다.";
+    [SerializeField] private string whisperAliveDeadNotice = "산 사람과 유령은 귓속말을 주고받을 수 없습니다.";
 
     public ChatChannel currentChannel;
     private readonly ChatChannel allChannel = new ChatChannel { type = ChatChannelType.All };
@@ -171,6 +172,13 @@ public class ChatManager : NetworkBehaviour
                 if (currentChannel.targetPlayer == null)
                 {
                     AppendMessage(currentChannel, $"<color=#888888>{Sanitize(whisperTargetGoneNotice)}</color>");
+                    return;
+                }
+
+                // 서버도 막지만(CmdSendWhisper), 보낸 글이 말없이 사라지지 않도록 여기서 먼저 알려 준다
+                if (currentChannel.targetPlayer.isAlive != gamePlayer.isAlive)
+                {
+                    AppendMessage(currentChannel, $"<color=#888888>{Sanitize(whisperAliveDeadNotice)}</color>");
                     return;
                 }
 

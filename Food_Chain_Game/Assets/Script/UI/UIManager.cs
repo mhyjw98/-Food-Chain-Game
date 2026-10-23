@@ -94,6 +94,27 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    // 열린 창을 한꺼번에 닫는다(사망 연출 전 등). 위에서부터 각 창의 onEscape를 실행하고, 한 번에 다 닫히지 않는 창
+    // (확인창만 먼저 닫히는 창 등)은 다시 실행한다. onEscape가 null인 항목(진행 중 작업의 ESC 차단)은 그 작업을 먼저
+    // 취소해 두어야 하며, 여기서는 목록에서만 뺀다. 창이 스스로 빠지지 않아도 멈추도록 횟수를 제한한다
+    public void CloseAllEscapable()
+    {
+        const int maxSteps = 64;
+        for (int step = 0; step < maxSteps && _escapeStack.Count > 0; step++)
+        {
+            int top = _escapeStack.Count - 1;
+            EscapeEntry entry = _escapeStack[top];
+
+            if ((entry.Key is UnityEngine.Object unityKey && unityKey == null) || entry.OnEscape == null)
+            {
+                _escapeStack.RemoveAt(top);
+                continue;
+            }
+
+            entry.OnEscape.Invoke();
+        }
+    }
+
     // ESC 처리: 맨 위 창이 있으면 그 창의 onEscape를 실행하고 true. 없으면 false(설정 창을 열 차례)
     public bool HandleEscape()
     {

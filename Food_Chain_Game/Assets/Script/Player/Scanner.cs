@@ -165,7 +165,7 @@ public class Scanner : MonoBehaviour
                     }
                 }
             }
-            // 위장 오브젝트는 여우에게만 상호작용 대상이 된다(역할은 본인만 알므로 다른 플레이어에게 드러나지 않음)
+            // 위장 오브젝트는 카멜레온에게만 상호작용 대상이 된다(역할은 본인만 알므로 다른 플레이어에게 드러나지 않음)
             if (hit.TryGetComponent(out DisguiseObject disguiseObj))
             {
                 if (myPlayer.isAlive && myPlayer.CanDisguise)
@@ -187,7 +187,7 @@ public class Scanner : MonoBehaviour
                     }
                 }
             }
-            // 승리 예측 오브젝트는 예측 능력이 있는 플레이어(스컹크)에게만 상호작용 대상이 된다
+            // 승리 예측 오브젝트는 예측 능력이 있는 플레이어(올빼미)에게만 상호작용 대상이 된다
             if (hit.TryGetComponent(out PredictObject predictObj))
             {
                 if (myPlayer.isAlive && myPlayer.CanPredict)

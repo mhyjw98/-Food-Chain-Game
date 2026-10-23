@@ -18,6 +18,8 @@ public class PlayerPrivateState : NetworkBehaviour
     [SyncVar] public AnimalType disguisedAs = AnimalType.None;
     [SyncVar] public AnimalType predictedAs = AnimalType.None;
     [SyncVar] public bool predictedCorrectly;
+    // 지금 있는 구역. 위치가 드러나므로 본인에게만 보낸다(구역 아이콘은 내 것만 표시)
+    [SyncVar(hook = nameof(OnZoneChanged))] public ZoneType currentZone;
 
     public readonly SyncList<MissionSlot> Missions = new SyncList<MissionSlot>();
 
@@ -25,5 +27,11 @@ public class PlayerPrivateState : NetworkBehaviour
     {
         // 프리팹 설정이 바뀌더라도 전원 동기화로 되돌아가지 않도록 코드에서도 고정한다
         syncMode = SyncMode.Owner;
+    }
+
+    private void OnZoneChanged(ZoneType oldVal, ZoneType newVal)
+    {
+        var gamePlayer = GetComponent<GamePlayer>();
+        if (gamePlayer != null) gamePlayer.HandleZoneChanged(newVal);
     }
 }

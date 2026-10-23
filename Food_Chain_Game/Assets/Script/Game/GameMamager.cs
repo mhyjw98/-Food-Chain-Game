@@ -8,7 +8,8 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 
-public enum RoundTime { None, Disguise, Exploration, Day, Night, End }
+// 값은 예전 순서(1·2번은 없앤 위장/탐색 단계) 그대로 둔다. 씬에 저장된 값과 어긋나지 않게 하기 위함
+public enum RoundTime { None = 0, Day = 3, Night = 4, End = 5 }
 public class GameMamager : NetworkBehaviour
 {
     public static GameMamager Instance;
@@ -21,7 +22,6 @@ public class GameMamager : NetworkBehaviour
     [SyncVar(hook = nameof(OnTimerChanged))] public float timer;
     [SyncVar] public int predatorCount = 0;
     [SyncVar] public int deadPredatorCount = 0;
-    public bool IsExplorationPhase => currentTime == RoundTime.Exploration;
     public bool IsNightPhase => currentTime == RoundTime.Night;
 
     // 현재 낮/밤이 시작된 뒤 흐른 시간(초). timer는 남은 시간 카운트다운이므로 페이즈 길이에서 뺀다
@@ -72,8 +72,6 @@ public class GameMamager : NetworkBehaviour
     // 서버: 밤 체크처럼 여러 명이 연달아 죽는 구간에서는 종료 판정을 미뤘다가 마지막에 한 번만 한다
     private bool _deferEndCheck;
 
-    //private float disguiseTime = 10f;
-    //private float explorationRoundTime = 5f;
     public float dayRoundTime = 20f;
     private float nightRoundTime = 20f;    
 
@@ -245,7 +243,7 @@ public class GameMamager : NetworkBehaviour
 
         if(player.isPredator) return 6f;
 
-        if (player.animalType == AnimalType.Squirrel) return 11f;
+        if (player.animalType == AnimalType.Meerkat) return 11f;
         else return 8f;
     }
     [ClientRpc]
@@ -460,7 +458,7 @@ public class GameMamager : NetworkBehaviour
     {
         Debug.Log("게임 종료! 승패 판단 시작");
 
-        // 스컹크처럼 다른 플레이어의 승패를 따르는 조건이 있어 전원의 결과를 한 번에 계산한다
+        // 올빼미처럼 다른 플레이어의 승패를 따르는 조건이 있어 전원의 결과를 한 번에 계산한다
         var results = GameResultEvaluator.EvaluateAll(players);
 
         foreach (var player in players)

@@ -19,36 +19,53 @@ public class RoomPlayer : NetworkRoomPlayer
     // 테스트용 직업 선택: 로비에서 고른 캐릭터(서버만 가짐, 비어 있으면 무작위). 같은 이유로 SyncVar가 아니다
     [System.NonSerialized] public string requestedCharacter;
     [SyncVar] public bool isHost;
+    // 서버: 입장 안내를 이미 보냈는지. 방장의 RoomPlayer는 게임 후 로비로 돌아올 때 OnStartLocalPlayer가 다시 불려
+    // CmdSetData가 한 번 더 오므로, 이 플래그가 없으면 "입장하셨습니다"가 판마다 다시 표시된다
+    [System.NonSerialized] private bool _joinAnnounced;
+
+    // 본인 클라이언트에서 로비 준비가 끝났는지(서버가 닉네임과 색을 정해 돌려줌). "연결 중" 화면을 걷는 기준
+    public bool IsLocalSetupComplete => isLocalPlayer && !string.IsNullOrEmpty(nickname) && colorIndex >= 0;
 
     public TextMeshProUGUI nicknameText;
 
     [Header("Input Limits")]
     [SerializeField] private int maxNicknameLength = 8;
     [SerializeField] private int maxChatLength = 200;
+    // 본인: 이 RoomPlayer로 닉네임·색·의상을 이미 서버에 보냈는지.
+    // 게임 후 로비로 돌아오면 같은 RoomPlayer에 OnStartLocalPlayer가 다시 불리는데, 그 순간에는 연결이 아직 준비 전이라
+    // 다시 보낸 Command가 "when client not ready" 경고와 함께 버려진다(값은 이미 서버에 있으므로 다시 보낼 필요도 없다)
+    private bool _localDataSent;
+
     public override void OnStartLocalPlayer()
     {
         base.OnStartLocalPlayer();
 
-        if (!isServer)
-        {
-            CmdChangeReadyState(true);
-            Debug.Log("[RoomPlayer] 자동 Ready 상태 설정");
-        }
-
-        CmdSetData(NickNamemanager.GetNickname());
-
         int index = RoomSessionData.ColorIndex;
-        CmdSetColor(index);
-        CmdSetCostume(RoomSessionData.CostumeIndex);
+        if (!_localDataSent)
+        {
+            _localDataSent = true;
+
+            if (!isServer)
+            {
+                CmdChangeReadyState(true);
+                Debug.Log("[RoomPlayer] 자동 Ready 상태 설정");
+            }
+
+            CmdSetData(NickNamemanager.GetNickname());
+            CmdSetColor(index);
+            CmdSetCostume(RoomSessionData.CostumeIndex);
+
+            // 다시 접속해 새 RoomPlayer가 생겨도 이전에 고른 직업이 서버에 남도록 다시 보낸다.
+            // 게임 후 로비 복귀(같은 RoomPlayer)에는 값이 서버에 그대로 있고, 연결이 준비 전이라 보내도 버려진다
+            if (!string.IsNullOrEmpty(RoomSessionData.RequestedCharacter))
+                CmdSetRequestedCharacter(RoomSessionData.RequestedCharacter);
+        }
         PlayerColorPalette.InitColorIndex(index);
 
+        // 로비 UI는 씬을 불러올 때마다 새로 생기므로 매번 다시 연결한다
         var setting = FindFirstObjectByType<CharacterSetting>();
         if (setting != null)
             setting.SetLocalPlayer(this, index);
-
-        // 다시 접속해 새 RoomPlayer가 생겨도 이전에 고른 직업이 서버에 남도록 다시 보낸다
-        if (!string.IsNullOrEmpty(RoomSessionData.RequestedCharacter))
-            CmdSetRequestedCharacter(RoomSessionData.RequestedCharacter);
 
         StartCoroutine(CoReportVoiceId());
 
@@ -174,6 +191,20 @@ public class RoomPlayer : NetworkRoomPlayer
         SetRoomVisualsActive(active);
     }
 
+    // 서버가 정한 자리로 본인 캐릭터를 옮긴다(로비 복귀 재배치). 위치는 본인이 동기화하므로(Client→Server) 본인이 직접 옮긴다
+    [TargetRpc]
+    public void TargetMoveTo(Vector3 destination)
+    {
+        transform.position = destination;
+
+        var rigid = GetComponent<Rigidbody2D>();
+        if (rigid != null)
+        {
+            rigid.position = destination;
+            rigid.linearVelocity = Vector2.zero;
+        }
+    }
+
     // NetworkRoomPlayer가 제공하는 훅. 참고용 로그만 남기고 실제 표시/숨김은
     // 서버발 RpcSetRoomVisualsActive가 담당한다(위 주석 참고).
     public override void OnClientEnterRoom()
@@ -288,7 +319,11 @@ public class RoomPlayer : NetworkRoomPlayer
 
         nickname = TextSanitizer.BlockRichText(nick);
 
-        ServerBroadcastSystemMessage($"{nickname}님이 입장하셨습니다.");
+        if (!_joinAnnounced)
+        {
+            _joinAnnounced = true;
+            ServerBroadcastSystemMessage($"{nickname}님이 입장하셨습니다.");
+        }
 
         // 새 플레이어가 들어올 때마다 방장을 다시 정한다(첫 입장자가 방장이 되는 것도 여기서 결정)
         var roomManager = RoomManager.singleton as RoomManager;

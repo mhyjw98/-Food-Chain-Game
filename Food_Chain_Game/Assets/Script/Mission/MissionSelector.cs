@@ -13,7 +13,7 @@ public class MissionSelector : MonoBehaviour
         new Dictionary<AnimalType, MissionCategory[]>
    
         {
-            { AnimalType.Squirrel, new[] // 다람쥐
+            { AnimalType.Meerkat, new[] // 미어캣
             {
                 MissionCategory.Grass,                
                 MissionCategory.Seed,
@@ -31,7 +31,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Badger, new[] // 오소리
+        { AnimalType.Hippo, new[] // 하마
             {
                 MissionCategory.Fruit,
                 MissionCategory.Branch,
@@ -49,7 +49,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Skunk, new[] // 스컹크
+        { AnimalType.Owl, new[] // 올빼미
             {
                 MissionCategory.Insect,
                 MissionCategory.Fruit,
@@ -82,7 +82,7 @@ public class MissionSelector : MonoBehaviour
             }
         },
 
-        { AnimalType.Fox, new[]
+        { AnimalType.Chameleon, new[]
             {
                 MissionCategory.Insect,
                 MissionCategory.Fruit,

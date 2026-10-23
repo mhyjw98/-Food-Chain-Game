@@ -50,7 +50,7 @@ public class AnimalWinCondition : MonoBehaviour
             return player.isAlive;
         }
     }
-    public class SquirrelWinCondition : IWinCondition
+    public class MeerkatWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
@@ -64,7 +64,7 @@ public class AnimalWinCondition : MonoBehaviour
             return player.isAlive;
         }
     }
-    public class BadgerWinCondition : IWinCondition
+    public class HippoWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {
@@ -108,9 +108,9 @@ public class AnimalWinCondition : MonoBehaviour
             return false;
         }
     }
-    // 스컹크: 예측 오브젝트에서 고른 플레이어가 승리하면 함께 승리한다(스컹크 본인의 생존 여부와 무관).
+    // 올빼미: 예측 오브젝트에서 고른 플레이어가 승리하면 함께 승리한다(올빼미 본인의 생존 여부와 무관).
     // 예측하지 않았거나 고른 플레이어가 게임에서 나갔으면 패배
-    public class SkunkWinCondition : IDependentWinCondition
+    public class OwlWinCondition : IDependentWinCondition
     {
         // 결과는 GameResultEvaluator가 GetDependency로 계산한다. 단독으로 불리면 판단할 수 없으므로 패배
         public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
@@ -132,7 +132,7 @@ public class AnimalWinCondition : MonoBehaviour
         }
     }
 
-    public class FoxWinCondition : IWinCondition
+    public class ChameleonWinCondition : IWinCondition
     {
         public bool Evaluate(GamePlayer player, SyncList<GamePlayer> allPlayers)
         {

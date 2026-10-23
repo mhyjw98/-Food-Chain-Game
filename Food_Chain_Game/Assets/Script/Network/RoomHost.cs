@@ -17,25 +17,25 @@ public class RoomHost : MonoBehaviour
     [Tooltip("방이 살아 있음을 Node 서버에 알리는 간격(초). 서버의 방 만료 시간(ROOM_TTL_SECONDS, 기본 60초)보다 충분히 짧아야 한다")]
     [SerializeField] private float heartbeatIntervalSeconds = 20f;
 
-    private string nodeServerUrl;
-    private bool isConfigValid;
+    // 설정은 Awake에서 한 번만 읽지 않고 요청할 때마다 확인한다(ConfigManager.EnsureValid로 다시 읽을 수 있음)
+    private static string NodeServerUrl => ConfigManager.NodeServerUrl;
+    private static bool IsConfigValid => ConfigManager.IsValid;
     private Coroutine heartbeatCoroutine;
+    // 게임 진행 중인지. Node 서버가 이 값을 보고 게임 중인 방의 코드 조회를 바로 거부한다
+    private bool inGame;
 
     private void Awake()
     {
-        isConfigValid = !string.IsNullOrWhiteSpace(ConfigManager.Config.IP);
-        nodeServerUrl = "http://" + ConfigManager.Config.IP + ":3000";
-
-        if (!isConfigValid)
+        if (!IsConfigValid)
             Debug.LogError("[RoomHost] ConfigManager.Config.IP가 비어있어 Node 서버와 통신할 수 없습니다. Assets/StreamingAssets/config.json을 확인해주세요.");
     }
 
     // 새 방 코드를 만들어 Node 서버에 등록한다.
     // 성공하면 방 코드와 서버가 발급한 토큰이 RoomSessionData에 저장된다.
-    // 호스트 주소는 보내지 않는다(서버가 이 요청의 실제 접속 주소를 호스트 주소로 저장)
+    // 호스트 주소는 보내지 않는다(서버가 이 요청의 실제 접속 주소를 호스트 주소로 저장). 게임 포트는 보낸다(입장자가 이 포트로 접속)
     public void RegisterNewRoom(int maxPlayer, Action<bool, string> onResult)
     {
-        if (!isConfigValid)
+        if (!ConfigManager.EnsureValid())
         {
             onResult?.Invoke(false, "서버 설정(IP)이 올바르지 않습니다.");
             return;
@@ -51,7 +51,7 @@ public class RoomHost : MonoBehaviour
         for (int attempt = 0; attempt < attempts; attempt++)
         {
             string code = CodeManager.GenerateCode();
-            string json = JsonUtility.ToJson(new RoomData { code = code, maxPlayer = maxPlayer });
+            string json = JsonUtility.ToJson(new RoomData { code = code, maxPlayer = maxPlayer, port = ConfigManager.HostGamePort });
 
             using (UnityWebRequest req = CreateJsonPost("/register", json, null))
             {
@@ -85,10 +85,12 @@ public class RoomHost : MonoBehaviour
                 Debug.LogError($"응답 코드: {req.responseCode}");
                 Debug.LogError($"서버 응답: {req.downloadHandler.text}");
 
-                // 응답 코드 0 = 서버에 닿지 못함(연결 실패, 시간 초과)
+                // 응답 코드 0 = 서버에 닿지 못함(연결 실패, 시간 초과), 429 = 요청 횟수 제한
                 onResult?.Invoke(false, req.responseCode == 0
                     ? "서버와 연결할 수 없습니다."
-                    : "방을 만들지 못했습니다. 나중에 다시 시도해주세요.");
+                    : req.responseCode == 429
+                        ? "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+                        : "방을 만들지 못했습니다. 나중에 다시 시도해주세요.");
                 yield break;
             }
         }
@@ -98,7 +100,7 @@ public class RoomHost : MonoBehaviour
 
     public void ComeAndGoing(string code, int delta)
     {
-        if (!isConfigValid) return;
+        if (!IsConfigValid) return;
 
         // 응답을 기다리는 사이 RoomSessionData가 초기화될 수 있으므로 토큰은 지금 값을 잡아 둔다
         string token = RoomSessionData.RoomToken;
@@ -131,14 +133,14 @@ public class RoomHost : MonoBehaviour
     {
         StopHeartbeat();
 
-        if (!isConfigValid) return;
+        if (!IsConfigValid) return;
 
         string token = RoomSessionData.RoomToken;
         if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(token)) return;
 
         // 삭제는 서버가 내려가는 중에 호출되고, 그 직후 타이틀 씬이 로드되면서 이 오브젝트가 파괴된다.
         // 코루틴은 오브젝트와 함께 멈추므로 완료 콜백으로 처리해 요청 정리까지 끝나게 한다
-        UnityWebRequest request = UnityWebRequest.Delete($"{nodeServerUrl}/delete/{UnityWebRequest.EscapeURL(code)}");
+        UnityWebRequest request = UnityWebRequest.Delete($"{NodeServerUrl}/delete/{UnityWebRequest.EscapeURL(code)}");
         request.timeout = requestTimeoutSeconds;
         request.SetRequestHeader(TokenHeader, token);
 
@@ -159,8 +161,9 @@ public class RoomHost : MonoBehaviour
     public void StartHeartbeat()
     {
         StopHeartbeat();
+        inGame = false;
 
-        if (!isConfigValid) return;
+        if (!IsConfigValid) return;
         heartbeatCoroutine = StartCoroutine(HeartbeatCoroutine());
     }
 
@@ -178,33 +181,49 @@ public class RoomHost : MonoBehaviour
         {
             yield return new WaitForSecondsRealtime(Mathf.Max(1f, heartbeatIntervalSeconds));
 
-            string code = RoomSessionData.CurrentRoomCode;
-            string token = RoomSessionData.RoomToken;
-
             // 방이 닫혔으면 중단
-            if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(token))
+            if (string.IsNullOrEmpty(RoomSessionData.CurrentRoomCode) || string.IsNullOrEmpty(RoomSessionData.RoomToken))
             {
                 heartbeatCoroutine = null;
                 yield break;
             }
 
-            string json = JsonUtility.ToJson(new HeartbeatData { code = code });
+            yield return SendHeartbeat();
+        }
+    }
 
-            using (UnityWebRequest request = CreateJsonPost("/heartbeat", json, token))
-            {
-                yield return request.SendWebRequest();
+    // 게임 시작(true)·로비 복귀(false) 때 부른다. 바로 서버에 알리고, 실패해도 다음 하트비트에 같은 값이 실려 맞춰진다
+    public void SetInGame(bool value)
+    {
+        if (inGame == value) return;
+        inGame = value;
 
-                if (request.responseCode == 404)
-                    Debug.LogWarning("[RoomHost] Node 서버에 방이 없습니다(만료 또는 삭제됨). 이 코드로는 새로 입장할 수 없습니다.");
-                else if (request.responseCode != 200)
-                    Debug.LogWarning($"[RoomHost] 하트비트 실패 (응답 코드: {request.responseCode}, {request.error})");
-            }
+        if (!IsConfigValid || !isActiveAndEnabled) return;
+        StartCoroutine(SendHeartbeat());
+    }
+
+    private IEnumerator SendHeartbeat()
+    {
+        string code = RoomSessionData.CurrentRoomCode;
+        string token = RoomSessionData.RoomToken;
+        if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(token)) yield break;
+
+        string json = JsonUtility.ToJson(new HeartbeatData { code = code, inGame = inGame });
+
+        using (UnityWebRequest request = CreateJsonPost("/heartbeat", json, token))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.responseCode == 404)
+                Debug.LogWarning("[RoomHost] Node 서버에 방이 없습니다(만료 또는 삭제됨). 이 코드로는 새로 입장할 수 없습니다.");
+            else if (request.responseCode != 200)
+                Debug.LogWarning($"[RoomHost] 하트비트 실패 (응답 코드: {request.responseCode}, {request.error})");
         }
     }
 
     private UnityWebRequest CreateJsonPost(string path, string json, string token)
     {
-        UnityWebRequest request = new UnityWebRequest($"{nodeServerUrl}{path}", "POST");
+        UnityWebRequest request = new UnityWebRequest($"{NodeServerUrl}{path}", "POST");
         request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
         request.downloadHandler = new DownloadHandlerBuffer();
         request.timeout = requestTimeoutSeconds;
@@ -230,13 +249,13 @@ public class RoomHost : MonoBehaviour
     }
 
     [System.Serializable]
-    class RoomData { public string code; public int maxPlayer; }
+    class RoomData { public string code; public int maxPlayer; public int port; }
 
     [System.Serializable]
     class CAGData { public string code; public int delta; }
 
     [System.Serializable]
-    class HeartbeatData { public string code; }
+    class HeartbeatData { public string code; public bool inGame; }
 
     [System.Serializable]
     class RegisterResponse { public string token; }

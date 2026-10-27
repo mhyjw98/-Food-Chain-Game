@@ -1,100 +1,252 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 public class Scanner : MonoBehaviour
 {
-    public float scanRadius = 3f;
-    public LayerMask playerLayer;
+    public GamePlayer myPlayer;
 
-    private HashSet<GamePlayer> playersInRange = new();
-    public GamePlayer FindValidTarget(GamePlayer attacker)
+    public enum ScanTargetType { None, Player, Mission, Corpse, Investigation, Disguise, Predict }
+
+    [Header("Interaction Target")]
+    public ScanTargetType currentType = ScanTargetType.None;
+    public ScanTargetType CurrentType => currentType;
+
+    public Component currentInteractTarget;
+    public Component CurrentInteractTarget => currentInteractTarget;
+    public uint targetNetId;
+    public uint CurrentTargetNetId => targetNetId;
+    public GamePlayer currentTarget;
+    public GamePlayer prevTarget;
+    public HashSet<GamePlayer> playersInRange = new();
+
+    public MissionObject mission;
+    public MissionObject CurrentMission => mission;
+
+    public Corpse corpse;
+    public Corpse CurrentTargetCorpse => corpse;
+    public HashSet<Corpse> corpsesInRange = new();
+    public InvestigationObject investigation;
+    public InvestigationObject CurrentInvestigation => investigation;
+    public DisguiseObject disguise;
+    public DisguiseObject CurrentDisguise => disguise;
+    public PredictObject predict;
+    public PredictObject CurrentPredict => predict;
+
+    public float scanRadius = 1.2f;
+    public LayerMask scanLayers;
+
+    public float updateInterval = 0.1f;
+    private float timer = 0f;
+
+    private void Update()
     {
-        Vector2 center = attacker.transform.position;
-        Vector2 forward = attacker.GetComponent<PlayerMove>().lastMoveDirection;
+        if (myPlayer == null || !myPlayer.isLocalPlayer) return;       
 
-        if (forward == Vector2.zero)
+        timer += Time.deltaTime;
+        if (timer >= updateInterval)
         {
-            Debug.Log("FindValidTarget : �÷��̾� ���Ͱ� 0");
-            return null;
-        }           
-
-        GamePlayer bestTarget = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (GamePlayer gamePlayer in playersInRange)
-        {
-            if (gamePlayer == attacker || !gamePlayer.isAlive) continue;
-
-            Vector2 toTarget = ((Vector2)gamePlayer.transform.position - center).normalized;
-            float dot = Vector2.Dot(forward.normalized, toTarget);
-
-            if (dot < 0.5f) continue;
-
-            float dist = Vector2.Distance(center, gamePlayer.transform.position);
-            if (dist < closestDistance)
-            {
-                closestDistance = dist;
-                bestTarget = gamePlayer;
-            }
-            
+            timer = 0f;
+            ScanArea();
         }
-
-        Debug.Log($"Target : {bestTarget == null}");
-        return bestTarget;
     }
-
-    public void UpdateKillUI(GamePlayer self)
+    private void ScanArea()
     {
-        if (!GameMamager.Instance.IsNightPhase || self.hasAttacked || !self.isAlive || self.animalType == AnimalType.Snake)
-            return;
+        playersInRange.Clear();
+        corpsesInRange.Clear();
 
-        Vector2 myForward = self.GetComponent<PlayerMove>().lastMoveDirection;
-        if (myForward == Vector2.zero) return;
+        currentTarget = null;
+        targetNetId = 0;
+        mission = null;
+        corpse = null;
+        investigation = null;
+        disguise = null;
+        predict = null;
 
-        GamePlayer closestValidTarget = null;
-        float closestDistance = float.MaxValue;
+        currentType = ScanTargetType.None;
+        currentInteractTarget = null;
 
-        foreach (var target in playersInRange)
+        Vector2 center = transform.position;
+        float bestDist = Mathf.Infinity;
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, scanRadius, scanLayers);
+
+        foreach (var hit in hits)
         {
-            if (!target || !target.isAlive) continue;
+            float dist = Vector2.Distance(center, hit.transform.position);
 
-            Vector2 toTarget = ((Vector2)target.transform.position - (Vector2)self.transform.position).normalized;
-            float directionX = myForward.x;
-            bool isLookAt = directionX > 0 && toTarget.x > 0 || directionX < 0 && toTarget.x < 0;
-
-            if (isLookAt)
+            if (hit.TryGetComponent(out GamePlayer gp))
             {
-                float dist = Vector2.Distance(self.transform.position, target.transform.position);
-                if (dist < closestDistance)
+                if (myPlayer.isAlive && myPlayer.isPredator && gp != myPlayer && gp.isAlive)
                 {
-                    closestDistance = dist;
-                    closestValidTarget = target;
+                    playersInRange.Add(gp);
+
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Player;
+                        currentInteractTarget = gp;
+
+                        currentTarget = gp;
+                        targetNetId = gp.netId;
+
+                        mission = null;
+                        corpse = null;
+                        investigation = null;
+                        disguise = null;
+                        predict = null;
+                    }
+                }
+            }
+
+            if (hit.TryGetComponent(out MissionObject obj))
+            {
+                if (CanInteractMission(obj))
+                {
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Mission;
+                        currentInteractTarget = obj;
+
+                        mission = obj;
+
+                        currentTarget = null;
+                        targetNetId = 0;
+                        corpse = null;
+                        investigation = null;
+                        disguise = null;
+                        predict = null;
+                    }
+                }
+            }
+            if (hit.TryGetComponent(out Corpse targetCorpse))
+            {
+                if (myPlayer.isAlive && myPlayer.IsHelper())
+                {
+                    corpsesInRange.Add(targetCorpse);
+
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Corpse;
+                        currentInteractTarget = targetCorpse;
+
+                        corpse = targetCorpse;
+
+                        currentTarget = null;
+                        targetNetId = 0;
+                        mission = null;
+                        investigation = null;
+                        disguise = null;
+                        predict = null;
+                    }
+                }
+            }
+            if (hit.TryGetComponent(out InvestigationObject inv))
+            {
+                if (myPlayer.isAlive)
+                {
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Investigation;
+                        currentInteractTarget = inv;
+
+                        investigation = inv;
+
+                        corpse = null;
+                        currentTarget = null;
+                        targetNetId = 0;
+                        mission = null;
+                        disguise = null;
+                        predict = null;
+                    }
+                }
+            }
+            // 위장 오브젝트는 카멜레온에게만 상호작용 대상이 된다(역할은 본인만 알므로 다른 플레이어에게 드러나지 않음)
+            if (hit.TryGetComponent(out DisguiseObject disguiseObj))
+            {
+                if (myPlayer.isAlive && myPlayer.CanDisguise)
+                {
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Disguise;
+                        currentInteractTarget = disguiseObj;
+
+                        disguise = disguiseObj;
+
+                        corpse = null;
+                        currentTarget = null;
+                        targetNetId = 0;
+                        mission = null;
+                        investigation = null;
+                        predict = null;
+                    }
+                }
+            }
+            // 승리 예측 오브젝트는 예측 능력이 있는 플레이어(올빼미)에게만 상호작용 대상이 된다
+            if (hit.TryGetComponent(out PredictObject predictObj))
+            {
+                if (myPlayer.isAlive && myPlayer.CanPredict)
+                {
+                    if (dist < bestDist)
+                    {
+                        bestDist = dist;
+                        currentType = ScanTargetType.Predict;
+                        currentInteractTarget = predictObj;
+
+                        predict = predictObj;
+
+                        corpse = null;
+                        currentTarget = null;
+                        targetNetId = 0;
+                        mission = null;
+                        investigation = null;
+                        disguise = null;
+                    }
                 }
             }
         }
-        foreach (var target in playersInRange)
-        {
-            if (!target) continue;
-            target.SetKillUI(target == closestValidTarget);
-        }
-    }
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        if (other.TryGetComponent(out GamePlayer player) && player != GetComponentInParent<GamePlayer>())
-        {
-            playersInRange.Add(player);
-            Debug.Log("�÷��̾� �߰�");
-        }
-    }
 
-    private void OnTriggerExit2D(Collider2D other)
+
+        UpdateInteractUI(currentInteractTarget);
+    }
+    private bool CanInteractMission(MissionObject obj)
     {
-        if (other.TryGetComponent(out GamePlayer player))
+        if (obj == null) return false;
+        if (!myPlayer.CanDoMissions) return false;
+
+        return myPlayer.CanStartMissionType(obj.MissionType);
+    }
+    public void UpdateInteractUI(Component target)
+    {
+        if (prevTarget != null && prevTarget != currentTarget)
+            prevTarget.SetKillUI(false);
+
+        if(target == null) return;
+
+        if(target is GamePlayer gp)
         {
-            playersInRange.Remove(player);
-            Debug.Log("�÷��̾� �����");
+            if(myPlayer != null && myPlayer.isPredator)
+            {
+                gp.SetKillUI(true);
+            }
+            prevTarget = currentTarget;
+        }
+        else if (target is Corpse corpse)
+        {
+            // TODO: corpse outline ON
+        }
+        else if (target is MissionObject missionObj)
+        {
+            // TODO: missionObj outline ON
+        }
+        else if (target is InvestigationObject invObj)
+        {
+
         }
     }
 }

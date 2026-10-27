@@ -1,15 +1,9 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public static class CharacterData
 {
-    public enum CharacterType
-    {
-        Lion, Crocodile, Eagle, Hyena, Snake,
-        Chameleon, Deer, Otter, Rabbit, Mallard,
-        Crow, Plover, Mouse
-    }
 
     public enum TerritoryType
     {
@@ -18,22 +12,22 @@ public static class CharacterData
 
     public static class CharacterConfig
     {
-        public static readonly Dictionary<CharacterType, CharacterInfoData> Characters = new()
-    {
-        { CharacterType.Lion, new CharacterInfoData("»çÀÚ", TerritoryType.Field, "µ¿¹°µéÀ» Àâ¾Æ¸ÔÀ¸¸ç »ıÁ¸ÇÏ¼¼¿ä.\nÇÑ ¶ó¿îµå¶óµµ ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-        { CharacterType.Crocodile, new CharacterInfoData("¾Ç¾î", TerritoryType.River, "µ¿¹°µéÀ» Àâ¾Æ¸ÔÀ¸¸ç »ıÁ¸ÇÏ¼¼¿ä.\nµÎ ¶ó¿îµå¸¦ ¿¬¼ÓÀ¸·Î ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-        { CharacterType.Eagle, new CharacterInfoData("µ¶¼ö¸®", TerritoryType.Sky, "µ¿¹°µéÀ» Àâ¾Æ¸ÔÀ¸¸ç »ıÁ¸ÇÏ¼¼¿ä.\nµÎ ¶ó¿îµå¸¦ ¿¬¼ÓÀ¸·Î ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-        { CharacterType.Hyena, new CharacterInfoData("ÇÏÀÌ¿¡³ª", TerritoryType.Field, "»çÀÚ°¡ »ç¸ÁÇÏ¸é ½Â¸®ÇÕ´Ï´Ù.\n¼¼ ¶ó¿îµå¸¦ ¿¬¼ÓÀ¸·Î ±¾À¸¸é »ç¸ÁÇÕ´Ï´Ù.") },
-        { CharacterType.Snake, new CharacterInfoData("¹ì", TerritoryType.Forest, "9¸í ÀÌ»óÀÇ µ¿¹°µéÀÌ »ç¸Á½Ã ½Â¸®ÇÕ´Ï´Ù.") },
-        { CharacterType.Chameleon, new CharacterInfoData("Ä«¸á·¹¿Â", TerritoryType.Forest, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-        { CharacterType.Deer, new CharacterInfoData("»ç½¿", TerritoryType.Field, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä. ") },
-        { CharacterType.Otter, new CharacterInfoData("¼ö´Ş", TerritoryType.River, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-        { CharacterType.Rabbit, new CharacterInfoData("Åä³¢", TerritoryType.Forest, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-        { CharacterType.Mallard, new CharacterInfoData("Ã»µÕ¿À¸®", TerritoryType.Sky, "°ÔÀÓ Á¾·á±îÁö »ì¾Æ³²À¸¼¼¿ä.") },
-        { CharacterType.Crow, new CharacterInfoData("±î¸¶±Í", TerritoryType.Sky, "´©°¡ ½Â¸® ¿¹ÃøÇÏ¼¼¿ä.") },
-        { CharacterType.Plover, new CharacterInfoData("¾Ç¾î»õ", TerritoryType.River, "¾Ç¾î°¡ »ıÁ¸ÇÒ ¼ö ÀÖµµ·Ï µµ¿ÍÁÖ¼¼¿ä.") },
-        { CharacterType.Mouse, new CharacterInfoData("Áã", TerritoryType.Forest, "»çÀÚ°¡ »ıÁ¸ÇÒ ¼ö ÀÖµµ·Ï µµ¿ÍÁÖ¼¼¿ä.") },
-    };
+        public static readonly Dictionary<AnimalType, CharacterInfoData> Characters = new()
+        {
+            { AnimalType.Wolf, new CharacterInfoData("ëŠ‘ëŒ€", TerritoryType.Field, "ë™ë¬¼ë“¤ì„ ì¡ì•„ë¨¹ìœ¼ë©° ìƒì¡´í•˜ì„¸ìš”.\ní•œ ë¼ìš´ë“œë¼ë„ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Crocodile, new CharacterInfoData("ì•…ì–´", TerritoryType.River, "ë™ë¬¼ë“¤ì„ ì¡ì•„ë¨¹ìœ¼ë©° ìƒì¡´í•˜ì„¸ìš”.\në‘ ë¼ìš´ë“œë¥¼ ì—°ì†ìœ¼ë¡œ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Hawk, new CharacterInfoData("ë§¤", TerritoryType.Sky, "ë™ë¬¼ë“¤ì„ ì¡ì•„ë¨¹ìœ¼ë©° ìƒì¡´í•˜ì„¸ìš”.\në‘ ë¼ìš´ë“œë¥¼ ì—°ì†ìœ¼ë¡œ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Hyena, new CharacterInfoData("í•˜ì´ì—ë‚˜", TerritoryType.Field, "ëŠ‘ëŒ€ê°€ ì‚¬ë§í•˜ë©´ ìŠ¹ë¦¬í•©ë‹ˆë‹¤.\nì„¸ ë¼ìš´ë“œë¥¼ ì—°ì†ìœ¼ë¡œ êµ¶ìœ¼ë©´ ì‚¬ë§í•©ë‹ˆë‹¤.") },
+            { AnimalType.Scorpion, new CharacterInfoData("ì „ê°ˆ", TerritoryType.Forest, "ë…ìœ¼ë¡œ ë°˜ê²©í•´ í¬ì‹ìë¥¼ ì£½ì´ë©´ ìŠ¹ë¦¬í•©ë‹ˆë‹¤.") },
+            { AnimalType.Owl, new CharacterInfoData("ì˜¬ë¹¼ë¯¸", TerritoryType.Sky, "ì˜ˆì¸¡ ì˜¤ë¸Œì íŠ¸ì—ì„œ ìŠ¹ë¦¬í•  í”Œë ˆì´ì–´ë¥¼ ì˜ˆì¸¡í•˜ì„¸ìš”.\nì˜ˆì¸¡í•œ í”Œë ˆì´ì–´ê°€ ìŠ¹ë¦¬í•˜ë©´ í•¨ê»˜ ìŠ¹ë¦¬í•©ë‹ˆë‹¤.") },
+            { AnimalType.Zebra, new CharacterInfoData("ì–¼ë£©ë§", TerritoryType.Field, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”. ") },
+            { AnimalType.Hippo, new CharacterInfoData("í•˜ë§ˆ", TerritoryType.River, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+            { AnimalType.Meerkat, new CharacterInfoData("ë¯¸ì–´ìº£", TerritoryType.Field, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+            { AnimalType.Ostrich, new CharacterInfoData("íƒ€ì¡°", TerritoryType.Sky, "ê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+            { AnimalType.Crow, new CharacterInfoData("ê¹Œë§ˆê·€", TerritoryType.Sky, "ëŠ‘ëŒ€ê°€ ìƒì¡´í•  ìˆ˜ ìˆë„ë¡ ë„ì™€ì£¼ì„¸ìš”. ëŠ‘ëŒ€ê°€ ì‚¬ë§ì‹œ íŒ¨ë°°í•©ë‹ˆë‹¤.") },
+            { AnimalType.Plover, new CharacterInfoData("ì•…ì–´ìƒˆ", TerritoryType.River, "ì•…ì–´ê°€ ìƒì¡´í•  ìˆ˜ ìˆë„ë¡ ë„ì™€ì£¼ì„¸ìš”. ì•…ì–´ê°€ ì‚¬ë§ì‹œ íŒ¨ë°°í•©ë‹ˆë‹¤.") },
+            { AnimalType.Chameleon, new CharacterInfoData("ì¹´ë©œë ˆì˜¨", TerritoryType.Forest, "ìœ„ì¥ ì˜¤ë¸Œì íŠ¸ì—ì„œ ë‹¤ë¥¸ ë™ë¬¼ë¡œ ìœ„ì¥í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.\nê²Œì„ ì¢…ë£Œê¹Œì§€ ì‚´ì•„ë‚¨ìœ¼ì„¸ìš”.") },
+        };
     }
     public struct CharacterInfoData
     {
@@ -53,11 +47,11 @@ public static class PredatorPriority
 {
     private static readonly Dictionary<PredatorType, int> priorityMap = new()
     {
-        { PredatorType.Snake, -1 },
+        { PredatorType.Scorpion, -1 },
         { PredatorType.Hyena, 1 },
-        { PredatorType.Eagle, 2 },
+        { PredatorType.Hawk, 2 },
         { PredatorType.Crocodile, 3 },
-        { PredatorType.Lion, 4 },
+        { PredatorType.Wolf, 4 },
         { PredatorType.Prey, 0 }
     };
 
@@ -65,11 +59,12 @@ public static class PredatorPriority
     {
         return priorityMap.TryGetValue(type, out var p) ? p : 0;
     }
+    
 
     public static bool CanAttack(PredatorType attacker, PredatorType target)
     {
-        if (attacker == PredatorType.Snake) return false;
-        if (target == PredatorType.Snake) return false;
+        if (attacker == PredatorType.Scorpion) return false;
+        if (target == PredatorType.Scorpion) return false;
         return GetPriority(attacker) > GetPriority(target);
     }
 }

@@ -1,4 +1,4 @@
-using Mirror;
+﻿using Mirror;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -37,7 +37,13 @@ public class PlayerSlot : MonoBehaviour, IPointerClickHandler
     }
     public void Setup(GamePlayer player)
     {
-        string character = player == NetworkClient.localPlayer.GetComponent<GamePlayer>() ? AnimalNameMap.AnimalTypeToName[player.animalType] : "???";
+        if (player == null) return;
+
+        // 내 슬롯에만 동물 이름을 표시한다(다른 플레이어의 역할은 클라이언트가 모른다)
+        bool isMine = NetworkClient.localPlayer != null && player.netIdentity == NetworkClient.localPlayer;
+        string character = "???";
+        if (isMine && AnimalNameMap.AnimalTypeToName.TryGetValue(player.animalType, out string animalName))
+            character = animalName;
 
         linkedPlayer = player;
         nicknameText.text = $"{player.nickname} ({character})";
@@ -46,7 +52,8 @@ public class PlayerSlot : MonoBehaviour, IPointerClickHandler
     }
     public void BeginEditMemo()
     {
-        if (isEditingMemo) return;
+        // 메모 대상이 게임에서 나갔으면 편집하지 않는다
+        if (isEditingMemo || linkedPlayer == null) return;
 
         isEditingMemo = true;
         memoText.gameObject.SetActive(false);
@@ -59,7 +66,8 @@ public class PlayerSlot : MonoBehaviour, IPointerClickHandler
     private void EndEditMemo(string newMemo)
     {
         isEditingMemo = false;
-        linkedPlayer.memo = newMemo;
+        if (linkedPlayer != null)
+            linkedPlayer.memo = newMemo;
 
         memoText.text = newMemo;
         memoText.gameObject.SetActive(true);
@@ -71,37 +79,43 @@ public class PlayerSlot : MonoBehaviour, IPointerClickHandler
     {
         if (eventData.button == PointerEventData.InputButton.Right)
         {
+            if (linkedPlayer == null || contextMenuPrefab == null) return;
+
             if (contextMenuInstance != null) Destroy(contextMenuInstance);
             contextMenuInstance = Instantiate(contextMenuPrefab, point);
-            contextMenuInstance.GetComponent<ContextMenuUI>().Setup(linkedPlayer);
+
+            var menu = contextMenuInstance.GetComponent<ContextMenuUI>();
+            if (menu != null) menu.Setup(linkedPlayer);
         }
     }
     public void UpdateNicknameWithAnimal(string updateText)
     {
+        if (linkedPlayer == null) return;
+
         nicknameText.text = $"{linkedPlayer.nickname} ({updateText})";
     }
     public void MarkPrediction(uint targetId)
     {
-        predictText.text = "�� ��";
+        predictText.text = "예 측";
     }
 }
 public static class AnimalNameMap
 {
     public static readonly Dictionary<AnimalType, string> AnimalTypeToName = new()
     {
-        { AnimalType.Lion, "����" },
-        { AnimalType.Crocodile, "�Ǿ�" },
-        { AnimalType.Mouse, "��" },
-        { AnimalType.Rabbit, "�䳢" },
-        { AnimalType.Deer, "�罿" },
-        { AnimalType.Otter, "����" },
-        { AnimalType.Snake, "��" },
-        { AnimalType.Mallard, "û�տ���" },
-        { AnimalType.Eagle, "������" },
-        { AnimalType.Plover, "�Ǿ��" },
-        { AnimalType.Chameleon, "ī�᷹��" },
-        { AnimalType.Crow, "���" },
-        { AnimalType.Hyena, "���̿���" },
+        { AnimalType.Wolf, "늑대" },
+        { AnimalType.Crocodile, "악어" },
+        { AnimalType.Chameleon, "카멜레온" },
+        { AnimalType.Meerkat, "미어캣" },
+        { AnimalType.Zebra, "얼룩말" },
+        { AnimalType.Hippo, "하마" },
+        { AnimalType.Scorpion, "전갈" },
+        { AnimalType.Ostrich, "타조" },
+        { AnimalType.Hawk, "매" },
+        { AnimalType.Plover, "악어새" },
+        { AnimalType.Owl, "올빼미" },
+        { AnimalType.Crow, "까마귀" },
+        { AnimalType.Hyena, "하이에나" },
         { AnimalType.None, "???" }
     };
 }

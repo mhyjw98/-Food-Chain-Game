@@ -1,36 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-public class CodeManager : MonoBehaviour
+// 방 코드 생성. 중복 검사는 Node 서버에서(등록 시 409 → RoomHost가 새 코드로 다시 등록)
+public static class CodeManager
 {
-    public static CodeManager Instance;
-    private Dictionary<string, string> codeToIp = new Dictionary<string, string>();
     private const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    
-    void Awake()
-    {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
-    }
-
-    public string RegisterRoom(string ipAddress)
-    {
-        string code;
-        do
-        {
-            code = GenerateCode();
-        } while (codeToIp.ContainsKey(code));
-
-        codeToIp[code] = ipAddress;
-        Debug.Log($"�ڵ� : {code} IP : {ipAddress}");
-        return code;
-    }
-
-    public string GetIpFromCode(string code)
-    {
-        return codeToIp.TryGetValue(code, out var ip) ? ip : null;
-    }
 
     public static string GenerateCode(int length = 10)
     {

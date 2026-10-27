@@ -1,79 +1,132 @@
-using Mirror;
+﻿using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class PlayerMove : NetworkBehaviour
 {
-    public Scanner scanner;
-
     [SyncVar]public float moveSpeed = 5f;
-    public Vector2 lastMoveDirection = new(1, 0);
     private Rigidbody2D rigid;
 
-    public bool isStop = false;
-    public static bool isEvent = false;
-    private static TMP_InputField[] inputFields;
     private GamePlayer localPlayer;
-
+   
+    public Vector2 movement;
     void Start()
     {
         rigid = GetComponent<Rigidbody2D>();
-        inputFields = FindObjectsOfType<TMP_InputField>();
         localPlayer = GetComponent<GamePlayer>();
     }
 
     private void Update()
     {
-        if (scanner != null && isLocalPlayer && GameMamager.Instance && TryGetComponent(out GamePlayer gp))
-            scanner.UpdateKillUI(localPlayer);
-
-        isStop = false;
-
-        foreach (var input in inputFields)
-        {
-            if (input.isFocused)
-            {
-                isStop = true;
-                break;
-            }
-        }
+        if (!isLocalPlayer) return;
+        
+        Move();
+        Interaction();
     }
     void FixedUpdate()
     {
         if (!isLocalPlayer) return;
-        if (isStop) return;
-        if (isEvent) return;
-        if (GameMamager.Instance != null)
-        {
-            if(!GameMamager.Instance.isRoundActive)
-                return;
-        }
 
-        float h = Input.GetAxisRaw("Horizontal");
-        float v = Input.GetAxisRaw("Vertical");
-
-        Vector2 input = new Vector2(h, v).normalized;
-
-        if (input.x != 0)
-        {
-            lastMoveDirection = input;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            if (TryGetComponent(out GamePlayer gp))
-            {
-                gp.CmdAttack();
-            }
-        }
-        Vector2 newPos = rigid.position + input * moveSpeed * Time.fixedDeltaTime;
-        rigid.MovePosition(newPos);
+        rigid.MovePosition(rigid.position + movement * moveSpeed * Time.fixedDeltaTime);
     }
-    public static void RegisterInputField()
+
+    private void Move()
     {
-        inputFields = FindObjectsOfType<TMP_InputField>();
+        if (!isLocalPlayer) return;
+        if (!UIManager.Instance.CanMove()) return;
+        if (ChatInputFocus.IsFocused || (GameMamager.Instance != null && !GameMamager.Instance.isRoundActive))
+        {
+            movement = Vector2.zero;
+            return;
+        }
+
+        movement = Vector2.zero;
+
+        if (Input.GetKey(KeySetting.keys[KeyAction.UP]))
+        {
+            movement.y = 1;
+        }
+        if (Input.GetKey(KeySetting.keys[KeyAction.DOWN]))
+        {
+            movement.y = -1;
+        }
+        if (Input.GetKey(KeySetting.keys[KeyAction.LEFT]))
+        {
+            movement.x = -1;
+        }
+        if (Input.GetKey(KeySetting.keys[KeyAction.RIGHT]))
+        {
+            movement.x = 1;
+        }
+
+        movement = movement.normalized;
+    }
+    private void Interaction()
+    {
+        if (!UIManager.Instance.CanInteract()) return;
+
+        if (Input.GetKeyDown(KeySetting.keys[KeyAction.INTERACT]))
+        {
+            if (localPlayer.scanner == null) return;
+
+            var type = localPlayer.scanner.CurrentType;            
+
+            if (type == Scanner.ScanTargetType.Player)
+            {
+                uint targetNetId = localPlayer.scanner.CurrentTargetNetId;
+                if (targetNetId != 0)
+                {
+                    localPlayer.CmdAttack(targetNetId);
+                    return;
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Corpse)
+            {
+                var corpse = localPlayer.scanner.CurrentTargetCorpse;
+                if (corpse != null)
+                {
+                    localPlayer.TryScanCorpse(corpse);
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Mission)
+            {
+                var mission = localPlayer.scanner.CurrentMission;
+                if (mission != null && localPlayer.CanStartMissionType(mission.MissionType))
+                {
+                    localPlayer.TryStartMission(mission.MissionType);
+                    return;
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Investigation)
+            {
+                var interact = localPlayer.scanner.CurrentInvestigation;
+                if (interact != null)
+                {
+                    localPlayer.TryStartInvestigation();
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Disguise)
+            {
+                if (localPlayer.scanner.CurrentDisguise != null)
+                {
+                    localPlayer.TryStartDisguise();
+                }
+            }
+            else if (type == Scanner.ScanTargetType.Predict)
+            {
+                if (localPlayer.scanner.CurrentPredict != null)
+                {
+                    localPlayer.TryStartPredict();
+                }
+            }                                                                               
+        }
+    }
+
+
+    public void StopMove()
+    {
+        movement = Vector2.zero;
     }
 }

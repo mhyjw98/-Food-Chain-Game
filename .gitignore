@@ -2,6 +2,9 @@
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
+Packages/Mirror/
+Assets/Mirror/
+Assets/Modern UI Pack/
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -75,3 +78,7 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# Node 방 코드 서버 (위의 *.json 규칙에서 제외)
+!/Server/package.json
+!/Server/package-lock.json
